@@ -1,104 +1,133 @@
 import { useState, useEffect, createContext, useContext, ReactNode } from "react";
 
-interface CreditsPlan {
+interface SubscriptionPlan {
   id: string;
   name: string;
-  credits: number;
+  description: string;
   price: number;
-  features: string[];
+  isDemo?: boolean;
+  features: {
+    name: string;
+    included: boolean;
+    limit?: string;
+  }[];
 }
 
-interface CreditsContextType {
-  credits: number;
-  totalCredits: number;
-  plan: CreditsPlan;
-  useCredits: (amount: number) => boolean;
-  resetCredits: () => void;
+interface SubscriptionContextType {
+  currentPlan: SubscriptionPlan;
+  demoUsed: boolean;
+  setDemoUsed: () => void;
+  changePlan: (planId: string) => void;
 }
 
-const STORAGE_KEY = "leadextractor_credits";
+const STORAGE_KEY = "leadextractor_subscription";
 
-const plans: CreditsPlan[] = [
+const plans: SubscriptionPlan[] = [
   {
-    id: "free",
-    name: "Free",
-    credits: 50,
+    id: "demo",
+    name: "Demo",
+    description: "Experimente gratuitamente",
     price: 0,
-    features: ["50 leads/mês", "Exportar para Excel", "Suporte por email"],
+    isDemo: true,
+    features: [
+      { name: "Extrator de Leads", included: true, limit: "10 leads únicos" },
+      { name: "Exportar para Excel", included: true },
+      { name: "Disparador de Campanhas WhatsApp", included: false },
+      { name: "Suporte por email", included: true },
+    ],
   },
   {
-    id: "pro",
-    name: "Pro",
-    credits: 500,
+    id: "starter",
+    name: "Starter",
+    description: "Para pequenos negócios",
     price: 97,
-    features: ["500 leads/mês", "Exportar para Excel/CSV", "Validação WhatsApp", "Suporte prioritário"],
+    features: [
+      { name: "Extrator de Leads", included: true, limit: "500 leads/mês" },
+      { name: "Exportar para Excel/CSV", included: true },
+      { name: "Disparador de Campanhas WhatsApp", included: false },
+      { name: "Suporte prioritário", included: true },
+    ],
   },
   {
-    id: "enterprise",
-    name: "Enterprise",
-    credits: 5000,
-    price: 297,
-    features: ["5.000 leads/mês", "API de integração", "Multi-usuários", "Suporte dedicado", "Personalização"],
+    id: "professional",
+    name: "Professional",
+    description: "Para profissionais de marketing",
+    price: 197,
+    features: [
+      { name: "Extrator de Leads", included: true, limit: "2.000 leads/mês" },
+      { name: "Exportar para Excel/CSV", included: true },
+      { name: "Disparador de Campanhas WhatsApp", included: true, limit: "Em breve" },
+      { name: "Suporte prioritário", included: true },
+    ],
+  },
+  {
+    id: "business",
+    name: "Business",
+    description: "Para empresas e agências",
+    price: 397,
+    features: [
+      { name: "Extrator de Leads", included: true, limit: "Ilimitado" },
+      { name: "Exportar para Excel/CSV", included: true },
+      { name: "Disparador de Campanhas WhatsApp", included: true, limit: "Ilimitado" },
+      { name: "API de integração", included: true },
+      { name: "Multi-usuários", included: true },
+      { name: "Suporte dedicado", included: true },
+    ],
   },
 ];
 
-const CreditsContext = createContext<CreditsContextType | undefined>(undefined);
+const SubscriptionContext = createContext<SubscriptionContextType | undefined>(undefined);
 
-export function CreditsProvider({ children }: { children: ReactNode }) {
-  const [credits, setCredits] = useState(50);
-  const [planId, setPlanId] = useState("free");
+export function SubscriptionProvider({ children }: { children: ReactNode }) {
+  const [planId, setPlanId] = useState("demo");
+  const [demoUsed, setDemoUsedState] = useState(false);
 
-  const plan = plans.find((p) => p.id === planId) || plans[0];
+  const currentPlan = plans.find((p) => p.id === planId) || plans[0];
 
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
       const data = JSON.parse(stored);
-      setCredits(data.credits);
       setPlanId(data.planId);
+      setDemoUsedState(data.demoUsed || false);
     }
   }, []);
 
-  const saveCredits = (newCredits: number, newPlanId: string) => {
-    setCredits(newCredits);
+  const saveSubscription = (newPlanId: string, newDemoUsed: boolean) => {
     setPlanId(newPlanId);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ credits: newCredits, planId: newPlanId }));
+    setDemoUsedState(newDemoUsed);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ planId: newPlanId, demoUsed: newDemoUsed }));
   };
 
-  const useCreditsFunc = (amount: number): boolean => {
-    if (credits >= amount) {
-      saveCredits(credits - amount, planId);
-      return true;
-    }
-    return false;
+  const setDemoUsed = () => {
+    saveSubscription(planId, true);
   };
 
-  const resetCredits = () => {
-    saveCredits(plan.credits, planId);
+  const changePlan = (newPlanId: string) => {
+    saveSubscription(newPlanId, demoUsed);
   };
 
   return (
-    <CreditsContext.Provider
+    <SubscriptionContext.Provider
       value={{
-        credits,
-        totalCredits: plan.credits,
-        plan,
-        useCredits: useCreditsFunc,
-        resetCredits,
+        currentPlan,
+        demoUsed,
+        setDemoUsed,
+        changePlan,
       }}
     >
       {children}
-    </CreditsContext.Provider>
+    </SubscriptionContext.Provider>
   );
 }
 
-export function useCredits() {
-  const context = useContext(CreditsContext);
+export function useSubscription() {
+  const context = useContext(SubscriptionContext);
   if (context === undefined) {
-    throw new Error("useCredits must be used within a CreditsProvider");
+    throw new Error("useSubscription must be used within a SubscriptionProvider");
   }
   return context;
 }
 
 export { plans };
-export type { CreditsPlan };
+export type { SubscriptionPlan };

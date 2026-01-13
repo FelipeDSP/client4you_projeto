@@ -6,7 +6,7 @@ import { ExportButton } from "@/components/ExportButton";
 import { StatsCards } from "@/components/StatsCards";
 import { LeadFiltersComponent, LeadFilters, defaultFilters, filterLeads } from "@/components/LeadFilters";
 import { useLeads } from "@/hooks/useLeads";
-import { useCredits } from "@/hooks/useCredits";
+import { useSubscription } from "@/hooks/useCredits";
 import { useToast } from "@/hooks/use-toast";
 import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -21,10 +21,11 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Link } from "react-router-dom";
 
 export default function Dashboard() {
   const { leads, searchHistory, isSearching, searchLeads, deleteLead, clearAllLeads } = useLeads();
-  const { credits, useCredits: spendCredits } = useCredits();
+  const { currentPlan, demoUsed, setDemoUsed } = useSubscription();
   const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
   const [filters, setFilters] = useState<LeadFilters>(defaultFilters);
   const { toast } = useToast();
@@ -32,11 +33,11 @@ export default function Dashboard() {
   const filteredLeads = useMemo(() => filterLeads(leads, filters), [leads, filters]);
 
   const handleSearch = async (query: string, location: string) => {
-    // Check credits
-    if (credits < 1) {
+    // Check if demo is used
+    if (currentPlan.isDemo && demoUsed) {
       toast({
-        title: "Créditos insuficientes",
-        description: "Você não tem créditos suficientes. Faça upgrade do seu plano.",
+        title: "Demonstração expirada",
+        description: "Faça upgrade para um plano pago para continuar usando.",
         variant: "destructive",
       });
       return;
@@ -44,13 +45,14 @@ export default function Dashboard() {
 
     const results = await searchLeads(query, location);
     
-    // Deduct credits based on results
-    const creditsUsed = Math.ceil(results.length / 10); // 1 credit per 10 leads
-    spendCredits(creditsUsed);
+    // Mark demo as used if on demo plan
+    if (currentPlan.isDemo) {
+      setDemoUsed();
+    }
 
     toast({
       title: "Busca concluída!",
-      description: `${results.length} leads encontrados para "${query}" em ${location}. (${creditsUsed} créditos utilizados)`,
+      description: `${results.length} leads encontrados para "${query}" em ${location}.`,
     });
     setSelectedLeads([]);
   };

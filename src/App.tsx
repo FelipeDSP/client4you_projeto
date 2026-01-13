@@ -4,7 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
-import { CreditsProvider } from "@/hooks/useCredits";
+import { SubscriptionProvider } from "@/hooks/useCredits";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import History from "./pages/History";
@@ -100,13 +100,13 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <AuthProvider>
-        <CreditsProvider>
+        <SubscriptionProvider>
           <Toaster />
           <Sonner />
           <BrowserRouter>
             <AppRoutes />
           </BrowserRouter>
-        </CreditsProvider>
+        </SubscriptionProvider>
       </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>

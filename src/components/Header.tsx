@@ -1,4 +1,4 @@
-import { MapPin, LogOut, User, History, CreditCard, Zap, LayoutDashboard } from "lucide-react";
+import { MapPin, LogOut, User, History, CreditCard, LayoutDashboard } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,16 +11,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/hooks/useAuth";
-import { useCredits } from "@/hooks/useCredits";
+import { useSubscription } from "@/hooks/useCredits";
 
 export function Header() {
   const { user, logout } = useAuth();
-  const { credits, totalCredits, plan } = useCredits();
+  const { currentPlan } = useSubscription();
   const location = useLocation();
-
-  const creditsPercentage = (credits / totalCredits) * 100;
 
   const navItems = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -63,15 +60,10 @@ export function Header() {
         </div>
 
         <div className="flex items-center gap-4">
-          {/* Credits Display */}
-          <div className="hidden sm:flex items-center gap-3 px-3 py-1.5 rounded-lg bg-muted">
-            <div className="flex items-center gap-1.5">
-              <Zap className="h-4 w-4 text-primary" />
-              <span className="text-sm font-medium">{credits}</span>
-              <span className="text-xs text-muted-foreground">créditos</span>
-            </div>
-            <Progress value={creditsPercentage} className="w-16 h-1.5" />
-          </div>
+          {/* Plan Badge */}
+          <Badge variant={currentPlan.isDemo ? "secondary" : "default"} className="hidden sm:flex">
+            {currentPlan.name}
+          </Badge>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -89,7 +81,7 @@ export function Header() {
                   <p className="text-sm font-medium leading-none">{user?.name}</p>
                   <p className="text-xs leading-none text-muted-foreground">{user?.email}</p>
                   <Badge variant="secondary" className="w-fit mt-1 text-xs">
-                    {plan.name}
+                    {currentPlan.name}
                   </Badge>
                 </div>
               </DropdownMenuLabel>
