@@ -160,10 +160,10 @@ export function filterLeads(leads: Lead[], filters: LeadFilters): Lead[] {
     }
 
     // WhatsApp filter
-    if (filters.hasWhatsApp === true && !lead.whatsapp) {
+    if (filters.hasWhatsApp === true && !lead.hasWhatsApp) {
       return false;
     }
-    if (filters.hasWhatsApp === false && lead.whatsapp) {
+    if (filters.hasWhatsApp === false && lead.hasWhatsApp) {
       return false;
     }
 

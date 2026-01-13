@@ -4,8 +4,8 @@ export const mockLeads: Lead[] = [
   {
     id: "1",
     name: "Pizzaria Bella Italia",
-    phone: "(11) 3456-7890",
-    whatsapp: "(11) 99876-5432",
+    phone: "(11) 99876-5432",
+    hasWhatsApp: true,
     email: "contato@bellaitalia.com.br",
     address: "Rua Augusta, 1234",
     city: "São Paulo",
@@ -19,8 +19,8 @@ export const mockLeads: Lead[] = [
   {
     id: "2",
     name: "Restaurante Sabor Mineiro",
-    phone: "(11) 2345-6789",
-    whatsapp: "(11) 98765-4321",
+    phone: "(11) 98765-4321",
+    hasWhatsApp: true,
     email: "contato@sabormineiro.com.br",
     address: "Av. Paulista, 567",
     city: "São Paulo",
@@ -35,7 +35,7 @@ export const mockLeads: Lead[] = [
     id: "3",
     name: "Hamburgueria The Burger",
     phone: "(11) 4567-8901",
-    whatsapp: null,
+    hasWhatsApp: false,
     email: null,
     address: "Rua Oscar Freire, 890",
     city: "São Paulo",
@@ -49,8 +49,8 @@ export const mockLeads: Lead[] = [
   {
     id: "4",
     name: "Sushi Yamamoto",
-    phone: "(11) 5678-9012",
-    whatsapp: "(11) 97654-3210",
+    phone: "(11) 97654-3210",
+    hasWhatsApp: true,
     email: "reservas@sushiyamamoto.com.br",
     address: "Rua Liberdade, 321",
     city: "São Paulo",
@@ -64,8 +64,8 @@ export const mockLeads: Lead[] = [
   {
     id: "5",
     name: "Padaria Pão Quente",
-    phone: "(11) 6789-0123",
-    whatsapp: "(11) 96543-2109",
+    phone: "(11) 96543-2109",
+    hasWhatsApp: true,
     email: null,
     address: "Av. Brasil, 1500",
     city: "São Paulo",
@@ -169,12 +169,13 @@ export function generateMockLeads(query: string, location: string, count: number
     // Gera email baseado no nome do estabelecimento
     const emailBase = baseName.toLowerCase().replace(/\s/g, "").replace(/[^a-z0-9]/g, "");
     const hasEmail = Math.random() > 0.4;
+    const hasWhatsApp = Math.random() > 0.3;
     
     return {
       id: `generated-${Date.now()}-${i}`,
       name: `${baseName}${suffix}`,
-      phone: `(${ddd}) ${Math.floor(1000 + Math.random() * 9000)}-${Math.floor(1000 + Math.random() * 9000)}`,
-      whatsapp: Math.random() > 0.3 ? `(${ddd}) 9${Math.floor(1000 + Math.random() * 9000)}-${Math.floor(1000 + Math.random() * 9000)}` : null,
+      phone: `(${ddd}) 9${Math.floor(1000 + Math.random() * 9000)}-${Math.floor(1000 + Math.random() * 9000)}`,
+      hasWhatsApp,
       email: hasEmail ? `contato@${emailBase}.com.br` : null,
       address: `${streets[Math.floor(Math.random() * streets.length)]}, ${Math.floor(100 + Math.random() * 2000)}`,
       city,
