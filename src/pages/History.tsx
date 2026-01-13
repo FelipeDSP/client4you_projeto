@@ -1,4 +1,5 @@
 import { useState } from "react";
+import * as XLSX from "xlsx";
 import { Header } from "@/components/Header";
 import { useLeads } from "@/hooks/useLeads";
 import { useToast } from "@/hooks/use-toast";
@@ -31,7 +32,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Search, MapPin, Calendar, Hash, Trash2, Eye, Phone, Mail, MessageCircle, Star } from "lucide-react";
+import { Search, MapPin, Calendar, Hash, Trash2, Eye, Phone, Mail, MessageCircle, Star, Download } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { SearchHistory, Lead } from "@/types";
@@ -61,6 +62,56 @@ export default function History() {
     toast({
       title: "Histórico limpo",
       description: "Todo o histórico foi removido com sucesso.",
+    });
+  };
+
+  const handleDownloadLeads = (search: SearchHistory) => {
+    const leads = getLeadsBySearchId(search.id);
+    
+    if (leads.length === 0) {
+      toast({
+        title: "Nenhum lead disponível",
+        description: "Os leads desta pesquisa não estão mais disponíveis.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const data = leads.map((lead) => ({
+      Nome: lead.name,
+      Categoria: lead.category,
+      Telefone: lead.phone,
+      WhatsApp: lead.whatsapp || "",
+      Email: lead.email || "",
+      Endereço: lead.address,
+      Cidade: lead.city,
+      Estado: lead.state,
+      Avaliação: lead.rating,
+      "Nº Avaliações": lead.reviews,
+      Website: lead.website || "",
+      "Data Extração": new Date(lead.extractedAt).toLocaleDateString("pt-BR"),
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Leads");
+
+    // Auto-size columns
+    const colWidths = Object.keys(data[0] || {}).map((key) => ({
+      wch: Math.max(key.length, 15),
+    }));
+    worksheet["!cols"] = colWidths;
+
+    // Create filename from search query and location
+    const sanitizedQuery = search.query.replace(/[^a-zA-Z0-9]/g, "_").toLowerCase();
+    const sanitizedLocation = search.location.replace(/[^a-zA-Z0-9]/g, "_").toLowerCase();
+    const fileName = `leads_${sanitizedQuery}_${sanitizedLocation}_${new Date(search.searchedAt).toISOString().split("T")[0]}.xlsx`;
+    
+    XLSX.writeFile(workbook, fileName);
+
+    toast({
+      title: "Download concluído!",
+      description: `${leads.length} leads exportados para ${fileName}`,
     });
   };
 
@@ -148,6 +199,16 @@ export default function History() {
                       Ver Leads
                     </Button>
                     
+                    <Button 
+                      variant="outline" 
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => handleDownloadLeads(search)}
+                      title="Baixar Excel"
+                    >
+                      <Download className="h-4 w-4" />
+                    </Button>
+                    
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10">
@@ -180,20 +241,33 @@ export default function History() {
         <Dialog open={!!selectedSearch} onOpenChange={(open) => !open && setSelectedSearch(null)}>
           <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Search className="h-5 w-5 text-primary" />
-                {selectedSearch?.query}
-              </DialogTitle>
-              <DialogDescription className="flex items-center gap-4">
-                <span className="flex items-center gap-1">
-                  <MapPin className="h-3 w-3" />
-                  {selectedSearch?.location}
-                </span>
-                <span className="flex items-center gap-1">
-                  <Hash className="h-3 w-3" />
-                  {searchLeads.length} leads encontrados
-                </span>
-              </DialogDescription>
+              <div className="flex items-center justify-between pr-8">
+                <div>
+                  <DialogTitle className="flex items-center gap-2">
+                    <Search className="h-5 w-5 text-primary" />
+                    {selectedSearch?.query}
+                  </DialogTitle>
+                  <DialogDescription className="flex items-center gap-4 mt-1">
+                    <span className="flex items-center gap-1">
+                      <MapPin className="h-3 w-3" />
+                      {selectedSearch?.location}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Hash className="h-3 w-3" />
+                      {searchLeads.length} leads
+                    </span>
+                  </DialogDescription>
+                </div>
+                {searchLeads.length > 0 && selectedSearch && (
+                  <Button 
+                    size="sm" 
+                    onClick={() => handleDownloadLeads(selectedSearch)}
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    Baixar Excel
+                  </Button>
+                )}
+              </div>
             </DialogHeader>
 
             <div className="flex-1 overflow-auto">
