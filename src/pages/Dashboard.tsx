@@ -91,7 +91,7 @@ export default function Dashboard() {
             )}
           </h2>
           <div className="flex items-center gap-2">
-            <ExportButton leads={filteredLeads} selectedLeads={selectedLeads} />
+            <ExportButton leads={leads} selectedLeads={selectedLeads} />
             
             <AlertDialog>
               <AlertDialogTrigger asChild>
