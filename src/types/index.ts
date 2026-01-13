@@ -3,6 +3,7 @@ export interface Lead {
   name: string;
   phone: string;
   whatsapp: string | null;
+  email: string | null;
   address: string;
   city: string;
   state: string;
