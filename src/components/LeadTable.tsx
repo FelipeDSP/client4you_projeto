@@ -77,7 +77,7 @@ export function LeadTable({ leads, onDelete, selectedLeads, onSelectionChange }:
               <TableHead>Email</TableHead>
               <TableHead>Cidade</TableHead>
               <TableHead>Avaliação</TableHead>
-              <TableHead className="w-12"></TableHead>
+              <TableHead>Site</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -153,23 +153,19 @@ export function LeadTable({ leads, onDelete, selectedLeads, onSelectionChange }:
                   </div>
                 </TableCell>
                 <TableCell>
-                  <div className="flex items-center gap-1">
-                    {lead.website && (
-                      <Button variant="ghost" size="icon" asChild className="h-8 w-8">
-                        <a href={`https://${lead.website}`} target="_blank" rel="noopener noreferrer">
-                          <Globe className="h-4 w-4" />
-                        </a>
-                      </Button>
-                    )}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => onDelete(lead.id)}
-                      className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  {lead.website ? (
+                    <a
+                      href={`https://${lead.website}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-sm text-primary hover:underline"
                     >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
+                      <Globe className="h-3 w-3" />
+                      {lead.website}
+                    </a>
+                  ) : (
+                    <span className="text-muted-foreground">-</span>
+                  )}
                 </TableCell>
               </TableRow>
             ))}
