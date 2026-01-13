@@ -12,6 +12,7 @@ export interface Lead {
   category: string;
   website: string | null;
   extractedAt: string;
+  searchId?: string; // ID da busca que gerou este lead
 }
 
 export interface SearchHistory {

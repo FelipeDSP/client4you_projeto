@@ -35,12 +35,16 @@ export function useLeads() {
     // Simulate API delay (1-3 seconds)
     await new Promise((resolve) => setTimeout(resolve, 1000 + Math.random() * 2000));
 
+    const searchId = `history-${Date.now()}`;
     const count = Math.floor(10 + Math.random() * 30);
-    const newLeads = generateMockLeads(query, location, count);
+    const newLeads = generateMockLeads(query, location, count).map(lead => ({
+      ...lead,
+      searchId,
+    }));
 
     // Add to history
     const historyEntry: SearchHistory = {
-      id: `history-${Date.now()}`,
+      id: searchId,
       query,
       location,
       resultsCount: count,
@@ -69,6 +73,27 @@ export function useLeads() {
     saveLeads([]);
   };
 
+  const getLeadsBySearchId = (searchId: string): Lead[] => {
+    return leads.filter((l) => l.searchId === searchId);
+  };
+
+  const deleteSearchHistory = (searchId: string) => {
+    // Remove from history
+    const updatedHistory = searchHistory.filter((h) => h.id !== searchId);
+    saveHistory(updatedHistory);
+    
+    // Optionally remove associated leads
+    const updatedLeads = leads.filter((l) => l.searchId !== searchId);
+    saveLeads(updatedLeads);
+  };
+
+  const clearAllHistory = () => {
+    saveHistory([]);
+    // Clear all leads that have searchId (keep manually added ones if any)
+    const updatedLeads = leads.filter((l) => !l.searchId);
+    saveLeads(updatedLeads);
+  };
+
   return {
     leads,
     searchHistory,
@@ -76,5 +101,8 @@ export function useLeads() {
     searchLeads,
     deleteLead,
     clearAllLeads,
+    getLeadsBySearchId,
+    deleteSearchHistory,
+    clearAllHistory,
   };
 }
