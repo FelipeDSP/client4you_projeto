@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Header } from "@/components/Header";
 import { LeadSearch } from "@/components/LeadSearch";
 import { LeadTable } from "@/components/LeadTable";
 import { ExportButton } from "@/components/ExportButton";
 import { StatsCards } from "@/components/StatsCards";
+import { LeadFiltersComponent, LeadFilters, defaultFilters, filterLeads } from "@/components/LeadFilters";
 import { useLeads } from "@/hooks/useLeads";
+import { useCredits } from "@/hooks/useCredits";
 import { useToast } from "@/hooks/use-toast";
 import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -22,14 +24,33 @@ import {
 
 export default function Dashboard() {
   const { leads, searchHistory, isSearching, searchLeads, deleteLead, clearAllLeads } = useLeads();
+  const { credits, useCredits: spendCredits } = useCredits();
   const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
+  const [filters, setFilters] = useState<LeadFilters>(defaultFilters);
   const { toast } = useToast();
 
+  const filteredLeads = useMemo(() => filterLeads(leads, filters), [leads, filters]);
+
   const handleSearch = async (query: string, location: string) => {
+    // Check credits
+    if (credits < 1) {
+      toast({
+        title: "Créditos insuficientes",
+        description: "Você não tem créditos suficientes. Faça upgrade do seu plano.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const results = await searchLeads(query, location);
+    
+    // Deduct credits based on results
+    const creditsUsed = Math.ceil(results.length / 10); // 1 credit per 10 leads
+    spendCredits(creditsUsed);
+
     toast({
       title: "Busca concluída!",
-      description: `${results.length} leads encontrados para "${query}" em ${location}`,
+      description: `${results.length} leads encontrados para "${query}" em ${location}. (${creditsUsed} créditos utilizados)`,
     });
     setSelectedLeads([]);
   };
@@ -55,7 +76,7 @@ export default function Dashboard() {
         <LeadSearch onSearch={handleSearch} isSearching={isSearching} />
 
         {/* Actions Bar */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="text-xl font-semibold">
             Leads Extraídos
             {selectedLeads.length > 0 && (
@@ -63,9 +84,14 @@ export default function Dashboard() {
                 ({selectedLeads.length} selecionados)
               </span>
             )}
+            {filteredLeads.length !== leads.length && (
+              <span className="ml-2 text-sm font-normal text-muted-foreground">
+                (mostrando {filteredLeads.length} de {leads.length})
+              </span>
+            )}
           </h2>
           <div className="flex items-center gap-2">
-            <ExportButton leads={leads} selectedLeads={selectedLeads} />
+            <ExportButton leads={filteredLeads} selectedLeads={selectedLeads} />
             
             <AlertDialog>
               <AlertDialogTrigger asChild>
@@ -92,9 +118,18 @@ export default function Dashboard() {
           </div>
         </div>
 
+        {/* Filters */}
+        {leads.length > 0 && (
+          <LeadFiltersComponent
+            leads={leads}
+            filters={filters}
+            onFiltersChange={setFilters}
+          />
+        )}
+
         {/* Leads Table */}
         <LeadTable
-          leads={leads}
+          leads={filteredLeads}
           onDelete={deleteLead}
           selectedLeads={selectedLeads}
           onSelectionChange={setSelectedLeads}
