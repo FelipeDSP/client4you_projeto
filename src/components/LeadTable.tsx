@@ -74,6 +74,7 @@ export function LeadTable({ leads, onDelete, selectedLeads, onSelectionChange }:
               <TableHead>Categoria</TableHead>
               <TableHead>Telefone</TableHead>
               <TableHead>WhatsApp</TableHead>
+              <TableHead>Tem WhatsApp</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Cidade</TableHead>
               <TableHead>Avaliação</TableHead>
@@ -118,6 +119,17 @@ export function LeadTable({ leads, onDelete, selectedLeads, onSelectionChange }:
                     </a>
                   ) : (
                     <span className="text-muted-foreground">-</span>
+                  )}
+                </TableCell>
+                <TableCell>
+                  {lead.whatsapp ? (
+                    <Badge variant="default" className="bg-emerald-600 hover:bg-emerald-700">
+                      Sim
+                    </Badge>
+                  ) : (
+                    <Badge variant="secondary">
+                      Não
+                    </Badge>
                   )}
                 </TableCell>
                 <TableCell>
