@@ -1,9 +1,11 @@
+// Lead type - compatible with both mock data and database
 export interface Lead {
   id: string;
   name: string;
   phone: string;
   hasWhatsApp: boolean;
   email: string | null;
+  hasEmail?: boolean;
   address: string;
   city: string;
   state: string;
@@ -13,6 +15,7 @@ export interface Lead {
   website: string | null;
   extractedAt: string;
   searchId?: string;
+  companyId?: string;
 }
 
 export interface SearchHistory {
@@ -21,11 +24,42 @@ export interface SearchHistory {
   location: string;
   resultsCount: number;
   searchedAt: string;
+  userId?: string;
+  companyId?: string;
 }
 
 export interface User {
   id: string;
   email: string;
+  fullName: string | null;
+  avatarUrl: string | null;
+  companyId: string | null;
+  // Backwards compatible getters
+  name?: string;
+  company?: string;
+}
+
+export interface Company {
+  id: string;
   name: string;
-  company: string;
+  slug: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UserRole {
+  id: string;
+  userId: string;
+  role: 'super_admin' | 'company_owner' | 'admin' | 'member';
+  companyId: string | null;
+}
+
+export interface Subscription {
+  id: string;
+  companyId: string;
+  planId: string;
+  status: 'active' | 'cancelled' | 'expired';
+  demoUsed: boolean;
+  currentPeriodStart: string | null;
+  currentPeriodEnd: string | null;
 }

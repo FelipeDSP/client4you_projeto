@@ -95,6 +95,23 @@ export const mockSearchHistory: SearchHistory[] = [
   },
 ];
 
+// Type assertion helper for the generator function return type
+type MockLead = {
+  id: string;
+  name: string;
+  phone: string;
+  hasWhatsApp: boolean;
+  email: string | null;
+  address: string;
+  city: string;
+  state: string;
+  rating: number;
+  reviews: number;
+  category: string;
+  website: string | null;
+  extractedAt: string;
+};
+
 // Mapeamento de categorias para nomes realistas de estabelecimentos
 const businessNamesByCategory: Record<string, string[]> = {
   // Postos de Gasolina
@@ -159,7 +176,7 @@ export function generateMockLeads(query: string, location: string, count: number
     "Rua 7 de Setembro", "Av. JK", "Rua 15 de Novembro", "Av. Rio Branco", "Rua da Paz"
   ];
 
-  return Array.from({ length: count }, (_, i) => {
+  return Array.from({ length: count }, (_, i): Lead => {
     const baseName = businessNames[i % businessNames.length];
     const suffix = i >= businessNames.length ? ` ${city} ${Math.floor(i / businessNames.length) + 1}` : ` ${city}`;
     
