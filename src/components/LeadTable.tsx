@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Lead } from "@/types";
-import { Trash2, Star, Phone, Globe, MessageCircle, ChevronLeft, ChevronRight } from "lucide-react";
+import { Trash2, Star, Phone, Globe, MessageCircle, ChevronLeft, ChevronRight, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -74,6 +74,7 @@ export function LeadTable({ leads, onDelete, selectedLeads, onSelectionChange }:
               <TableHead>Categoria</TableHead>
               <TableHead>Telefone</TableHead>
               <TableHead>WhatsApp</TableHead>
+              <TableHead>Email</TableHead>
               <TableHead>Cidade</TableHead>
               <TableHead>Avaliação</TableHead>
               <TableHead className="w-12"></TableHead>
@@ -114,6 +115,19 @@ export function LeadTable({ leads, onDelete, selectedLeads, onSelectionChange }:
                     >
                       <MessageCircle className="h-3 w-3" />
                       {lead.whatsapp}
+                    </a>
+                  ) : (
+                    <span className="text-muted-foreground">-</span>
+                  )}
+                </TableCell>
+                <TableCell>
+                  {lead.email ? (
+                    <a
+                      href={`mailto:${lead.email}`}
+                      className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700"
+                    >
+                      <Mail className="h-3 w-3" />
+                      {lead.email}
                     </a>
                   ) : (
                     <span className="text-muted-foreground">-</span>

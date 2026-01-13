@@ -42,6 +42,7 @@ export function ExportButton({ leads, selectedLeads }: ExportButtonProps) {
       Categoria: lead.category,
       Telefone: lead.phone,
       WhatsApp: lead.whatsapp || "",
+      Email: lead.email || "",
       Endereço: lead.address,
       Cidade: lead.city,
       Estado: lead.state,
@@ -82,7 +83,7 @@ export function ExportButton({ leads, selectedLeads }: ExportButtonProps) {
       return;
     }
 
-    const headers = ["Nome", "Categoria", "Telefone", "WhatsApp", "Endereço", "Cidade", "Estado", "Avaliação", "Nº Avaliações", "Website"];
+    const headers = ["Nome", "Categoria", "Telefone", "WhatsApp", "Email", "Endereço", "Cidade", "Estado", "Avaliação", "Nº Avaliações", "Website"];
     const csvContent = [
       headers.join(","),
       ...leadsToExport.map((lead) =>
@@ -91,6 +92,7 @@ export function ExportButton({ leads, selectedLeads }: ExportButtonProps) {
           `"${lead.category}"`,
           `"${lead.phone}"`,
           `"${lead.whatsapp || ""}"`,
+          `"${lead.email || ""}"`,
           `"${lead.address}"`,
           `"${lead.city}"`,
           `"${lead.state}"`,
