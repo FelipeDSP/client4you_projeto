@@ -8,7 +8,7 @@ interface StatsCardsProps {
 }
 
 export function StatsCards({ leads, searchHistory }: StatsCardsProps) {
-  const leadsWithWhatsApp = leads.filter((l) => l.whatsapp).length;
+  const leadsWithWhatsApp = leads.filter((l) => l.hasWhatsApp).length;
   const avgRating = leads.length > 0 
     ? (leads.reduce((acc, l) => acc + l.rating, 0) / leads.length).toFixed(1)
     : "0.0";

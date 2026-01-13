@@ -81,8 +81,7 @@ export default function History() {
       Nome: lead.name,
       Categoria: lead.category,
       Telefone: lead.phone,
-      WhatsApp: lead.whatsapp || "",
-      "Tem WhatsApp": lead.whatsapp ? "Sim" : "Não",
+      "Tem WhatsApp": lead.hasWhatsApp ? "Sim" : "Não",
       Email: lead.email || "",
       "Tem Email": lead.email ? "Sim" : "Não",
       Endereço: lead.address,
@@ -306,18 +305,15 @@ export default function History() {
                           </a>
                         </TableCell>
                         <TableCell>
-                          {lead.whatsapp ? (
-                            <a
-                              href={`https://wa.me/55${lead.whatsapp.replace(/\D/g, "")}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center gap-1 text-sm text-emerald-600 hover:text-emerald-700"
-                            >
-                              <MessageCircle className="h-3 w-3" />
-                              {lead.whatsapp}
-                            </a>
+                          {lead.hasWhatsApp ? (
+                            <Badge variant="default" className="bg-emerald-600 hover:bg-emerald-700">
+                              <MessageCircle className="h-3 w-3 mr-1" />
+                              Sim
+                            </Badge>
                           ) : (
-                            <span className="text-muted-foreground">-</span>
+                            <Badge variant="secondary">
+                              Não
+                            </Badge>
                           )}
                         </TableCell>
                         <TableCell>

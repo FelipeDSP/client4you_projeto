@@ -2,7 +2,7 @@ export interface Lead {
   id: string;
   name: string;
   phone: string;
-  whatsapp: string | null;
+  hasWhatsApp: boolean;
   email: string | null;
   address: string;
   city: string;
@@ -12,7 +12,7 @@ export interface Lead {
   category: string;
   website: string | null;
   extractedAt: string;
-  searchId?: string; // ID da busca que gerou este lead
+  searchId?: string;
 }
 
 export interface SearchHistory {

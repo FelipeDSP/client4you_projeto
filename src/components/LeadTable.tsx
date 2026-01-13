@@ -74,7 +74,6 @@ export function LeadTable({ leads, onDelete, selectedLeads, onSelectionChange }:
               <TableHead>Categoria</TableHead>
               <TableHead>Telefone</TableHead>
               <TableHead>WhatsApp</TableHead>
-              <TableHead>Tem WhatsApp</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Cidade</TableHead>
               <TableHead>Avaliação</TableHead>
@@ -101,29 +100,27 @@ export function LeadTable({ leads, onDelete, selectedLeads, onSelectionChange }:
                   <Badge variant="secondary">{lead.category}</Badge>
                 </TableCell>
                 <TableCell>
-                  <a href={`tel:${lead.phone}`} className="flex items-center gap-1 text-sm hover:text-primary">
-                    <Phone className="h-3 w-3" />
-                    {lead.phone}
-                  </a>
-                </TableCell>
-                <TableCell>
-                  {lead.whatsapp ? (
+                  {lead.hasWhatsApp ? (
                     <a
-                      href={`https://wa.me/55${lead.whatsapp.replace(/\D/g, "")}`}
+                      href={`https://wa.me/55${lead.phone.replace(/\D/g, "")}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center gap-1 text-sm text-emerald-600 hover:text-emerald-700"
                     >
-                      <MessageCircle className="h-3 w-3" />
-                      {lead.whatsapp}
+                      <Phone className="h-3 w-3" />
+                      {lead.phone}
                     </a>
                   ) : (
-                    <span className="text-muted-foreground">-</span>
+                    <a href={`tel:${lead.phone}`} className="flex items-center gap-1 text-sm hover:text-primary">
+                      <Phone className="h-3 w-3" />
+                      {lead.phone}
+                    </a>
                   )}
                 </TableCell>
                 <TableCell>
-                  {lead.whatsapp ? (
+                  {lead.hasWhatsApp ? (
                     <Badge variant="default" className="bg-emerald-600 hover:bg-emerald-700">
+                      <MessageCircle className="h-3 w-3 mr-1" />
                       Sim
                     </Badge>
                   ) : (
