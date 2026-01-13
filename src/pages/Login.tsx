@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { MapPin, Loader2, Mail, Lock, User } from "lucide-react";
+import { MapPin, Loader2, Mail, Lock, User, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,20 +9,57 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 
+// Simple email validation regex
+const isValidEmail = (email: string): boolean => {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email.trim());
+};
+
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [emailError, setEmailError] = useState("");
+  const [passwordError, setPasswordError] = useState("");
   const { login, signUp } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
+  const validateForm = (): boolean => {
+    let isValid = true;
+    setEmailError("");
+    setPasswordError("");
+
+    if (!email.trim()) {
+      setEmailError("O email é obrigatório");
+      isValid = false;
+    } else if (!isValidEmail(email)) {
+      setEmailError("Digite um email válido");
+      isValid = false;
+    }
+
+    if (!password) {
+      setPasswordError("A senha é obrigatória");
+      isValid = false;
+    } else if (password.length < 6) {
+      setPasswordError("A senha deve ter no mínimo 6 caracteres");
+      isValid = false;
+    }
+
+    return isValid;
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!validateForm()) {
+      return;
+    }
+    
     setIsLoading(true);
 
-    const result = await login(email, password);
+    const result = await login(email.trim(), password);
 
     if (result.success) {
       toast({
@@ -43,9 +80,14 @@ export default function Login() {
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!validateForm()) {
+      return;
+    }
+    
     setIsLoading(true);
 
-    const result = await signUp(email, password, fullName);
+    const result = await signUp(email.trim(), password, fullName.trim() || undefined);
 
     if (result.success) {
       if (result.error) {
@@ -105,11 +147,19 @@ export default function Login() {
                       type="email"
                       placeholder="seu@email.com"
                       value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="border-slate-600 bg-slate-700/50 pl-10 text-white placeholder:text-slate-400"
-                      required
+                      onChange={(e) => {
+                        setEmail(e.target.value);
+                        setEmailError("");
+                      }}
+                      className={`border-slate-600 bg-slate-700/50 pl-10 text-white placeholder:text-slate-400 ${emailError ? "border-red-500" : ""}`}
                     />
                   </div>
+                  {emailError && (
+                    <p className="text-sm text-red-400 flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3" />
+                      {emailError}
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="login-password" className="text-slate-200">Senha</Label>
@@ -120,12 +170,19 @@ export default function Login() {
                       type="password"
                       placeholder="••••••••"
                       value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="border-slate-600 bg-slate-700/50 pl-10 text-white placeholder:text-slate-400"
-                      required
-                      minLength={6}
+                      onChange={(e) => {
+                        setPassword(e.target.value);
+                        setPasswordError("");
+                      }}
+                      className={`border-slate-600 bg-slate-700/50 pl-10 text-white placeholder:text-slate-400 ${passwordError ? "border-red-500" : ""}`}
                     />
                   </div>
+                  {passwordError && (
+                    <p className="text-sm text-red-400 flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3" />
+                      {passwordError}
+                    </p>
+                  )}
                 </div>
               </CardContent>
               <CardFooter>
@@ -173,11 +230,19 @@ export default function Login() {
                       type="email"
                       placeholder="seu@email.com"
                       value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="border-slate-600 bg-slate-700/50 pl-10 text-white placeholder:text-slate-400"
-                      required
+                      onChange={(e) => {
+                        setEmail(e.target.value);
+                        setEmailError("");
+                      }}
+                      className={`border-slate-600 bg-slate-700/50 pl-10 text-white placeholder:text-slate-400 ${emailError ? "border-red-500" : ""}`}
                     />
                   </div>
+                  {emailError && (
+                    <p className="text-sm text-red-400 flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3" />
+                      {emailError}
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="signup-password" className="text-slate-200">Senha</Label>
@@ -188,13 +253,21 @@ export default function Login() {
                       type="password"
                       placeholder="••••••••"
                       value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="border-slate-600 bg-slate-700/50 pl-10 text-white placeholder:text-slate-400"
-                      required
-                      minLength={6}
+                      onChange={(e) => {
+                        setPassword(e.target.value);
+                        setPasswordError("");
+                      }}
+                      className={`border-slate-600 bg-slate-700/50 pl-10 text-white placeholder:text-slate-400 ${passwordError ? "border-red-500" : ""}`}
                     />
                   </div>
-                  <p className="text-xs text-slate-400">Mínimo de 6 caracteres</p>
+                  {passwordError ? (
+                    <p className="text-sm text-red-400 flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3" />
+                      {passwordError}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-slate-400">Mínimo de 6 caracteres</p>
+                  )}
                 </div>
               </CardContent>
               <CardFooter>
