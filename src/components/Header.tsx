@@ -1,4 +1,4 @@
-import { MapPin, LogOut, User, History, CreditCard, LayoutDashboard } from "lucide-react";
+import { MapPin, LogOut, User, History, CreditCard, LayoutDashboard, Settings } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,7 +12,7 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
-import { useSubscription } from "@/hooks/useCredits";
+import { useSubscription } from "@/hooks/useSubscription";
 
 export function Header() {
   const { user, logout } = useAuth();
@@ -104,6 +104,12 @@ export function Header() {
                 <Link to="/profile">
                   <User className="mr-2 h-4 w-4" />
                   Minha Conta
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link to="/settings">
+                  <Settings className="mr-2 h-4 w-4" />
+                  Configurações
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />

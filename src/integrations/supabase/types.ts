@@ -38,6 +38,44 @@ export type Database = {
         }
         Relationships: []
       }
+      company_settings: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          serpapi_key: string | null
+          updated_at: string
+          waha_api_key: string | null
+          waha_api_url: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          serpapi_key?: string | null
+          updated_at?: string
+          waha_api_key?: string | null
+          waha_api_url?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          serpapi_key?: string | null
+          updated_at?: string
+          waha_api_key?: string | null
+          waha_api_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_settings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       leads: {
         Row: {
           address: string | null

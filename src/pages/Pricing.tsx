@@ -1,5 +1,5 @@
 import { Header } from "@/components/Header";
-import { useSubscription, plans } from "@/hooks/useCredits";
+import { useSubscription, plans } from "@/hooks/useSubscription";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
