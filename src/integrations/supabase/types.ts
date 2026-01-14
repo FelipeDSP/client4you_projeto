@@ -47,6 +47,7 @@ export type Database = {
           updated_at: string
           waha_api_key: string | null
           waha_api_url: string | null
+          waha_session: string | null
         }
         Insert: {
           company_id: string
@@ -56,6 +57,7 @@ export type Database = {
           updated_at?: string
           waha_api_key?: string | null
           waha_api_url?: string | null
+          waha_session?: string | null
         }
         Update: {
           company_id?: string
@@ -65,6 +67,7 @@ export type Database = {
           updated_at?: string
           waha_api_key?: string | null
           waha_api_url?: string | null
+          waha_session?: string | null
         }
         Relationships: [
           {

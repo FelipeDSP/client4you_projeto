@@ -67,7 +67,7 @@ Deno.serve(async (req) => {
     // Get company settings to retrieve SerpAPI key
     const { data: settings, error: settingsError } = await supabase
       .from("company_settings")
-      .select("serpapi_key, waha_api_url, waha_api_key")
+      .select("serpapi_key, waha_api_url, waha_api_key, waha_session")
       .eq("company_id", companyId)
       .maybeSingle();
 
@@ -124,9 +124,12 @@ Deno.serve(async (req) => {
         });
 
         // Validate WhatsApp if WAHA is configured
-        if (settings?.waha_api_url && settings?.waha_api_key) {
+        if (settings?.waha_api_url && settings?.waha_api_key && settings?.waha_session) {
+          const wahaSession = settings.waha_session;
+          
           console.log("WAHA Configuration found:");
           console.log("  - URL:", settings.waha_api_url);
+          console.log("  - Session:", wahaSession);
           console.log("  - API Key present:", Boolean(settings.waha_api_key));
           console.log("Validating WhatsApp numbers for", leads.filter(l => l.phone).length, "leads with phone numbers...");
           
@@ -144,8 +147,10 @@ Deno.serve(async (req) => {
                 
                 console.log(`Checking WhatsApp for: ${lead.phone} -> ${phoneWithCountry}`);
                 
-                // WAHA uses GET request with query parameters
-                const wahaUrl = `${settings.waha_api_url}/api/contacts/check-exists?phone=${phoneWithCountry}&session=default`;
+                // WAHA uses GET request with query parameters - use configured session
+                const wahaUrl = `${settings.waha_api_url}/api/contacts/check-exists?phone=${phoneWithCountry}&session=${wahaSession}`;
+                
+                console.log("  WAHA Request URL:", wahaUrl);
                 
                 console.log("  WAHA Request URL:", wahaUrl);
                 
@@ -192,6 +197,7 @@ Deno.serve(async (req) => {
           console.log("WAHA not configured - skipping WhatsApp validation");
           console.log("  - waha_api_url:", settings?.waha_api_url || "NOT SET");
           console.log("  - waha_api_key:", settings?.waha_api_key ? "SET" : "NOT SET");
+          console.log("  - waha_session:", settings?.waha_session || "NOT SET");
         }
       } catch (serpError) {
         console.error("SerpAPI request error:", serpError);

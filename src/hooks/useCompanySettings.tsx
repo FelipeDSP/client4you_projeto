@@ -9,6 +9,7 @@ export interface CompanySettings {
   serpapiKey: string | null;
   wahaApiUrl: string | null;
   wahaApiKey: string | null;
+  wahaSession: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -44,6 +45,7 @@ export function useCompanySettings() {
           serpapiKey: data.serpapi_key,
           wahaApiUrl: data.waha_api_url,
           wahaApiKey: data.waha_api_key,
+          wahaSession: data.waha_session,
           createdAt: data.created_at,
           updatedAt: data.updated_at,
         });
@@ -66,6 +68,7 @@ export function useCompanySettings() {
     serpapiKey?: string;
     wahaApiUrl?: string;
     wahaApiKey?: string;
+    wahaSession?: string;
   }) => {
     if (!user?.companyId) {
       toast({
@@ -84,6 +87,7 @@ export function useCompanySettings() {
         serpapi_key: newSettings.serpapiKey || null,
         waha_api_url: newSettings.wahaApiUrl || null,
         waha_api_key: newSettings.wahaApiKey || null,
+        waha_session: newSettings.wahaSession || 'default',
       };
 
       if (settings?.id) {
@@ -94,6 +98,7 @@ export function useCompanySettings() {
             serpapi_key: settingsData.serpapi_key,
             waha_api_url: settingsData.waha_api_url,
             waha_api_key: settingsData.waha_api_key,
+            waha_session: settingsData.waha_session,
           })
           .eq("id", settings.id);
 
@@ -129,7 +134,7 @@ export function useCompanySettings() {
   };
 
   const hasSerpapiKey = Boolean(settings?.serpapiKey);
-  const hasWahaConfig = Boolean(settings?.wahaApiUrl && settings?.wahaApiKey);
+  const hasWahaConfig = Boolean(settings?.wahaApiUrl && settings?.wahaApiKey && settings?.wahaSession);
 
   return {
     settings,
