@@ -125,7 +125,14 @@ Deno.serve(async (req) => {
 
         // Validate WhatsApp if WAHA is configured
         if (settings?.waha_api_url && settings?.waha_api_key) {
-          console.log("Validating WhatsApp numbers with WAHA...");
+          console.log("WAHA Configuration found:");
+          console.log("  - URL:", settings.waha_api_url);
+          console.log("  - API Key present:", Boolean(settings.waha_api_key));
+          console.log("Validating WhatsApp numbers for", leads.filter(l => l.phone).length, "leads with phone numbers...");
+          
+          let validatedCount = 0;
+          let whatsappFoundCount = 0;
+          let errorCount = 0;
           
           for (const lead of leads) {
             if (lead.phone) {
@@ -135,31 +142,64 @@ Deno.serve(async (req) => {
                 // Add country code if not present
                 const phoneWithCountry = cleanPhone.startsWith("55") ? cleanPhone : `55${cleanPhone}`;
                 
-                const wahaResponse = await fetch(
-                  `${settings.waha_api_url}/api/contacts/check-exists`,
-                  {
-                    method: "POST",
-                    headers: {
-                      "Content-Type": "application/json",
-                      "X-Api-Key": settings.waha_api_key,
-                    },
-                    body: JSON.stringify({
-                      session: "default",
-                      phone: phoneWithCountry,
-                    }),
-                  }
-                );
+                console.log(`Checking WhatsApp for: ${lead.phone} -> ${phoneWithCountry}`);
+                
+                const wahaUrl = `${settings.waha_api_url}/api/contacts/check-exists`;
+                const wahaBody = {
+                  session: "default",
+                  phone: phoneWithCountry,
+                };
+                
+                console.log("  WAHA Request URL:", wahaUrl);
+                console.log("  WAHA Request Body:", JSON.stringify(wahaBody));
+                
+                const wahaResponse = await fetch(wahaUrl, {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    "X-Api-Key": settings.waha_api_key,
+                  },
+                  body: JSON.stringify(wahaBody),
+                });
 
+                console.log("  WAHA Response Status:", wahaResponse.status);
+                
                 if (wahaResponse.ok) {
                   const wahaData = await wahaResponse.json();
-                  lead.has_whatsapp = wahaData.result?.exists === true;
+                  console.log("  WAHA Response Data:", JSON.stringify(wahaData));
+                  
+                  // Check different possible response formats
+                  const exists = wahaData.result?.exists === true || 
+                                 wahaData.exists === true || 
+                                 wahaData.numberExists === true ||
+                                 wahaData.result === true;
+                  
+                  lead.has_whatsapp = exists;
+                  validatedCount++;
+                  if (exists) whatsappFoundCount++;
+                  
+                  console.log(`  Result: ${exists ? "HAS WhatsApp" : "NO WhatsApp"}`);
+                } else {
+                  const errorText = await wahaResponse.text();
+                  console.error("  WAHA Error Response:", wahaResponse.status, errorText);
+                  errorCount++;
                 }
               } catch (wahaError) {
                 console.error("WAHA validation error for", lead.phone, ":", wahaError);
+                errorCount++;
                 // Continue without WhatsApp validation
               }
             }
           }
+          
+          console.log("WAHA Validation Summary:");
+          console.log(`  - Total validated: ${validatedCount}`);
+          console.log(`  - WhatsApp found: ${whatsappFoundCount}`);
+          console.log(`  - Errors: ${errorCount}`);
+        } else {
+          console.log("WAHA not configured - skipping WhatsApp validation");
+          console.log("  - waha_api_url:", settings?.waha_api_url || "NOT SET");
+          console.log("  - waha_api_key:", settings?.waha_api_key ? "SET" : "NOT SET");
         }
       } catch (serpError) {
         console.error("SerpAPI request error:", serpError);
