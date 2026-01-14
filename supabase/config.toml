@@ -1,1 +1,4 @@
 project_id = "owlignktsqlrqaqhzujb"
+
+[functions.search-leads]
+verify_jwt = false

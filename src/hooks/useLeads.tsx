@@ -109,52 +109,39 @@ export function useLeads() {
         return [];
       }
 
-      // TODO: Integrate with real API (SerpAPI) via Edge Function
-      // For now, simulate with mock data
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      // Get current session for auth header
+      const { data: { session } } = await supabase.auth.getSession();
 
-      const mockCount = Math.floor(10 + Math.random() * 20);
-      const mockLeadsData = generateMockLeadsForDB(query, location, mockCount, user.companyId, historyData.id);
+      // Call Edge Function
+      const { data, error } = await supabase.functions.invoke("search-leads", {
+        body: {
+          query,
+          location,
+          companyId: user.companyId,
+          searchId: historyData.id,
+        },
+        headers: session?.access_token 
+          ? { Authorization: `Bearer ${session.access_token}` }
+          : undefined,
+      });
 
-      // Insert leads into database
-      const { data: insertedLeads, error: leadsError } = await supabase
-        .from("leads")
-        .insert(mockLeadsData)
-        .select();
-
-      if (leadsError) {
-        console.error("Error inserting leads:", leadsError);
+      if (error) {
+        console.error("Error calling search-leads function:", error);
         setIsSearching(false);
         return [];
       }
 
-      // Update search history with results count
-      await supabase
-        .from("search_history")
-        .update({ results_count: insertedLeads?.length || 0 })
-        .eq("id", historyData.id);
+      if (data?.error) {
+        console.error("Search error:", data.error);
+        setIsSearching(false);
+        return [];
+      }
 
-      // Refresh data
+      // Refresh data to get the new leads
       await fetchData();
 
-      const newLeads: Lead[] = (insertedLeads || []).map((lead) => ({
-        id: lead.id,
-        name: lead.name,
-        phone: lead.phone || "",
-        hasWhatsApp: lead.has_whatsapp || false,
-        email: lead.email,
-        hasEmail: lead.has_email || false,
-        address: lead.address || "",
-        city: "",
-        state: "",
-        rating: Number(lead.rating) || 0,
-        reviews: lead.reviews_count || 0,
-        category: lead.category || "",
-        website: lead.website,
-        extractedAt: lead.created_at,
-        searchId: lead.search_id || undefined,
-        companyId: lead.company_id,
-      }));
+      // Get the newly inserted leads
+      const newLeads = leads.filter((l) => l.searchId === historyData.id);
 
       setIsSearching(false);
       return newLeads;
@@ -246,36 +233,4 @@ export function useLeads() {
     clearAllHistory,
     refreshData: fetchData,
   };
-}
-
-// Helper function to generate mock leads for database insertion
-function generateMockLeadsForDB(
-  query: string,
-  location: string,
-  count: number,
-  companyId: string,
-  searchId: string
-) {
-  const categories = [query, `${query} Premium`, `${query} Express`];
-  const streets = ["Rua das Flores", "Av. Brasil", "Rua São Paulo", "Av. Paulista", "Rua Augusta"];
-
-  return Array.from({ length: count }, (_, i) => {
-    const hasWhatsApp = Math.random() > 0.3;
-    const hasEmail = Math.random() > 0.4;
-
-    return {
-      name: `${query} ${location} #${i + 1}`,
-      phone: `(11) 9${Math.floor(1000 + Math.random() * 9000)}-${Math.floor(1000 + Math.random() * 9000)}`,
-      has_whatsapp: hasWhatsApp,
-      email: hasEmail ? `contato${i + 1}@empresa.com.br` : null,
-      has_email: hasEmail,
-      address: `${streets[Math.floor(Math.random() * streets.length)]}, ${Math.floor(100 + Math.random() * 2000)} - ${location}`,
-      category: categories[Math.floor(Math.random() * categories.length)],
-      rating: parseFloat((3 + Math.random() * 2).toFixed(1)),
-      reviews_count: Math.floor(10 + Math.random() * 500),
-      website: Math.random() > 0.5 ? `https://www.empresa${i + 1}.com.br` : null,
-      company_id: companyId,
-      search_id: searchId,
-    };
-  });
 }

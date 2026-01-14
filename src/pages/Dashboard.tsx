@@ -6,7 +6,7 @@ import { ExportButton } from "@/components/ExportButton";
 import { StatsCards } from "@/components/StatsCards";
 import { LeadFiltersComponent, LeadFilters, defaultFilters, filterLeads } from "@/components/LeadFilters";
 import { useLeads } from "@/hooks/useLeads";
-import { useSubscription } from "@/hooks/useCredits";
+import { useSubscription } from "@/hooks/useSubscription";
 import { useToast } from "@/hooks/use-toast";
 import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
