@@ -1,4 +1,4 @@
-import { MapPin, LogOut, User, History, CreditCard, LayoutDashboard, Settings } from "lucide-react";
+import { MapPin, LogOut, User, History, CreditCard, LayoutDashboard, Settings, Crown } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,16 +13,19 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 import { useSubscription } from "@/hooks/useSubscription";
+import { useAdmin } from "@/hooks/useAdmin";
 
 export function Header() {
   const { user, logout } = useAuth();
   const { currentPlan } = useSubscription();
+  const { isAdmin } = useAdmin();
   const location = useLocation();
 
   const navItems = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { href: "/history", label: "Histórico", icon: History },
     { href: "/pricing", label: "Planos", icon: CreditCard },
+    ...(isAdmin ? [{ href: "/admin", label: "Admin", icon: Crown }] : []),
   ];
 
   return (
