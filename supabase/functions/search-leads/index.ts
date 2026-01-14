@@ -144,22 +144,17 @@ Deno.serve(async (req) => {
                 
                 console.log(`Checking WhatsApp for: ${lead.phone} -> ${phoneWithCountry}`);
                 
-                const wahaUrl = `${settings.waha_api_url}/api/contacts/check-exists`;
-                const wahaBody = {
-                  session: "default",
-                  phone: phoneWithCountry,
-                };
+                // WAHA uses GET request with query parameters
+                const wahaUrl = `${settings.waha_api_url}/api/contacts/check-exists?phone=${phoneWithCountry}&session=default`;
                 
                 console.log("  WAHA Request URL:", wahaUrl);
-                console.log("  WAHA Request Body:", JSON.stringify(wahaBody));
                 
                 const wahaResponse = await fetch(wahaUrl, {
-                  method: "POST",
+                  method: "GET",
                   headers: {
                     "Content-Type": "application/json",
                     "X-Api-Key": settings.waha_api_key,
                   },
-                  body: JSON.stringify(wahaBody),
                 });
 
                 console.log("  WAHA Response Status:", wahaResponse.status);
@@ -168,11 +163,8 @@ Deno.serve(async (req) => {
                   const wahaData = await wahaResponse.json();
                   console.log("  WAHA Response Data:", JSON.stringify(wahaData));
                   
-                  // Check different possible response formats
-                  const exists = wahaData.result?.exists === true || 
-                                 wahaData.exists === true || 
-                                 wahaData.numberExists === true ||
-                                 wahaData.result === true;
+                  // WAHA returns { numberExists: true/false, chatId: "..." }
+                  const exists = wahaData.numberExists === true;
                   
                   lead.has_whatsapp = exists;
                   validatedCount++;
