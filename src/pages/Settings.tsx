@@ -15,6 +15,7 @@ export default function Settings() {
   const [serpapiKey, setSerpapiKey] = useState("");
   const [wahaApiUrl, setWahaApiUrl] = useState("");
   const [wahaApiKey, setWahaApiKey] = useState("");
+  const [wahaSession, setWahaSession] = useState("");
   const [showSerpapiKey, setShowSerpapiKey] = useState(false);
   const [showWahaKey, setShowWahaKey] = useState(false);
 
@@ -23,6 +24,7 @@ export default function Settings() {
       setSerpapiKey(settings.serpapiKey || "");
       setWahaApiUrl(settings.wahaApiUrl || "");
       setWahaApiKey(settings.wahaApiKey || "");
+      setWahaSession(settings.wahaSession || "default");
     }
   }, [settings]);
 
@@ -31,6 +33,7 @@ export default function Settings() {
       serpapiKey,
       wahaApiUrl,
       wahaApiKey,
+      wahaSession,
     });
   };
 
@@ -160,8 +163,25 @@ export default function Settings() {
                   type="url"
                   value={wahaApiUrl}
                   onChange={(e) => setWahaApiUrl(e.target.value)}
-                  placeholder="https://sua-instancia-waha.com"
+                  placeholder="https://api.minha-instancia.com.br"
                 />
+                <p className="text-xs text-muted-foreground">
+                  URL base da sua instância WAHA (ex: https://api.exemplo.com.br)
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="waha-session">Nome da Sessão</Label>
+                <Input
+                  id="waha-session"
+                  type="text"
+                  value={wahaSession}
+                  onChange={(e) => setWahaSession(e.target.value)}
+                  placeholder="minha-sessao"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Nome da sessão configurada no WAHA (ex: principal, whatsapp-1)
+                </p>
               </div>
 
               <div className="space-y-2">
@@ -186,7 +206,7 @@ export default function Settings() {
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Configure sua própria instância WAHA para validar números de WhatsApp
+                  Chave de autenticação da API WAHA
                 </p>
               </div>
             </CardContent>
