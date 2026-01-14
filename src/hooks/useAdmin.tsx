@@ -299,6 +299,81 @@ export function useAdmin() {
     }
   };
 
+  // Pause/Activate subscription for a company
+  const toggleCompanyStatus = async (companyId: string, newStatus: "active" | "paused"): Promise<boolean> => {
+    if (!isAdmin) return false;
+
+    try {
+      const { error } = await supabase
+        .from("subscriptions")
+        .update({ status: newStatus })
+        .eq("company_id", companyId);
+
+      if (error) {
+        console.error("Error toggling company status:", error);
+        return false;
+      }
+
+      await fetchCompanies();
+      return true;
+    } catch (error) {
+      console.error("Error toggling company status:", error);
+      return false;
+    }
+  };
+
+  // Delete a company and all related data
+  const deleteCompany = async (companyId: string): Promise<boolean> => {
+    if (!isAdmin) return false;
+
+    try {
+      // Delete in order: leads, search_history, subscriptions, company_settings, profiles, user_roles (via profile cascade), then company
+      // The foreign keys should cascade, but we'll be explicit
+      
+      // Delete leads
+      await supabase.from("leads").delete().eq("company_id", companyId);
+      
+      // Delete search history
+      await supabase.from("search_history").delete().eq("company_id", companyId);
+      
+      // Delete subscriptions
+      await supabase.from("subscriptions").delete().eq("company_id", companyId);
+      
+      // Delete company settings
+      await supabase.from("company_settings").delete().eq("company_id", companyId);
+      
+      // Get user IDs for this company to delete their roles
+      const { data: companyProfiles } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("company_id", companyId);
+      
+      if (companyProfiles && companyProfiles.length > 0) {
+        const userIds = companyProfiles.map(p => p.id);
+        await supabase.from("user_roles").delete().in("user_id", userIds);
+        await supabase.from("profiles").delete().eq("company_id", companyId);
+      }
+      
+      // Finally delete the company
+      const { error: companyError } = await supabase
+        .from("companies")
+        .delete()
+        .eq("id", companyId);
+
+      if (companyError) {
+        console.error("Error deleting company:", companyError);
+        return false;
+      }
+
+      await fetchCompanies();
+      await fetchUsers();
+      return true;
+    } catch (error) {
+      console.error("Error deleting company:", error);
+      return false;
+    }
+  };
+
   return {
     isAdmin,
     isLoading,
@@ -308,6 +383,8 @@ export function useAdmin() {
     removeAdminRole,
     updateCompanyPlan,
     resetDemoUsage,
+    toggleCompanyStatus,
+    deleteCompany,
     refreshData: () => {
       fetchUsers();
       fetchCompanies();

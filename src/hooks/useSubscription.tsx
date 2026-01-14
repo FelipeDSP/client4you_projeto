@@ -45,9 +45,9 @@ export const plans: SubscriptionPlan[] = [
     description: "Experimente gratuitamente",
     price: 0,
     isDemo: true,
-    leadsLimit: 10,
+    leadsLimit: 15,
     features: [
-      { name: "Extrator de Leads", included: true, limit: "10 leads únicos" },
+      { name: "Extrator de Leads", included: true, limit: "15 leads únicos" },
       { name: "Exportar para Excel", included: true },
       { name: "Disparador de Campanhas WhatsApp", included: false },
       { name: "Suporte por email", included: true },

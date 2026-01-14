@@ -42,6 +42,9 @@ import {
   RefreshCw,
   Crown,
   Loader2,
+  Pause,
+  Play,
+  Trash2,
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -56,6 +59,8 @@ export default function Admin() {
     removeAdminRole,
     updateCompanyPlan,
     resetDemoUsage,
+    toggleCompanyStatus,
+    deleteCompany,
     refreshData,
   } = useAdmin();
   const { toast } = useToast();
@@ -139,6 +144,39 @@ export default function Admin() {
       toast({
         title: "Erro",
         description: "Não foi possível resetar o demo.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleToggleStatus = async (companyId: string, currentStatus: string, companyName: string) => {
+    const newStatus = currentStatus === "active" ? "paused" : "active";
+    const success = await toggleCompanyStatus(companyId, newStatus);
+    if (success) {
+      toast({
+        title: newStatus === "active" ? "Conta ativada" : "Conta pausada",
+        description: `${companyName} foi ${newStatus === "active" ? "ativada" : "pausada"}.`,
+      });
+    } else {
+      toast({
+        title: "Erro",
+        description: "Não foi possível alterar o status da conta.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteCompany = async (companyId: string, companyName: string) => {
+    const success = await deleteCompany(companyId);
+    if (success) {
+      toast({
+        title: "Empresa excluída",
+        description: `${companyName} foi excluída permanentemente.`,
+      });
+    } else {
+      toast({
+        title: "Erro",
+        description: "Não foi possível excluir a empresa.",
         variant: "destructive",
       });
     }
@@ -447,17 +485,80 @@ export default function Admin() {
                               {company.subscription?.demoUsed ? "Usado" : "Disponível"}
                             </Badge>
                           </TableCell>
-                          <TableCell className="text-right">
+                          <TableCell className="text-right space-x-1">
+                            {/* Toggle Status Button */}
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className={company.subscription?.status === "active" ? "" : "text-green-600"}
+                                >
+                                  {company.subscription?.status === "active" ? (
+                                    <Pause className="h-4 w-4" />
+                                  ) : (
+                                    <Play className="h-4 w-4" />
+                                  )}
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>
+                                    {company.subscription?.status === "active" ? "Pausar conta?" : "Ativar conta?"}
+                                  </AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    {company.subscription?.status === "active"
+                                      ? `${company.name} não poderá acessar o sistema enquanto pausada.`
+                                      : `${company.name} voltará a ter acesso ao sistema.`}
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => handleToggleStatus(company.id, company.subscription?.status || "inactive", company.name)}
+                                  >
+                                    Confirmar
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+
+                            {/* Reset Demo Button */}
                             {company.subscription?.demoUsed && (
                               <Button
                                 variant="outline"
                                 size="sm"
                                 onClick={() => handleResetDemo(company.id, company.name)}
                               >
-                                <RefreshCw className="h-4 w-4 mr-1" />
-                                Resetar Demo
+                                <RefreshCw className="h-4 w-4" />
                               </Button>
                             )}
+
+                            {/* Delete Company Button */}
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="ghost" size="sm" className="text-destructive">
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Excluir empresa permanentemente?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Esta ação é irreversível. Todos os dados de {company.name} serão excluídos, incluindo leads, histórico de buscas e usuários.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                    onClick={() => handleDeleteCompany(company.id, company.name)}
+                                  >
+                                    Excluir Permanentemente
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
                           </TableCell>
                         </TableRow>
                       ))
