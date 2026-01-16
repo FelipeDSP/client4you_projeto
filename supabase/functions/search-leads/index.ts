@@ -83,13 +83,23 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Sanitize inputs - remove potentially dangerous characters
-    const sanitizedQuery = query.trim().replace(/[<>"']/g, '');
-    const sanitizedLocation = location.trim().replace(/[<>"']/g, '');
+    // Sanitize inputs using allowlist approach - keep alphanumeric, spaces, common punctuation, and accented characters
+    const sanitizedQuery = query.trim().replace(/[^a-zA-Z0-9\s.,\-'áéíóúàèìòùâêîôûãõçñÁÉÍÓÚÀÈÌÒÙÂÊÎÔÛÃÕÇÑ]/gi, '');
+    const sanitizedLocation = location.trim().replace(/[^a-zA-Z0-9\s.,\-'áéíóúàèìòùâêîôûãõçñÁÉÍÓÚÀÈÌÒÙÂÊÎÔÛÃÕÇÑ]/gi, '');
 
     if (!sanitizedQuery || !sanitizedLocation) {
       return new Response(
         JSON.stringify({ error: "Query and location cannot be empty after sanitization" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Additional security: detect SQL injection patterns
+    const sqlPattern = /(union\s+select|insert\s+into|update\s+.+\s+set|delete\s+from|drop\s+table|exec\s*\(|script\s*>)/i;
+    if (sqlPattern.test(query) || sqlPattern.test(location)) {
+      console.warn("Potential SQL injection attempt detected:", { query: query.substring(0, 50), location: location.substring(0, 50) });
+      return new Response(
+        JSON.stringify({ error: "Invalid input detected" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -125,10 +135,25 @@ Deno.serve(async (req) => {
         const serpData = await serpResponse.json();
 
         if (serpData.error) {
+          // Log detailed error server-side only
           console.error("SerpAPI error:", serpData.error);
+          
+          // Return sanitized error message to client - don't expose internal details
+          const errorMessage = String(serpData.error).toLowerCase();
+          let clientError = "Search service temporarily unavailable";
+          let statusCode = 503;
+          
+          if (errorMessage.includes('api key') || errorMessage.includes('invalid') || errorMessage.includes('unauthorized')) {
+            clientError = "Search service configuration error. Please contact support.";
+            statusCode = 500;
+          } else if (errorMessage.includes('rate') || errorMessage.includes('limit') || errorMessage.includes('quota')) {
+            clientError = "Search rate limit reached. Please try again later.";
+            statusCode = 429;
+          }
+          
           return new Response(
-            JSON.stringify({ error: `SerpAPI error: ${serpData.error}` }),
-            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            JSON.stringify({ error: clientError }),
+            { status: statusCode, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
 
