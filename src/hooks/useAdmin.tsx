@@ -1,18 +1,21 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import type { Database } from "@/integrations/supabase/types";
 
-interface AdminUser {
+type AppRole = Database["public"]["Enums"]["app_role"];
+
+export interface AdminUser {
   id: string;
   email: string;
   fullName: string | null;
   companyId: string | null;
   companyName: string | null;
-  roles: string[];
+  roles: AppRole[];
   createdAt: string;
 }
 
-interface Company {
+export interface Company {
   id: string;
   name: string;
   slug: string;
@@ -97,12 +100,12 @@ export function useAdmin() {
       }
 
       // Map roles by user_id
-      const rolesByUser: Record<string, string[]> = {};
+      const rolesByUser: Record<string, AppRole[]> = {};
       roles?.forEach((r) => {
         if (!rolesByUser[r.user_id]) {
           rolesByUser[r.user_id] = [];
         }
-        rolesByUser[r.user_id].push(r.role);
+        rolesByUser[r.user_id].push(r.role as AppRole);
       });
 
       const mappedUsers: AdminUser[] = (profiles || []).map((p) => ({
@@ -374,6 +377,102 @@ export function useAdmin() {
     }
   };
 
+  // Delete a single user
+  const deleteUser = async (userId: string): Promise<boolean> => {
+    if (!isAdmin) return false;
+
+    // Prevent deleting yourself
+    if (userId === user?.id) return false;
+
+    try {
+      // Delete user roles
+      await supabase.from("user_roles").delete().eq("user_id", userId);
+      
+      // Delete the profile (this doesn't delete the auth user)
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .delete()
+        .eq("id", userId);
+
+      if (profileError) {
+        console.error("Error deleting user profile:", profileError);
+        return false;
+      }
+
+      await fetchUsers();
+      await fetchCompanies();
+      return true;
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      return false;
+    }
+  };
+
+  // Change user role (member, admin, company_owner)
+  const changeUserRole = async (userId: string, newRole: AppRole): Promise<boolean> => {
+    if (!isAdmin) return false;
+
+    // Cannot change super_admin role with this function
+    if (newRole === "super_admin") return false;
+
+    try {
+      // First, remove existing non-super_admin roles
+      const { data: existingRoles } = await supabase
+        .from("user_roles")
+        .select("id, role")
+        .eq("user_id", userId);
+
+      if (existingRoles) {
+        for (const role of existingRoles) {
+          if (role.role !== "super_admin") {
+            await supabase.from("user_roles").delete().eq("id", role.id);
+          }
+        }
+      }
+
+      // Insert the new role
+      const { error } = await supabase.from("user_roles").insert({
+        user_id: userId,
+        role: newRole,
+      });
+
+      if (error) {
+        console.error("Error changing user role:", error);
+        return false;
+      }
+
+      await fetchUsers();
+      return true;
+    } catch (error) {
+      console.error("Error changing user role:", error);
+      return false;
+    }
+  };
+
+  // Transfer user to another company
+  const transferUserToCompany = async (userId: string, newCompanyId: string): Promise<boolean> => {
+    if (!isAdmin) return false;
+
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ company_id: newCompanyId })
+        .eq("id", userId);
+
+      if (error) {
+        console.error("Error transferring user:", error);
+        return false;
+      }
+
+      await fetchUsers();
+      await fetchCompanies();
+      return true;
+    } catch (error) {
+      console.error("Error transferring user:", error);
+      return false;
+    }
+  };
+
   return {
     isAdmin,
     isLoading,
@@ -385,6 +484,9 @@ export function useAdmin() {
     resetDemoUsage,
     toggleCompanyStatus,
     deleteCompany,
+    deleteUser,
+    changeUserRole,
+    transferUserToCompany,
     refreshData: () => {
       fetchUsers();
       fetchCompanies();
