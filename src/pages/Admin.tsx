@@ -45,9 +45,12 @@ import {
   Pause,
   Play,
   Trash2,
+  UserCog,
+  ArrowRightLeft,
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import type { AdminUser, Company } from "@/hooks/useAdmin";
 
 export default function Admin() {
   const {
@@ -61,10 +64,17 @@ export default function Admin() {
     resetDemoUsage,
     toggleCompanyStatus,
     deleteCompany,
+    deleteUser,
+    changeUserRole,
+    transferUserToCompany,
     refreshData,
   } = useAdmin();
   const { toast } = useToast();
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [selectedUserForRole, setSelectedUserForRole] = useState<AdminUser | null>(null);
+  const [selectedUserForTransfer, setSelectedUserForTransfer] = useState<AdminUser | null>(null);
+  const [newRole, setNewRole] = useState<string>("");
+  const [newCompanyId, setNewCompanyId] = useState<string>("");
 
   if (isLoading) {
     return (
@@ -177,6 +187,66 @@ export default function Admin() {
       toast({
         title: "Erro",
         description: "Não foi possível excluir a empresa.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteUser = async (userId: string, userName: string) => {
+    const success = await deleteUser(userId);
+    if (success) {
+      toast({
+        title: "Usuário excluído",
+        description: `${userName} foi removido do sistema.`,
+      });
+    } else {
+      toast({
+        title: "Erro",
+        description: "Não foi possível excluir o usuário.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleChangeRole = async () => {
+    if (!selectedUserForRole || !newRole) return;
+    
+    const success = await changeUserRole(selectedUserForRole.id, newRole as "company_owner" | "admin" | "member");
+    if (success) {
+      toast({
+        title: "Papel alterado",
+        description: `${selectedUserForRole.fullName || selectedUserForRole.email} agora é ${
+          newRole === "company_owner" ? "Dono da Empresa" : 
+          newRole === "admin" ? "Administrador" : "Membro"
+        }.`,
+      });
+      setSelectedUserForRole(null);
+      setNewRole("");
+    } else {
+      toast({
+        title: "Erro",
+        description: "Não foi possível alterar o papel.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleTransferUser = async () => {
+    if (!selectedUserForTransfer || !newCompanyId) return;
+    
+    const targetCompany = companies.find(c => c.id === newCompanyId);
+    const success = await transferUserToCompany(selectedUserForTransfer.id, newCompanyId);
+    if (success) {
+      toast({
+        title: "Usuário transferido",
+        description: `${selectedUserForTransfer.fullName || selectedUserForTransfer.email} foi transferido para ${targetCompany?.name}.`,
+      });
+      setSelectedUserForTransfer(null);
+      setNewCompanyId("");
+    } else {
+      toast({
+        title: "Erro",
+        description: "Não foi possível transferir o usuário.",
         variant: "destructive",
       });
     }
@@ -387,10 +457,37 @@ export default function Admin() {
                           <TableCell>
                             {format(new Date(u.createdAt), "dd/MM/yyyy", { locale: ptBR })}
                           </TableCell>
-                          <TableCell className="text-right">
+                          <TableCell className="text-right space-x-1">
+                            {/* Change Role Button */}
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedUserForRole(u);
+                                setNewRole(u.roles.find(r => r !== "super_admin") || "member");
+                              }}
+                              title="Alterar papel"
+                            >
+                              <UserCog className="h-4 w-4" />
+                            </Button>
+
+                            {/* Transfer User Button */}
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedUserForTransfer(u);
+                                setNewCompanyId("");
+                              }}
+                              title="Transferir para outra empresa"
+                            >
+                              <ArrowRightLeft className="h-4 w-4" />
+                            </Button>
+
+                            {/* Promote to Admin Button */}
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
-                                <Button variant="ghost" size="sm">
+                                <Button variant="ghost" size="sm" title="Tornar Super Admin">
                                   <ShieldCheck className="h-4 w-4" />
                                 </Button>
                               </AlertDialogTrigger>
@@ -411,6 +508,32 @@ export default function Admin() {
                                 </AlertDialogFooter>
                               </AlertDialogContent>
                             </AlertDialog>
+
+                            {/* Delete User Button */}
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="ghost" size="sm" className="text-destructive" title="Excluir usuário">
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Excluir usuário?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    {u.fullName || u.email} será removido permanentemente do sistema. Esta ação não pode ser desfeita.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                    onClick={() => handleDeleteUser(u.id, u.fullName || u.email)}
+                                  >
+                                    Excluir
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
                           </TableCell>
                         </TableRow>
                       ))
@@ -419,6 +542,70 @@ export default function Admin() {
                 </Table>
               </CardContent>
             </Card>
+
+            {/* Change Role Dialog */}
+            <AlertDialog open={!!selectedUserForRole} onOpenChange={(open) => !open && setSelectedUserForRole(null)}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Alterar papel do usuário</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Selecione o novo papel para {selectedUserForRole?.fullName || selectedUserForRole?.email}
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <div className="py-4">
+                  <Select value={newRole} onValueChange={setNewRole}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione um papel" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="member">Membro</SelectItem>
+                      <SelectItem value="admin">Administrador</SelectItem>
+                      <SelectItem value="company_owner">Dono da Empresa</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleChangeRole} disabled={!newRole}>
+                    Alterar
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+
+            {/* Transfer User Dialog */}
+            <AlertDialog open={!!selectedUserForTransfer} onOpenChange={(open) => !open && setSelectedUserForTransfer(null)}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Transferir usuário</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Selecione a empresa de destino para {selectedUserForTransfer?.fullName || selectedUserForTransfer?.email}
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <div className="py-4">
+                  <Select value={newCompanyId} onValueChange={setNewCompanyId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione uma empresa" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {companies
+                        .filter(c => c.id !== selectedUserForTransfer?.companyId)
+                        .map((company) => (
+                          <SelectItem key={company.id} value={company.id}>
+                            {company.name}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleTransferUser} disabled={!newCompanyId}>
+                    Transferir
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </TabsContent>
 
           {/* Companies Tab */}
