@@ -57,9 +57,39 @@ Deno.serve(async (req) => {
     const body: SearchRequest = await req.json();
     const { query, location, companyId, searchId } = body;
 
+    // Validate required fields
     if (!query || !location || !companyId || !searchId) {
       return new Response(
         JSON.stringify({ error: "Missing required fields" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Input validation - enforce length limits and sanitize inputs
+    const maxQueryLength = 200;
+    const maxLocationLength = 100;
+
+    if (typeof query !== 'string' || typeof location !== 'string') {
+      return new Response(
+        JSON.stringify({ error: "Query and location must be strings" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (query.length > maxQueryLength || location.length > maxLocationLength) {
+      return new Response(
+        JSON.stringify({ error: `Query must be under ${maxQueryLength} characters and location under ${maxLocationLength} characters` }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Sanitize inputs - remove potentially dangerous characters
+    const sanitizedQuery = query.trim().replace(/[<>"']/g, '');
+    const sanitizedLocation = location.trim().replace(/[<>"']/g, '');
+
+    if (!sanitizedQuery || !sanitizedLocation) {
+      return new Response(
+        JSON.stringify({ error: "Query and location cannot be empty after sanitization" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -87,7 +117,7 @@ Deno.serve(async (req) => {
       // Use real SerpAPI
       console.log("Using SerpAPI for search...");
       
-      const searchQuery = `${query} em ${location}`;
+      const searchQuery = `${sanitizedQuery} em ${sanitizedLocation}`;
       const serpApiUrl = `https://serpapi.com/search.json?engine=google_maps&q=${encodeURIComponent(searchQuery)}&api_key=${serpapiKey}&hl=pt-br&gl=br`;
 
       try {
