@@ -65,6 +65,25 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Authorization check: Verify user belongs to the requested company
+    const { data: userProfile, error: profileError } = await supabase
+      .from('profiles')
+      .select('company_id')
+      .eq('id', user.id)
+      .single();
+
+    if (profileError || !userProfile || userProfile.company_id !== companyId) {
+      console.warn('Authorization violation attempt:', { 
+        userId: user.id, 
+        userCompany: userProfile?.company_id || 'none',
+        requestedCompany: companyId 
+      });
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // Input validation - enforce length limits and sanitize inputs
     const maxQueryLength = 200;
     const maxLocationLength = 100;
