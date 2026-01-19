@@ -73,11 +73,8 @@ Deno.serve(async (req) => {
       .single();
 
     if (profileError || !userProfile || userProfile.company_id !== companyId) {
-      console.warn('Authorization violation attempt:', { 
-        userId: user.id, 
-        userCompany: userProfile?.company_id || 'none',
-        requestedCompany: companyId 
-      });
+      // Log security event with masked IDs for privacy
+      console.warn('Authorization violation attempt detected');
       return new Response(
         JSON.stringify({ error: "Unauthorized" }),
         { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -201,11 +198,7 @@ Deno.serve(async (req) => {
         if (settings?.waha_api_url && settings?.waha_api_key && settings?.waha_session) {
           const wahaSession = settings.waha_session;
           
-          console.log("WAHA Configuration found:");
-          console.log("  - URL:", settings.waha_api_url);
-          console.log("  - Session:", wahaSession);
-          console.log("  - API Key present:", Boolean(settings.waha_api_key));
-          console.log("Validating WhatsApp numbers for", leads.filter(l => l.phone).length, "leads with phone numbers...");
+          console.log("WAHA Configuration found - validating", leads.filter(l => l.phone).length, "leads with phone numbers");
           
           let validatedCount = 0;
           let whatsappFoundCount = 0;
@@ -219,14 +212,8 @@ Deno.serve(async (req) => {
                 // Add country code if not present
                 const phoneWithCountry = cleanPhone.startsWith("55") ? cleanPhone : `55${cleanPhone}`;
                 
-                console.log(`Checking WhatsApp for: ${lead.phone} -> ${phoneWithCountry}`);
-                
                 // WAHA uses GET request with query parameters - use configured session
                 const wahaUrl = `${settings.waha_api_url}/api/contacts/check-exists?phone=${phoneWithCountry}&session=${wahaSession}`;
-                
-                console.log("  WAHA Request URL:", wahaUrl);
-                
-                console.log("  WAHA Request URL:", wahaUrl);
                 
                 const wahaResponse = await fetch(wahaUrl, {
                   method: "GET",
@@ -236,27 +223,21 @@ Deno.serve(async (req) => {
                   },
                 });
 
-                console.log("  WAHA Response Status:", wahaResponse.status);
-                
                 if (wahaResponse.ok) {
                   const wahaData = await wahaResponse.json();
-                  console.log("  WAHA Response Data:", JSON.stringify(wahaData));
-                  
                   // WAHA returns { numberExists: true/false, chatId: "..." }
                   const exists = wahaData.numberExists === true;
                   
                   lead.has_whatsapp = exists;
                   validatedCount++;
                   if (exists) whatsappFoundCount++;
-                  
-                  console.log(`  Result: ${exists ? "HAS WhatsApp" : "NO WhatsApp"}`);
                 } else {
-                  const errorText = await wahaResponse.text();
-                  console.error("  WAHA Error Response:", wahaResponse.status, errorText);
+                  // Log error without exposing response details
+                  console.error("WAHA validation failed with status:", wahaResponse.status);
                   errorCount++;
                 }
               } catch (wahaError) {
-                console.error("WAHA validation error for", lead.phone, ":", wahaError);
+                console.error("WAHA validation error occurred");
                 errorCount++;
                 // Continue without WhatsApp validation
               }
@@ -269,9 +250,6 @@ Deno.serve(async (req) => {
           console.log(`  - Errors: ${errorCount}`);
         } else {
           console.log("WAHA not configured - skipping WhatsApp validation");
-          console.log("  - waha_api_url:", settings?.waha_api_url || "NOT SET");
-          console.log("  - waha_api_key:", settings?.waha_api_key ? "SET" : "NOT SET");
-          console.log("  - waha_session:", settings?.waha_session || "NOT SET");
         }
       } catch (serpError) {
         console.error("SerpAPI request error:", serpError);

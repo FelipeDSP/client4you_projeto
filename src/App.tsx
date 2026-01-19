@@ -3,6 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import React from "react";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { SubscriptionProvider } from "@/hooks/useSubscription";
 import Login from "./pages/Login";
@@ -16,10 +17,44 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
+function ProtectedRoute({ children, requireAdmin = false }: { children: React.ReactNode; requireAdmin?: boolean }) {
   const { user, isLoading } = useAuth();
+  const [isAdmin, setIsAdmin] = React.useState<boolean | null>(null);
+  const [checkingAdmin, setCheckingAdmin] = React.useState(requireAdmin);
 
-  if (isLoading) {
+  React.useEffect(() => {
+    async function checkAdminStatus() {
+      if (!requireAdmin || !user) {
+        setIsAdmin(false);
+        setCheckingAdmin(false);
+        return;
+      }
+
+      try {
+        const { supabase } = await import("@/integrations/supabase/client");
+        const { data, error } = await supabase.rpc('has_role', {
+          _role: 'super_admin',
+          _user_id: user.id
+        });
+
+        if (error) {
+          console.error("Error checking admin status:", error);
+          setIsAdmin(false);
+        } else {
+          setIsAdmin(data === true);
+        }
+      } catch (err) {
+        console.error("Failed to check admin status:", err);
+        setIsAdmin(false);
+      } finally {
+        setCheckingAdmin(false);
+      }
+    }
+
+    checkAdminStatus();
+  }, [requireAdmin, user]);
+
+  if (isLoading || checkingAdmin) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
@@ -29,6 +64,10 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
   if (!user) {
     return <Navigate to="/" replace />;
+  }
+
+  if (requireAdmin && !isAdmin) {
+    return <Navigate to="/dashboard" replace />;
   }
 
   return <>{children}</>;
@@ -105,7 +144,7 @@ const AppRoutes = () => (
     <Route
       path="/admin"
       element={
-        <ProtectedRoute>
+        <ProtectedRoute requireAdmin>
           <Admin />
         </ProtectedRoute>
       }
