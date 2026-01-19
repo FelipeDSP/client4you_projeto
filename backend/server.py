@@ -2,7 +2,6 @@ from fastapi import FastAPI, APIRouter, HTTPException, UploadFile, File, Form, B
 from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
-from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
 from pathlib import Path
@@ -10,13 +9,14 @@ from typing import List, Optional
 from datetime import datetime
 import pandas as pd
 import io
+import uuid
 
 from models import (
-    WahaConfig, WahaConfigCreate,
     Campaign, CampaignCreate, CampaignUpdate, CampaignStatus, CampaignStats, CampaignWithStats,
     Contact, ContactStatus, MessageLog, CampaignSettings, CampaignMessage
 )
 from waha_service import WahaService
+from supabase_service import get_supabase_service, SupabaseService
 from campaign_worker import (
     start_campaign_worker, stop_campaign_worker, is_campaign_running
 )
@@ -24,11 +24,6 @@ from campaign_worker import (
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
-
-# MongoDB connection
-mongo_url = os.environ['MONGO_URL']
-client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ.get('DB_NAME', 'lead_dispatcher')]
 
 # Create the main app
 app = FastAPI(title="Lead Dispatcher API")
@@ -45,14 +40,9 @@ logger = logging.getLogger(__name__)
 
 
 # ========== Helper Functions ==========
-async def get_waha_service(user_id: str) -> Optional[WahaService]:
-    """Get WAHA service for a user"""
-    config_data = await db.waha_configs.find_one({"user_id": user_id})
-    if not config_data:
-        return None
-    
-    config = WahaConfig(**config_data)
-    return WahaService(config.waha_url, config.api_key, config.session_name)
+def get_db() -> SupabaseService:
+    """Get Supabase service instance"""
+    return get_supabase_service()
 
 
 def calculate_campaign_stats(campaign: dict) -> CampaignStats:
@@ -73,121 +63,98 @@ def calculate_campaign_stats(campaign: dict) -> CampaignStats:
     )
 
 
-# ========== Root Endpoint ==========
-@api_router.get("/")
-async def root():
-    return {"message": "Lead Dispatcher API", "version": "1.0.0"}
-
-
-# ========== WAHA Config Endpoints ==========
-@api_router.post("/waha/config")
-async def save_waha_config(config: WahaConfigCreate, user_id: str = "default"):
-    """Save or update WAHA configuration"""
-    existing = await db.waha_configs.find_one({"user_id": user_id})
-    
-    now = datetime.utcnow()
-    
-    if existing:
-        # Update existing
-        await db.waha_configs.update_one(
-            {"user_id": user_id},
-            {
-                "$set": {
-                    "waha_url": config.waha_url,
-                    "api_key": config.api_key,
-                    "session_name": config.session_name,
-                    "updated_at": now
-                }
-            }
-        )
-        config_obj = WahaConfig(**{**existing, **config.dict(), "updated_at": now})
-    else:
-        # Create new
-        config_obj = WahaConfig(
-            user_id=user_id,
-            **config.dict()
-        )
-        await db.waha_configs.insert_one(config_obj.dict())
-    
-    return {"success": True, "config": config_obj}
-
-
-@api_router.get("/waha/config")
-async def get_waha_config(user_id: str = "default"):
-    """Get WAHA configuration"""
-    config_data = await db.waha_configs.find_one({"user_id": user_id})
-    
-    if not config_data:
-        return {"config": None}
-    
-    config = WahaConfig(**config_data)
-    # Hide API key in response
+def campaign_to_response(campaign_data: dict) -> dict:
+    """Convert database campaign to response format"""
     return {
-        "config": {
-            "id": config.id,
-            "waha_url": config.waha_url,
-            "api_key": config.api_key[:10] + "..." if len(config.api_key) > 10 else "***",
-            "session_name": config.session_name,
-            "is_connected": config.is_connected,
-            "last_check": config.last_check
-        }
+        "id": campaign_data["id"],
+        "user_id": campaign_data.get("user_id"),
+        "company_id": campaign_data.get("company_id"),
+        "name": campaign_data["name"],
+        "status": campaign_data.get("status", "draft"),
+        "message": {
+            "type": campaign_data.get("message_type", "text"),
+            "text": campaign_data.get("message_text", ""),
+            "media_url": campaign_data.get("media_url"),
+            "media_filename": campaign_data.get("media_filename")
+        },
+        "settings": {
+            "interval_min": campaign_data.get("interval_min", 30),
+            "interval_max": campaign_data.get("interval_max", 60),
+            "start_time": campaign_data.get("start_time"),
+            "end_time": campaign_data.get("end_time"),
+            "daily_limit": campaign_data.get("daily_limit"),
+            "working_days": campaign_data.get("working_days", [0, 1, 2, 3, 4])
+        },
+        "total_contacts": campaign_data.get("total_contacts", 0),
+        "sent_count": campaign_data.get("sent_count", 0),
+        "error_count": campaign_data.get("error_count", 0),
+        "pending_count": campaign_data.get("pending_count", 0),
+        "created_at": campaign_data.get("created_at"),
+        "updated_at": campaign_data.get("updated_at"),
+        "started_at": campaign_data.get("started_at"),
+        "completed_at": campaign_data.get("completed_at")
     }
 
 
-@api_router.post("/waha/test")
-async def test_waha_connection(user_id: str = "default"):
-    """Test WAHA connection"""
-    waha = await get_waha_service(user_id)
-    
-    if not waha:
-        raise HTTPException(status_code=400, detail="Configuração WAHA não encontrada")
-    
-    result = await waha.check_connection()
-    
-    # Update connection status
-    await db.waha_configs.update_one(
-        {"user_id": user_id},
-        {
-            "$set": {
-                "is_connected": result.get("connected", False),
-                "last_check": datetime.utcnow()
-            }
-        }
-    )
-    
-    return result
+# ========== Root Endpoint ==========
+@api_router.get("/")
+async def root():
+    return {"message": "Lead Dispatcher API", "version": "2.0.0", "database": "Supabase"}
 
 
 # ========== Campaign Endpoints ==========
-@api_router.post("/campaigns", response_model=Campaign)
-async def create_campaign(campaign: CampaignCreate, user_id: str = "default"):
+@api_router.post("/campaigns")
+async def create_campaign(campaign: CampaignCreate, company_id: str = None, user_id: str = None):
     """Create a new campaign"""
-    campaign_obj = Campaign(
-        user_id=user_id,
-        name=campaign.name,
-        message=campaign.message,
-        settings=campaign.settings
-    )
+    if not company_id:
+        raise HTTPException(status_code=400, detail="company_id é obrigatório")
     
-    await db.campaigns.insert_one(campaign_obj.dict())
+    db = get_db()
     
-    return campaign_obj
+    campaign_data = {
+        "id": str(uuid.uuid4()),
+        "company_id": company_id,
+        "user_id": user_id,
+        "name": campaign.name,
+        "status": "draft",
+        "message_type": campaign.message.type.value,
+        "message_text": campaign.message.text,
+        "media_url": campaign.message.media_url,
+        "media_filename": campaign.message.media_filename,
+        "interval_min": campaign.settings.interval_min,
+        "interval_max": campaign.settings.interval_max,
+        "start_time": campaign.settings.start_time,
+        "end_time": campaign.settings.end_time,
+        "daily_limit": campaign.settings.daily_limit,
+        "working_days": campaign.settings.working_days,
+        "total_contacts": 0,
+        "sent_count": 0,
+        "error_count": 0,
+        "pending_count": 0
+    }
+    
+    result = await db.create_campaign(campaign_data)
+    
+    if not result:
+        raise HTTPException(status_code=500, detail="Erro ao criar campanha")
+    
+    return campaign_to_response(result)
 
 
 @api_router.get("/campaigns")
-async def list_campaigns(user_id: str = "default", limit: int = 50, skip: int = 0):
-    """List all campaigns for a user"""
-    campaigns_data = await db.campaigns.find(
-        {"user_id": user_id}
-    ).sort("created_at", -1).skip(skip).limit(limit).to_list(limit)
+async def list_campaigns(company_id: str = None, limit: int = 50, skip: int = 0):
+    """List all campaigns for a company"""
+    if not company_id:
+        raise HTTPException(status_code=400, detail="company_id é obrigatório")
+    
+    db = get_db()
+    campaigns_data = await db.get_campaigns_by_company(company_id, limit, skip)
     
     campaigns_with_stats = []
     for c in campaigns_data:
-        campaign = Campaign(**c)
-        stats = calculate_campaign_stats(c)
-        campaign_dict = campaign.dict()
-        campaign_dict["stats"] = stats.dict()
-        campaign_dict["is_worker_running"] = is_campaign_running(campaign.id)
+        campaign_dict = campaign_to_response(c)
+        campaign_dict["stats"] = calculate_campaign_stats(c).dict()
+        campaign_dict["is_worker_running"] = is_campaign_running(c["id"])
         campaigns_with_stats.append(campaign_dict)
     
     return {"campaigns": campaigns_with_stats}
@@ -196,16 +163,16 @@ async def list_campaigns(user_id: str = "default", limit: int = 50, skip: int = 
 @api_router.get("/campaigns/{campaign_id}")
 async def get_campaign(campaign_id: str):
     """Get campaign details"""
-    campaign_data = await db.campaigns.find_one({"id": campaign_id})
+    db = get_db()
+    campaign_data = await db.get_campaign(campaign_id)
     
     if not campaign_data:
         raise HTTPException(status_code=404, detail="Campanha não encontrada")
     
-    campaign = Campaign(**campaign_data)
     stats = calculate_campaign_stats(campaign_data)
     
     return {
-        "campaign": campaign,
+        "campaign": campaign_to_response(campaign_data),
         "stats": stats,
         "is_worker_running": is_campaign_running(campaign_id)
     }
@@ -214,47 +181,57 @@ async def get_campaign(campaign_id: str):
 @api_router.put("/campaigns/{campaign_id}")
 async def update_campaign(campaign_id: str, update: CampaignUpdate):
     """Update campaign"""
-    campaign_data = await db.campaigns.find_one({"id": campaign_id})
+    db = get_db()
+    campaign_data = await db.get_campaign(campaign_id)
     
     if not campaign_data:
         raise HTTPException(status_code=404, detail="Campanha não encontrada")
     
-    update_dict = {k: v for k, v in update.dict().items() if v is not None}
+    update_dict = {}
+    
+    if update.name is not None:
+        update_dict["name"] = update.name
+    
+    if update.message is not None:
+        update_dict["message_type"] = update.message.type.value
+        update_dict["message_text"] = update.message.text
+        update_dict["media_url"] = update.message.media_url
+        update_dict["media_filename"] = update.message.media_filename
+    
+    if update.settings is not None:
+        update_dict["interval_min"] = update.settings.interval_min
+        update_dict["interval_max"] = update.settings.interval_max
+        update_dict["start_time"] = update.settings.start_time
+        update_dict["end_time"] = update.settings.end_time
+        update_dict["daily_limit"] = update.settings.daily_limit
+        update_dict["working_days"] = update.settings.working_days
     
     if update_dict:
-        update_dict["updated_at"] = datetime.utcnow()
-        
-        # Handle nested objects
-        if "message" in update_dict:
-            update_dict["message"] = update_dict["message"].dict() if hasattr(update_dict["message"], 'dict') else update_dict["message"]
-        if "settings" in update_dict:
-            update_dict["settings"] = update_dict["settings"].dict() if hasattr(update_dict["settings"], 'dict') else update_dict["settings"]
-        
-        await db.campaigns.update_one(
-            {"id": campaign_id},
-            {"$set": update_dict}
-        )
+        updated = await db.update_campaign(campaign_id, update_dict)
+        if updated:
+            return campaign_to_response(updated)
     
-    updated = await db.campaigns.find_one({"id": campaign_id})
-    return Campaign(**updated)
+    return campaign_to_response(campaign_data)
 
 
 @api_router.delete("/campaigns/{campaign_id}")
 async def delete_campaign(campaign_id: str):
     """Delete campaign and all associated data"""
+    db = get_db()
+    
     # Stop worker if running
     await stop_campaign_worker(campaign_id)
     
     # Delete contacts
-    await db.contacts.delete_many({"campaign_id": campaign_id})
+    await db.delete_contacts_by_campaign(campaign_id)
     
     # Delete message logs
-    await db.message_logs.delete_many({"campaign_id": campaign_id})
+    await db.delete_message_logs_by_campaign(campaign_id)
     
     # Delete campaign
-    result = await db.campaigns.delete_one({"id": campaign_id})
+    result = await db.delete_campaign(campaign_id)
     
-    if result.deleted_count == 0:
+    if not result:
         raise HTTPException(status_code=404, detail="Campanha não encontrada")
     
     return {"success": True, "message": "Campanha excluída com sucesso"}
@@ -269,7 +246,8 @@ async def upload_contacts(
     name_column: str = Form(default="Nome")
 ):
     """Upload contacts from Excel/CSV file"""
-    campaign_data = await db.campaigns.find_one({"id": campaign_id})
+    db = get_db()
+    campaign_data = await db.get_campaign(campaign_id)
     
     if not campaign_data:
         raise HTTPException(status_code=404, detail="Campanha não encontrada")
@@ -311,7 +289,7 @@ async def upload_contacts(
         )
     
     # Delete existing contacts for this campaign
-    await db.contacts.delete_many({"campaign_id": campaign_id})
+    await db.delete_contacts_by_campaign(campaign_id)
     
     # Process contacts
     contacts = []
@@ -335,34 +313,30 @@ async def upload_contacts(
                 if pd.notna(value):
                     extra_data[col] = str(value)
         
-        contact = Contact(
-            campaign_id=campaign_id,
-            name=name,
-            phone=phone,
-            email=extra_data.get("Email") or extra_data.get("email"),
-            category=extra_data.get("Categoria") or extra_data.get("categoria") or extra_data.get("Category"),
-            extra_data=extra_data
-        )
-        contacts.append(contact.dict())
+        contact = {
+            "id": str(uuid.uuid4()),
+            "campaign_id": campaign_id,
+            "name": name,
+            "phone": phone,
+            "email": extra_data.get("Email") or extra_data.get("email"),
+            "category": extra_data.get("Categoria") or extra_data.get("categoria") or extra_data.get("Category"),
+            "extra_data": extra_data,
+            "status": "pending"
+        }
+        contacts.append(contact)
     
     # Insert contacts
     if contacts:
-        await db.contacts.insert_many(contacts)
+        await db.create_contacts(contacts)
     
     # Update campaign counts
-    await db.campaigns.update_one(
-        {"id": campaign_id},
-        {
-            "$set": {
-                "total_contacts": len(contacts),
-                "pending_count": len(contacts),
-                "sent_count": 0,
-                "error_count": 0,
-                "status": CampaignStatus.READY.value,
-                "updated_at": datetime.utcnow()
-            }
-        }
-    )
+    await db.update_campaign(campaign_id, {
+        "total_contacts": len(contacts),
+        "pending_count": len(contacts),
+        "sent_count": 0,
+        "error_count": 0,
+        "status": "ready"
+    })
     
     return {
         "success": True,
@@ -382,16 +356,13 @@ async def get_campaign_contacts(
     skip: int = 0
 ):
     """Get contacts for a campaign"""
-    query = {"campaign_id": campaign_id}
+    db = get_db()
     
-    if status:
-        query["status"] = status
-    
-    contacts_data = await db.contacts.find(query).skip(skip).limit(limit).to_list(limit)
-    total = await db.contacts.count_documents(query)
+    contacts_data = await db.get_contacts_by_campaign(campaign_id, status, limit, skip)
+    total = await db.count_contacts(campaign_id, status)
     
     return {
-        "contacts": [Contact(**c) for c in contacts_data],
+        "contacts": contacts_data,
         "total": total,
         "limit": limit,
         "skip": skip
@@ -403,25 +374,24 @@ async def get_campaign_contacts(
 async def start_campaign(
     campaign_id: str, 
     background_tasks: BackgroundTasks, 
-    user_id: str = "default",
+    company_id: str = None,
     waha_url: str = None,
     waha_api_key: str = None,
     waha_session: str = "default"
 ):
     """Start campaign message dispatch"""
-    campaign_data = await db.campaigns.find_one({"id": campaign_id})
+    db = get_db()
+    campaign_data = await db.get_campaign(campaign_id)
     
     if not campaign_data:
         raise HTTPException(status_code=404, detail="Campanha não encontrada")
-    
-    campaign = Campaign(**campaign_data)
     
     # Check if already running
     if is_campaign_running(campaign_id):
         raise HTTPException(status_code=400, detail="Campanha já está em execução")
     
     # Check if has contacts
-    if campaign.total_contacts == 0:
+    if campaign_data.get("total_contacts", 0) == 0:
         raise HTTPException(status_code=400, detail="Campanha não tem contatos. Faça upload primeiro.")
     
     # Check if WAHA config was provided
@@ -443,16 +413,10 @@ async def start_campaign(
         )
     
     # Update campaign status
-    await db.campaigns.update_one(
-        {"id": campaign_id},
-        {
-            "$set": {
-                "status": CampaignStatus.RUNNING.value,
-                "started_at": datetime.utcnow(),
-                "updated_at": datetime.utcnow()
-            }
-        }
-    )
+    await db.update_campaign(campaign_id, {
+        "status": "running",
+        "started_at": datetime.utcnow().isoformat()
+    })
     
     # Start worker in background
     await start_campaign_worker(db, campaign_id, waha)
@@ -463,7 +427,8 @@ async def start_campaign(
 @api_router.post("/campaigns/{campaign_id}/pause")
 async def pause_campaign(campaign_id: str):
     """Pause campaign"""
-    campaign_data = await db.campaigns.find_one({"id": campaign_id})
+    db = get_db()
+    campaign_data = await db.get_campaign(campaign_id)
     
     if not campaign_data:
         raise HTTPException(status_code=404, detail="Campanha não encontrada")
@@ -472,15 +437,7 @@ async def pause_campaign(campaign_id: str):
     await stop_campaign_worker(campaign_id)
     
     # Update status
-    await db.campaigns.update_one(
-        {"id": campaign_id},
-        {
-            "$set": {
-                "status": CampaignStatus.PAUSED.value,
-                "updated_at": datetime.utcnow()
-            }
-        }
-    )
+    await db.update_campaign(campaign_id, {"status": "paused"})
     
     return {"success": True, "message": "Campanha pausada"}
 
@@ -488,7 +445,8 @@ async def pause_campaign(campaign_id: str):
 @api_router.post("/campaigns/{campaign_id}/cancel")
 async def cancel_campaign(campaign_id: str):
     """Cancel campaign"""
-    campaign_data = await db.campaigns.find_one({"id": campaign_id})
+    db = get_db()
+    campaign_data = await db.get_campaign(campaign_id)
     
     if not campaign_data:
         raise HTTPException(status_code=404, detail="Campanha não encontrada")
@@ -497,15 +455,7 @@ async def cancel_campaign(campaign_id: str):
     await stop_campaign_worker(campaign_id)
     
     # Update status
-    await db.campaigns.update_one(
-        {"id": campaign_id},
-        {
-            "$set": {
-                "status": CampaignStatus.CANCELLED.value,
-                "updated_at": datetime.utcnow()
-            }
-        }
-    )
+    await db.update_campaign(campaign_id, {"status": "cancelled"})
     
     return {"success": True, "message": "Campanha cancelada"}
 
@@ -513,7 +463,8 @@ async def cancel_campaign(campaign_id: str):
 @api_router.post("/campaigns/{campaign_id}/reset")
 async def reset_campaign(campaign_id: str):
     """Reset campaign - mark all contacts as pending again"""
-    campaign_data = await db.campaigns.find_one({"id": campaign_id})
+    db = get_db()
+    campaign_data = await db.get_campaign(campaign_id)
     
     if not campaign_data:
         raise HTTPException(status_code=404, detail="Campanha não encontrada")
@@ -522,38 +473,23 @@ async def reset_campaign(campaign_id: str):
     await stop_campaign_worker(campaign_id)
     
     # Reset all contacts to pending
-    await db.contacts.update_many(
-        {"campaign_id": campaign_id},
-        {
-            "$set": {
-                "status": ContactStatus.PENDING.value,
-                "error_message": None,
-                "sent_at": None
-            }
-        }
-    )
+    await db.reset_contacts_status(campaign_id)
     
     # Update campaign counts
-    total = await db.contacts.count_documents({"campaign_id": campaign_id})
+    total = await db.count_contacts(campaign_id)
     
-    await db.campaigns.update_one(
-        {"id": campaign_id},
-        {
-            "$set": {
-                "status": CampaignStatus.READY.value,
-                "total_contacts": total,
-                "pending_count": total,
-                "sent_count": 0,
-                "error_count": 0,
-                "started_at": None,
-                "completed_at": None,
-                "updated_at": datetime.utcnow()
-            }
-        }
-    )
+    await db.update_campaign(campaign_id, {
+        "status": "ready",
+        "total_contacts": total,
+        "pending_count": total,
+        "sent_count": 0,
+        "error_count": 0,
+        "started_at": None,
+        "completed_at": None
+    })
     
     # Clear message logs
-    await db.message_logs.delete_many({"campaign_id": campaign_id})
+    await db.delete_message_logs_by_campaign(campaign_id)
     
     return {"success": True, "message": "Campanha resetada"}
 
@@ -567,16 +503,13 @@ async def get_message_logs(
     skip: int = 0
 ):
     """Get message logs for a campaign"""
-    query = {"campaign_id": campaign_id}
+    db = get_db()
     
-    if status:
-        query["status"] = status
-    
-    logs_data = await db.message_logs.find(query).sort("sent_at", -1).skip(skip).limit(limit).to_list(limit)
-    total = await db.message_logs.count_documents(query)
+    logs_data = await db.get_message_logs(campaign_id, status, limit, skip)
+    total = await db.count_message_logs(campaign_id, status)
     
     return {
-        "logs": [MessageLog(**l) for l in logs_data],
+        "logs": logs_data,
         "total": total,
         "limit": limit,
         "skip": skip
@@ -585,38 +518,15 @@ async def get_message_logs(
 
 # ========== Dashboard Stats ==========
 @api_router.get("/dashboard/stats")
-async def get_dashboard_stats(user_id: str = "default"):
+async def get_dashboard_stats(company_id: str = None):
     """Get dashboard statistics"""
-    # Total campaigns
-    total_campaigns = await db.campaigns.count_documents({"user_id": user_id})
+    if not company_id:
+        raise HTTPException(status_code=400, detail="company_id é obrigatório")
     
-    # Active campaigns
-    active_campaigns = await db.campaigns.count_documents({
-        "user_id": user_id,
-        "status": CampaignStatus.RUNNING.value
-    })
+    db = get_db()
+    stats = await db.get_dashboard_stats(company_id)
     
-    # Total messages sent (all time)
-    pipeline = [
-        {"$match": {"user_id": user_id}},
-        {"$group": {"_id": None, "total": {"$sum": "$sent_count"}}}
-    ]
-    result = await db.campaigns.aggregate(pipeline).to_list(1)
-    total_sent = result[0]["total"] if result else 0
-    
-    # Messages sent today
-    today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-    today_sent = await db.message_logs.count_documents({
-        "status": ContactStatus.SENT.value,
-        "sent_at": {"$gte": today_start}
-    })
-    
-    return {
-        "total_campaigns": total_campaigns,
-        "active_campaigns": active_campaigns,
-        "total_messages_sent": total_sent,
-        "messages_sent_today": today_sent
-    }
+    return stats
 
 
 # Include the router in the main app
@@ -629,8 +539,3 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
-@app.on_event("shutdown")
-async def shutdown_db_client():
-    client.close()
