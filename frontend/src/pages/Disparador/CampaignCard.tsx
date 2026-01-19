@@ -42,6 +42,7 @@ interface CampaignCardProps {
   campaign: Campaign;
   onViewLogs: (campaignId: string) => void;
   wahaConfig?: { url: string; apiKey: string; session: string };
+  onRefresh?: () => void;
 }
 
 const statusConfig = {
