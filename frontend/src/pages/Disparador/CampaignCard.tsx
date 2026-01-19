@@ -54,29 +54,37 @@ const statusConfig = {
   cancelled: { label: "Cancelada", variant: "destructive" as const, icon: XCircle },
 };
 
-export function CampaignCard({ campaign, onViewLogs, wahaConfig }: CampaignCardProps) {
-  const { startCampaign, pauseCampaign, resetCampaign, deleteCampaign, uploadContacts } = useCampaigns();
+export function CampaignCard({ campaign, onViewLogs, wahaConfig, onRefresh }: CampaignCardProps) {
+  const { startCampaign, pauseCampaign, resetCampaign, deleteCampaign, uploadContacts, fetchCampaigns } = useCampaigns();
   const [isLoading, setIsLoading] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   const status = statusConfig[campaign.status];
   const StatusIcon = status.icon;
 
+  const refreshAfterAction = async () => {
+    await fetchCampaigns();
+    onRefresh?.();
+  };
+
   const handleStart = async () => {
     setIsLoading(true);
     await startCampaign(campaign.id, wahaConfig);
+    await refreshAfterAction();
     setIsLoading(false);
   };
 
   const handlePause = async () => {
     setIsLoading(true);
     await pauseCampaign(campaign.id);
+    await refreshAfterAction();
     setIsLoading(false);
   };
 
   const handleReset = async () => {
     setIsLoading(true);
     await resetCampaign(campaign.id);
+    await refreshAfterAction();
     setIsLoading(false);
   };
 
