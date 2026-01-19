@@ -78,26 +78,47 @@ class BackendTester:
             )
             return False
     
-    async def test_waha_config_get(self) -> bool:
-        """Test GET /api/waha/config - Get WAHA configuration"""
+    async def test_campaign_create(self) -> bool:
+        """Test POST /api/campaigns - Create campaign with company_id"""
         try:
-            response = await self.client.get(
-                f"{BACKEND_URL}/waha/config",
-                params={"user_id": USER_ID}
+            campaign_data = {
+                "name": "Test Campaign Supabase",
+                "message": {
+                    "type": "text",
+                    "text": "Olá {nome}, esta é uma mensagem de teste do sistema migrado para Supabase!"
+                },
+                "settings": {
+                    "interval_min": 30,
+                    "interval_max": 60,
+                    "working_days": [0, 1, 2, 3, 4],
+                    "daily_limit": 100
+                }
+            }
+            
+            response = await self.client.post(
+                f"{BACKEND_URL}/campaigns",
+                params={"company_id": COMPANY_ID},
+                json=campaign_data
             )
             
-            if response.status_code == 200:
+            if response.status_code in [200, 201]:
                 data = response.json()
-                has_config = "config" in data
+                has_id = "id" in data
+                has_company_id = data.get("company_id") == COMPANY_ID
+                success = has_id and has_company_id
+                
+                if has_id:
+                    self.campaign_id = data["id"]
+                
                 self.log_test(
-                    "GET /api/waha/config - Get configuration",
-                    has_config,
-                    f"Status: {response.status_code}, Has config: {has_config}"
+                    "POST /api/campaigns - Create campaign",
+                    success,
+                    f"Status: {response.status_code}, Campaign ID: {data.get('id', 'None')}, Company ID: {data.get('company_id')}"
                 )
-                return has_config
+                return success
             else:
                 self.log_test(
-                    "GET /api/waha/config - Get configuration",
+                    "POST /api/campaigns - Create campaign",
                     False,
                     f"Status: {response.status_code}",
                     response.text
@@ -106,7 +127,7 @@ class BackendTester:
                 
         except Exception as e:
             self.log_test(
-                "GET /api/waha/config - Get configuration",
+                "POST /api/campaigns - Create campaign",
                 False,
                 f"Exception: {str(e)}"
             )
