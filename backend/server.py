@@ -400,7 +400,14 @@ async def get_campaign_contacts(
 
 # ========== Campaign Control ==========
 @api_router.post("/campaigns/{campaign_id}/start")
-async def start_campaign(campaign_id: str, background_tasks: BackgroundTasks, user_id: str = "default"):
+async def start_campaign(
+    campaign_id: str, 
+    background_tasks: BackgroundTasks, 
+    user_id: str = "default",
+    waha_url: str = None,
+    waha_api_key: str = None,
+    waha_session: str = "default"
+):
     """Start campaign message dispatch"""
     campaign_data = await db.campaigns.find_one({"id": campaign_id})
     
@@ -417,10 +424,15 @@ async def start_campaign(campaign_id: str, background_tasks: BackgroundTasks, us
     if campaign.total_contacts == 0:
         raise HTTPException(status_code=400, detail="Campanha não tem contatos. Faça upload primeiro.")
     
-    # Get WAHA service
-    waha = await get_waha_service(user_id)
-    if not waha:
-        raise HTTPException(status_code=400, detail="Configuração WAHA não encontrada")
+    # Check if WAHA config was provided
+    if not waha_url or not waha_api_key:
+        raise HTTPException(
+            status_code=400, 
+            detail="Configuração WAHA não fornecida. Configure em Configurações antes de iniciar."
+        )
+    
+    # Create WAHA service with provided config
+    waha = WahaService(waha_url, waha_api_key, waha_session)
     
     # Test connection
     connection = await waha.check_connection()
