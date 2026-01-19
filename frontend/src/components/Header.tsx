@@ -48,17 +48,16 @@ export function Header() {
             {navItems.map((item) => {
               const isActive = location.pathname === item.href;
               return (
-                <Button
+                <Link
                   key={item.href}
-                  variant={isActive ? "secondary" : "ghost"}
-                  size="sm"
-                  asChild
+                  to={item.href}
+                  className={`inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground ${
+                    isActive ? "bg-secondary text-secondary-foreground" : ""
+                  }`}
                 >
-                  <Link to={item.href} className="gap-2">
-                    <item.icon className="h-4 w-4" />
-                    {item.label}
-                  </Link>
-                </Button>
+                  <item.icon className="h-4 w-4" />
+                  {item.label}
+                </Link>
               );
             })}
           </nav>
