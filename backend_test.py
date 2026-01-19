@@ -354,19 +354,17 @@ class BackendTester:
             return False
     
     async def run_all_tests(self):
-        """Run all backend tests"""
+        """Run all backend tests for Supabase migration"""
         print("=" * 60)
-        print("BACKEND API TESTS - WhatsApp Message Dispatcher")
+        print("BACKEND API TESTS - Supabase Migration")
         print("=" * 60)
         print(f"Backend URL: {BACKEND_URL}")
-        print(f"User ID: {USER_ID}")
+        print(f"Company ID: {COMPANY_ID}")
         print()
         
         # Test sequence according to review request
         tests = [
-            ("API Root", self.test_api_root),
-            ("WAHA Config Save", self.test_waha_config_save),
-            ("WAHA Config Get", self.test_waha_config_get),
+            ("API Root (Version & Database)", self.test_api_root),
             ("Campaign Create", self.test_campaign_create),
             ("Campaigns List", self.test_campaigns_list),
             ("Campaign Get", self.test_campaign_get),
