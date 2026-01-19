@@ -138,7 +138,9 @@ export default function Admin() {
       }
     }
     
-    if (!success) {
+    if (success) {
+      await forceRefresh(); // Auto refresh after change
+    } else {
       toast({
         title: "Erro",
         description: "Não foi possível alterar o status de admin.",
@@ -165,6 +167,7 @@ export default function Admin() {
         title: "Plano atualizado",
         description: `${userName} agora está no plano ${planName}.`,
       });
+      await forceRefresh(); // Auto refresh after change
     } else {
       toast({
         title: "Erro",
@@ -181,6 +184,7 @@ export default function Admin() {
         title: "Usuário excluído",
         description: `${userName} foi removido do sistema.`,
       });
+      await forceRefresh(); // Auto refresh after change
     } else {
       toast({
         title: "Erro",
