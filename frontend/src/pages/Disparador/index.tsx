@@ -5,6 +5,7 @@ import { CampaignCard } from "./CampaignCard";
 import { MessageLogsDialog } from "./MessageLogsDialog";
 import { useCampaigns, Campaign } from "@/hooks/useCampaigns";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
+import { useSubscription } from "@/hooks/useSubscription";
 import {
   MessageSquare,
   Send,
@@ -14,6 +15,8 @@ import {
   RefreshCw,
   AlertCircle,
   Settings,
+  Lock,
+  Crown,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -22,8 +25,12 @@ import { Link } from "react-router-dom";
 export default function Disparador() {
   const { campaigns, isLoading, fetchCampaigns } = useCampaigns();
   const { settings, hasWahaConfig, isLoading: isLoadingSettings } = useCompanySettings();
+  const { currentPlan, isLoading: isLoadingSubscription } = useSubscription();
   const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
+
+  // Check if user has access to Disparador (professional or business plan)
+  const hasDisparadorAccess = currentPlan.id === "professional" || currentPlan.id === "business";
 
   // WAHA config from company settings
   const wahaConfig = hasWahaConfig && settings ? {
@@ -36,13 +43,13 @@ export default function Disparador() {
   useEffect(() => {
     const hasRunning = campaigns.some((c) => c.status === "running");
     
-    if (autoRefresh && hasRunning) {
+    if (autoRefresh && hasRunning && hasDisparadorAccess) {
       const interval = setInterval(() => {
         fetchCampaigns();
       }, 5000);
       return () => clearInterval(interval);
     }
-  }, [autoRefresh, campaigns, fetchCampaigns]);
+  }, [autoRefresh, campaigns, fetchCampaigns, hasDisparadorAccess]);
 
   const selectedCampaign = campaigns.find((c) => c.id === selectedCampaignId);
 
@@ -54,13 +61,47 @@ export default function Disparador() {
     totalContacts: campaigns.reduce((sum, c) => sum + c.total_contacts, 0),
   };
 
-  if (isLoadingSettings) {
+  if (isLoadingSettings || isLoadingSubscription) {
     return (
       <div className="min-h-screen bg-background">
         <Header />
         <div className="flex min-h-[60vh] items-center justify-center">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
+      </div>
+    );
+  }
+
+  // Show upgrade required page if user doesn't have access
+  if (!hasDisparadorAccess) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <main className="container py-12">
+          <Card className="max-w-2xl mx-auto">
+            <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+              <div className="rounded-full bg-yellow-500/10 p-4 mb-6">
+                <Lock className="h-12 w-12 text-yellow-600" />
+              </div>
+              <h2 className="text-2xl font-bold mb-2">Acesso Restrito</h2>
+              <p className="text-muted-foreground mb-6 max-w-md">
+                O Disparador de Mensagens WhatsApp está disponível apenas para os planos 
+                <strong className="text-foreground"> Professional</strong> e 
+                <strong className="text-foreground"> Business</strong>.
+              </p>
+              <div className="bg-muted p-4 rounded-lg mb-6 text-left w-full max-w-sm">
+                <p className="text-sm font-medium mb-2">Seu plano atual:</p>
+                <div className="flex items-center gap-2">
+                  <Crown className="h-5 w-5 text-primary" />
+                  <span className="font-bold">{currentPlan.name}</span>
+                </div>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Entre em contato conosco para fazer upgrade do seu plano.
+              </p>
+            </CardContent>
+          </Card>
+        </main>
       </div>
     );
   }
