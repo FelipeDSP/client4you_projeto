@@ -180,6 +180,18 @@ backend:
         agent: "testing"
         comment: "✅ TESTADO - Serviço WAHA implementado corretamente: WahaService com métodos send_text_message, send_image_message, send_document_message. Normalização de telefone e substituição de variáveis funcionando. Integração com endpoints de controle de campanha."
 
+  - task: "Dashboard Stats API - Estatísticas do dashboard"
+    implemented: true
+    working: true
+    file: "server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTADO - GET /api/dashboard/stats funcionando perfeitamente: retorna total_campaigns, active_campaigns, total_messages_sent, messages_sent_today. Agregações do MongoDB funcionando corretamente."
+
 frontend:
   - task: "Página Disparador - Layout e navegação"
     implemented: true
