@@ -329,23 +329,58 @@ export function useAdmin() {
   const deleteCompany = async (companyId: string): Promise<boolean> => {
     if (!isAdmin) return false;
 
+    // Validate companyId
+    if (!companyId || typeof companyId !== 'string' || companyId.trim() === '') {
+      console.error("Invalid companyId provided");
+      return false;
+    }
+
     try {
-      // Delete in order: leads, search_history, subscriptions, company_settings, profiles, user_roles (via profile cascade), then company
-      // The foreign keys should cascade, but we'll be explicit
+      // First verify the company exists
+      const { data: companyExists, error: checkError } = await supabase
+        .from("companies")
+        .select("id, name")
+        .eq("id", companyId)
+        .single();
+
+      if (checkError || !companyExists) {
+        console.error("Company not found:", companyId);
+        return false;
+      }
+
+      console.log(`Deleting company: ${companyExists.name} (${companyId})`);
+
+      // Delete in order: leads, search_history, subscriptions, company_settings, user_roles, profiles, then company
       
-      // Delete leads
-      await supabase.from("leads").delete().eq("company_id", companyId);
+      // Delete leads for this specific company
+      const { error: leadsError } = await supabase
+        .from("leads")
+        .delete()
+        .eq("company_id", companyId);
+      if (leadsError) console.error("Error deleting leads:", leadsError);
       
-      // Delete search history
-      await supabase.from("search_history").delete().eq("company_id", companyId);
+      // Delete search history for this specific company
+      const { error: historyError } = await supabase
+        .from("search_history")
+        .delete()
+        .eq("company_id", companyId);
+      if (historyError) console.error("Error deleting search history:", historyError);
       
-      // Delete subscriptions
-      await supabase.from("subscriptions").delete().eq("company_id", companyId);
+      // Delete subscriptions for this specific company
+      const { error: subsError } = await supabase
+        .from("subscriptions")
+        .delete()
+        .eq("company_id", companyId);
+      if (subsError) console.error("Error deleting subscriptions:", subsError);
       
-      // Delete company settings
-      await supabase.from("company_settings").delete().eq("company_id", companyId);
+      // Delete company settings for this specific company
+      const { error: settingsError } = await supabase
+        .from("company_settings")
+        .delete()
+        .eq("company_id", companyId);
+      if (settingsError) console.error("Error deleting company settings:", settingsError);
       
-      // Get user IDs for this company to delete their roles
+      // Get user IDs for this specific company to delete their roles
       const { data: companyProfiles } = await supabase
         .from("profiles")
         .select("id")
@@ -353,11 +388,23 @@ export function useAdmin() {
       
       if (companyProfiles && companyProfiles.length > 0) {
         const userIds = companyProfiles.map(p => p.id);
-        await supabase.from("user_roles").delete().in("user_id", userIds);
-        await supabase.from("profiles").delete().eq("company_id", companyId);
+        
+        // Delete roles for these specific users
+        const { error: rolesError } = await supabase
+          .from("user_roles")
+          .delete()
+          .in("user_id", userIds);
+        if (rolesError) console.error("Error deleting user roles:", rolesError);
+        
+        // Delete profiles for this specific company
+        const { error: profilesError } = await supabase
+          .from("profiles")
+          .delete()
+          .eq("company_id", companyId);
+        if (profilesError) console.error("Error deleting profiles:", profilesError);
       }
       
-      // Finally delete the company
+      // Finally delete the company itself
       const { error: companyError } = await supabase
         .from("companies")
         .delete()
@@ -368,6 +415,7 @@ export function useAdmin() {
         return false;
       }
 
+      console.log(`Successfully deleted company: ${companyId}`);
       await fetchCompanies();
       await fetchUsers();
       return true;
