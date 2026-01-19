@@ -41,6 +41,7 @@ import { Campaign, useCampaigns } from "@/hooks/useCampaigns";
 interface CampaignCardProps {
   campaign: Campaign;
   onViewLogs: (campaignId: string) => void;
+  wahaConfig?: { url: string; apiKey: string; session: string };
 }
 
 const statusConfig = {
