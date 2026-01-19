@@ -279,8 +279,9 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Dashboard Stats API - Estatísticas do dashboard"
-  stuck_tasks: []
+    - "Campaign CRUD API - Criar, listar, atualizar, deletar campanhas"
+  stuck_tasks:
+    - "Campaign CRUD API - Criar, listar, atualizar, deletar campanhas"
   test_all: false
   test_priority: "high_first"
 
@@ -291,3 +292,5 @@ agent_communication:
     message: "✅ BACKEND TESTING COMPLETO - Todos os 13 endpoints testados com sucesso (100% pass rate). Testados: WAHA config (save/get/test), Campaign CRUD (create/list/get/delete), Upload de contatos, Controle de campanhas (start/pause/reset), Dashboard stats, Message logs. Todos retornando status 200/201 e dados corretos. Sistema backend totalmente funcional. Logs do supervisor confirmam sem erros. Pronto para uso em produção."
   - agent: "main"
     message: "🔄 MIGRAÇÃO MONGODB → SUPABASE CONCLUÍDA - Disparador agora usa Supabase em vez de MongoDB. Criadas tabelas campaigns, campaign_contacts e message_logs no Supabase. Backend atualizado com supabase_service.py. Frontend atualizado para usar company_id do usuário autenticado. API funcionando: GET /api/ retorna version 2.0.0 com database Supabase. Precisa testar novamente os endpoints com company_id."
+  - agent: "testing"
+    message: "🔍 SUPABASE MIGRATION TESTING - Testados 6 endpoints principais. ✅ FUNCIONANDO: GET /api/ (version 2.0.0, database Supabase), GET /api/campaigns (lista vazia), GET /api/dashboard/stats (stats zeradas). ❌ CRÍTICO: POST /api/campaigns falha com RLS policy violation - backend usando anon key precisa service_role key ou RLS INSERT policy. Erro: 'new row violates row-level security policy for table campaigns'. Solução: usar SUPABASE_SERVICE_ROLE_KEY em vez de anon key para operações backend."
