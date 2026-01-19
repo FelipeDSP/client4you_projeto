@@ -263,7 +263,7 @@ async def upload_contacts(
             # Try different encodings for CSV
             try:
                 df = pd.read_csv(io.BytesIO(content), encoding='utf-8')
-            except:
+            except UnicodeDecodeError:
                 df = pd.read_csv(io.BytesIO(content), encoding='latin-1')
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Erro ao ler arquivo: {str(e)}")
