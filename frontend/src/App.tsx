@@ -143,6 +143,14 @@ const AppRoutes = () => (
       }
     />
     <Route
+      path="/disparador"
+      element={
+        <ProtectedRoute>
+          <Disparador />
+        </ProtectedRoute>
+      }
+    />
+    <Route
       path="/admin"
       element={
         <ProtectedRoute requireAdmin>
