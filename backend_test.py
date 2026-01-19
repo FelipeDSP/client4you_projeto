@@ -168,11 +168,11 @@ class BackendTester:
             return False
     
     async def test_campaigns_list(self) -> bool:
-        """Test GET /api/campaigns - List campaigns"""
+        """Test GET /api/campaigns - List campaigns with company_id"""
         try:
             response = await self.client.get(
                 f"{BACKEND_URL}/campaigns",
-                params={"user_id": USER_ID}
+                params={"company_id": COMPANY_ID}
             )
             
             if response.status_code == 200:
