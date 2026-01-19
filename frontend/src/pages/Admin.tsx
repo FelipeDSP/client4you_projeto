@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Header } from "@/components/Header";
 import { useAdmin } from "@/hooks/useAdmin";
 import { useToast } from "@/hooks/use-toast";
@@ -65,6 +65,15 @@ export default function Admin() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterPlan, setFilterPlan] = useState<string>("all");
+  const [updateKey, setUpdateKey] = useState(0); // Force re-render
+
+  // Force refresh helper
+  const forceRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    await refreshData();
+    setUpdateKey(k => k + 1); // Force re-render
+    setIsRefreshing(false);
+  }, [refreshData]);
 
   if (isLoading) {
     return (
