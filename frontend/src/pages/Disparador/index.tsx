@@ -1,11 +1,10 @@
 import { useState, useEffect } from "react";
 import { Header } from "@/components/Header";
-import { WahaConfigCard } from "./WahaConfigCard";
 import { CreateCampaignDialog } from "./CreateCampaignDialog";
 import { CampaignCard } from "./CampaignCard";
 import { MessageLogsDialog } from "./MessageLogsDialog";
 import { useCampaigns, Campaign } from "@/hooks/useCampaigns";
-import { useWahaConfig } from "@/hooks/useWahaConfig";
+import { useCompanySettings } from "@/hooks/useCompanySettings";
 import {
   MessageSquare,
   Send,
@@ -14,16 +13,24 @@ import {
   Loader2,
   RefreshCw,
   AlertCircle,
+  Settings,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Link } from "react-router-dom";
 
 export default function Disparador() {
   const { campaigns, isLoading, fetchCampaigns } = useCampaigns();
-  const { config } = useWahaConfig();
+  const { settings, hasWahaConfig, isLoading: isLoadingSettings } = useCompanySettings();
   const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
+
+  // WAHA config from company settings
+  const wahaConfig = hasWahaConfig && settings ? {
+    url: settings.wahaApiUrl!,
+    apiKey: settings.wahaApiKey!,
+    session: settings.wahaSession || "default"
+  } : undefined;
 
   // Auto-refresh campaigns every 5 seconds when there are running campaigns
   useEffect(() => {
@@ -46,6 +53,17 @@ export default function Disparador() {
     totalSent: campaigns.reduce((sum, c) => sum + c.sent_count, 0),
     totalContacts: campaigns.reduce((sum, c) => sum + c.total_contacts, 0),
   };
+
+  if (isLoadingSettings) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <div className="flex min-h-[60vh] items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -78,13 +96,21 @@ export default function Disparador() {
         </div>
 
         {/* Warning if WAHA not configured */}
-        {!config && (
+        {!hasWahaConfig && (
           <Card className="border-yellow-500/50 bg-yellow-500/10">
-            <CardContent className="flex items-center gap-3 py-4">
-              <AlertCircle className="h-5 w-5 text-yellow-600" />
-              <p className="text-sm">
-                Configure suas credenciais WAHA abaixo antes de criar campanhas.
-              </p>
+            <CardContent className="flex items-center justify-between py-4">
+              <div className="flex items-center gap-3">
+                <AlertCircle className="h-5 w-5 text-yellow-600" />
+                <p className="text-sm">
+                  Configure suas credenciais WAHA em <strong>Configurações</strong> antes de iniciar campanhas.
+                </p>
+              </div>
+              <Button variant="outline" size="sm" asChild>
+                <Link to="/settings">
+                  <Settings className="h-4 w-4 mr-2" />
+                  Configurações
+                </Link>
+              </Button>
             </CardContent>
           </Card>
         )}
@@ -129,46 +155,34 @@ export default function Disparador() {
           </Card>
         </div>
 
-        {/* Tabs */}
-        <Tabs defaultValue="campaigns" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="campaigns">Campanhas</TabsTrigger>
-            <TabsTrigger value="config">Configuração WAHA</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="campaigns" className="space-y-4">
-            {isLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-              </div>
-            ) : campaigns.length === 0 ? (
-              <Card>
-                <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-                  <MessageSquare className="h-12 w-12 text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold">Nenhuma campanha ainda</h3>
-                  <p className="text-muted-foreground mb-4">
-                    Crie sua primeira campanha para começar a enviar mensagens.
-                  </p>
-                  <CreateCampaignDialog onCreated={() => fetchCampaigns()} />
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {campaigns.map((campaign) => (
-                  <CampaignCard
-                    key={campaign.id}
-                    campaign={campaign}
-                    onViewLogs={(id) => setSelectedCampaignId(id)}
-                  />
-                ))}
-              </div>
-            )}
-          </TabsContent>
-
-          <TabsContent value="config">
-            <WahaConfigCard />
-          </TabsContent>
-        </Tabs>
+        {/* Campaigns List */}
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+        ) : campaigns.length === 0 ? (
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+              <MessageSquare className="h-12 w-12 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold">Nenhuma campanha ainda</h3>
+              <p className="text-muted-foreground mb-4">
+                Crie sua primeira campanha para começar a enviar mensagens.
+              </p>
+              <CreateCampaignDialog onCreated={() => fetchCampaigns()} />
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {campaigns.map((campaign) => (
+              <CampaignCard
+                key={campaign.id}
+                campaign={campaign}
+                onViewLogs={(id) => setSelectedCampaignId(id)}
+                wahaConfig={wahaConfig}
+              />
+            ))}
+          </div>
+        )}
 
         {/* Message Logs Dialog */}
         <MessageLogsDialog
