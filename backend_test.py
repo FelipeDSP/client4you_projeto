@@ -12,7 +12,7 @@ from datetime import datetime
 from typing import Dict, Any, Optional
 
 # Get backend URL from frontend .env
-BACKEND_URL = "https://extract-connect.preview.emergentagent.com/api"
+BACKEND_URL = "https://disparador.preview.emergentagent.com/api"
 USER_ID = "default"
 
 class BackendTester:
