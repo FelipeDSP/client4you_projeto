@@ -18,15 +18,16 @@ import { useAdmin } from "@/hooks/useAdmin";
 export function Header() {
   const { user, logout } = useAuth();
   const { currentPlan } = useSubscription();
-  const { isAdmin } = useAdmin();
+  const { isAdmin, isLoading: isLoadingAdmin } = useAdmin();
   const location = useLocation();
 
+  // Build nav items - only show admin when loaded and is admin
   const navItems = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { href: "/disparador", label: "Disparador", icon: Send },
     { href: "/history", label: "Histórico", icon: History },
     { href: "/pricing", label: "Planos", icon: CreditCard },
-    ...(isAdmin ? [{ href: "/admin", label: "Admin", icon: Crown }] : []),
+    ...(!isLoadingAdmin && isAdmin ? [{ href: "/admin", label: "Admin", icon: Crown }] : []),
   ];
 
   return (
