@@ -53,7 +53,7 @@ const statusConfig = {
   cancelled: { label: "Cancelada", variant: "destructive" as const, icon: XCircle },
 };
 
-export function CampaignCard({ campaign, onViewLogs }: CampaignCardProps) {
+export function CampaignCard({ campaign, onViewLogs, wahaConfig }: CampaignCardProps) {
   const { startCampaign, pauseCampaign, resetCampaign, deleteCampaign, uploadContacts } = useCampaigns();
   const [isLoading, setIsLoading] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
