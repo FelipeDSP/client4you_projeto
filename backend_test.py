@@ -284,11 +284,11 @@ class BackendTester:
             return False
     
     async def test_dashboard_stats(self) -> bool:
-        """Test GET /api/dashboard/stats - Dashboard statistics"""
+        """Test GET /api/dashboard/stats - Dashboard statistics with company_id"""
         try:
             response = await self.client.get(
                 f"{BACKEND_URL}/dashboard/stats",
-                params={"user_id": USER_ID}
+                params={"company_id": COMPANY_ID}
             )
             
             if response.status_code == 200:
@@ -299,7 +299,7 @@ class BackendTester:
                 self.log_test(
                     "GET /api/dashboard/stats - Dashboard statistics",
                     has_all_fields,
-                    f"Status: {response.status_code}, Has all required fields: {has_all_fields}"
+                    f"Status: {response.status_code}, Has all required fields: {has_all_fields}, Stats: {data}"
                 )
                 return has_all_fields
             else:
