@@ -91,6 +91,7 @@ export function CampaignCard({ campaign, onViewLogs, wahaConfig, onRefresh }: Ca
   const handleDelete = async () => {
     setIsLoading(true);
     await deleteCampaign(campaign.id);
+    await refreshAfterAction();
     setIsLoading(false);
     setShowDeleteDialog(false);
   };
@@ -100,6 +101,7 @@ export function CampaignCard({ campaign, onViewLogs, wahaConfig, onRefresh }: Ca
     if (file) {
       setIsLoading(true);
       await uploadContacts(campaign.id, file);
+      await refreshAfterAction();
       setIsLoading(false);
     }
   };
