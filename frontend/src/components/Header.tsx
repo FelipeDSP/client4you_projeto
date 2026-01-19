@@ -1,4 +1,4 @@
-import { MapPin, LogOut, User, History, CreditCard, LayoutDashboard, Settings, Crown, Send } from "lucide-react";
+import { MapPin, LogOut, User, History, LayoutDashboard, Settings, Crown, Send } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
