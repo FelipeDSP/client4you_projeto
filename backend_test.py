@@ -320,19 +320,22 @@ class BackendTester:
             return False
     
     async def test_api_root(self) -> bool:
-        """Test GET /api/ - Root endpoint"""
+        """Test GET /api/ - Root endpoint (should return version 2.0.0 and database Supabase)"""
         try:
             response = await self.client.get(f"{BACKEND_URL}/")
             
             if response.status_code == 200:
                 data = response.json()
-                has_message = "message" in data
+                has_version = data.get("version") == "2.0.0"
+                has_database = data.get("database") == "Supabase"
+                success = has_version and has_database
+                
                 self.log_test(
                     "GET /api/ - Root endpoint",
-                    has_message,
-                    f"Status: {response.status_code}, Message: {data.get('message', 'None')}"
+                    success,
+                    f"Status: {response.status_code}, Version: {data.get('version')}, Database: {data.get('database')}"
                 )
-                return has_message
+                return success
             else:
                 self.log_test(
                     "GET /api/ - Root endpoint",
