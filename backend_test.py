@@ -79,7 +79,7 @@ class BackendTester:
             return False
     
     async def test_campaign_create(self) -> bool:
-        """Test POST /api/campaigns - Create campaign with company_id"""
+        """Test POST /api/campaigns - Create campaign with company_id (RLS Issue Expected)"""
         try:
             campaign_data = {
                 "name": "Test Campaign Supabase",
@@ -116,6 +116,15 @@ class BackendTester:
                     f"Status: {response.status_code}, Campaign ID: {data.get('id', 'None')}, Company ID: {data.get('company_id')}"
                 )
                 return success
+            elif response.status_code == 500:
+                # Check if it's the expected RLS error
+                self.log_test(
+                    "POST /api/campaigns - Create campaign",
+                    False,
+                    f"Status: {response.status_code} - RLS Policy Issue: Backend using anon key needs service role key or RLS policy for inserts",
+                    "Expected: Row Level Security policy violation - need service_role key or INSERT policy for anon role"
+                )
+                return False
             else:
                 self.log_test(
                     "POST /api/campaigns - Create campaign",
