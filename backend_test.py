@@ -133,44 +133,26 @@ class BackendTester:
             )
             return False
     
-    async def test_campaign_create(self) -> bool:
-        """Test POST /api/campaigns - Create campaign"""
+    async def test_campaigns_list(self) -> bool:
+        """Test GET /api/campaigns - List campaigns with company_id"""
         try:
-            campaign_data = {
-                "name": "Test Campaign WhatsApp",
-                "message": {
-                    "type": "text",
-                    "text": "Olá {nome}, esta é uma mensagem de teste do nosso sistema!"
-                },
-                "settings": {
-                    "interval_min": 30,
-                    "interval_max": 60,
-                    "working_days": [0, 1, 2, 3, 4],
-                    "daily_limit": 100
-                }
-            }
-            
-            response = await self.client.post(
+            response = await self.client.get(
                 f"{BACKEND_URL}/campaigns",
-                params={"user_id": USER_ID},
-                json=campaign_data
+                params={"company_id": COMPANY_ID}
             )
             
-            if response.status_code in [200, 201]:
+            if response.status_code == 200:
                 data = response.json()
-                has_id = "id" in data
-                if has_id:
-                    self.campaign_id = data["id"]
-                
+                has_campaigns = "campaigns" in data and isinstance(data["campaigns"], list)
                 self.log_test(
-                    "POST /api/campaigns - Create campaign",
-                    has_id,
-                    f"Status: {response.status_code}, Campaign ID: {data.get('id', 'None')}"
+                    "GET /api/campaigns - List campaigns",
+                    has_campaigns,
+                    f"Status: {response.status_code}, Campaigns count: {len(data.get('campaigns', []))}"
                 )
-                return has_id
+                return has_campaigns
             else:
                 self.log_test(
-                    "POST /api/campaigns - Create campaign",
+                    "GET /api/campaigns - List campaigns",
                     False,
                     f"Status: {response.status_code}",
                     response.text
@@ -179,7 +161,7 @@ class BackendTester:
                 
         except Exception as e:
             self.log_test(
-                "POST /api/campaigns - Create campaign",
+                "GET /api/campaigns - List campaigns",
                 False,
                 f"Exception: {str(e)}"
             )
