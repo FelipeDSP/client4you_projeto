@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Backend API Tests for WhatsApp Message Dispatcher
-Tests all endpoints according to the review request
+Backend API Tests for WhatsApp Message Dispatcher - Supabase Migration
+Tests all endpoints after MongoDB to Supabase migration
 """
 
 import asyncio
@@ -13,7 +13,7 @@ from typing import Dict, Any, Optional
 
 # Get backend URL from frontend .env
 BACKEND_URL = "https://disparador.preview.emergentagent.com/api"
-USER_ID = "default"
+COMPANY_ID = "test-company-id"
 
 class BackendTester:
     def __init__(self):
