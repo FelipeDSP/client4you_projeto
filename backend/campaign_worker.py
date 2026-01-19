@@ -3,13 +3,12 @@ import logging
 import random
 from datetime import datetime, time
 from typing import Optional, Dict, Any
-from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from models import (
-    Campaign, CampaignStatus, Contact, ContactStatus,
-    MessageLog, MessageType, CampaignSettings
+    CampaignStatus, ContactStatus, MessageType, CampaignSettings
 )
 from waha_service import WahaService, replace_variables
+from supabase_service import SupabaseService
 
 logger = logging.getLogger(__name__)
 
@@ -17,19 +16,23 @@ logger = logging.getLogger(__name__)
 running_campaigns: Dict[str, asyncio.Task] = {}
 
 
-def is_within_working_hours(settings: CampaignSettings) -> bool:
+def is_within_working_hours(settings: dict) -> bool:
     """Check if current time is within working hours"""
     now = datetime.now()
     
     # Check working days (0 = Monday, 6 = Sunday)
-    if now.weekday() not in settings.working_days:
+    working_days = settings.get("working_days", [0, 1, 2, 3, 4])
+    if now.weekday() not in working_days:
         return False
     
     # Check time range
-    if settings.start_time and settings.end_time:
+    start_time = settings.get("start_time")
+    end_time = settings.get("end_time")
+    
+    if start_time and end_time:
         try:
-            start = datetime.strptime(settings.start_time, "%H:%M").time()
-            end = datetime.strptime(settings.end_time, "%H:%M").time()
+            start = datetime.strptime(start_time, "%H:%M").time()
+            end = datetime.strptime(end_time, "%H:%M").time()
             current_time = now.time()
             
             if start <= end:
@@ -42,21 +45,8 @@ def is_within_working_hours(settings: CampaignSettings) -> bool:
     return True
 
 
-async def get_daily_sent_count(db: AsyncIOMotorDatabase, campaign_id: str) -> int:
-    """Get number of messages sent today for a campaign"""
-    today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-    
-    count = await db.message_logs.count_documents({
-        "campaign_id": campaign_id,
-        "status": ContactStatus.SENT.value,
-        "sent_at": {"$gte": today_start}
-    })
-    
-    return count
-
-
 async def process_campaign(
-    db: AsyncIOMotorDatabase,
+    db: SupabaseService,
     campaign_id: str,
     waha_service: WahaService
 ):
@@ -66,153 +56,144 @@ async def process_campaign(
     try:
         while True:
             # Refresh campaign data
-            campaign_data = await db.campaigns.find_one({"id": campaign_id})
+            campaign_data = await db.get_campaign(campaign_id)
             if not campaign_data:
                 logger.error(f"Campaign {campaign_id} not found")
                 break
             
-            campaign = Campaign(**campaign_data)
-            
             # Check if campaign should continue
-            if campaign.status != CampaignStatus.RUNNING:
-                logger.info(f"Campaign {campaign_id} is no longer running (status: {campaign.status})")
+            if campaign_data.get("status") != "running":
+                logger.info(f"Campaign {campaign_id} is no longer running (status: {campaign_data.get('status')})")
                 break
             
+            # Build settings dict
+            settings = {
+                "working_days": campaign_data.get("working_days", [0, 1, 2, 3, 4]),
+                "start_time": campaign_data.get("start_time"),
+                "end_time": campaign_data.get("end_time"),
+                "daily_limit": campaign_data.get("daily_limit"),
+                "interval_min": campaign_data.get("interval_min", 30),
+                "interval_max": campaign_data.get("interval_max", 60)
+            }
+            
             # Check working hours
-            if not is_within_working_hours(campaign.settings):
+            if not is_within_working_hours(settings):
                 logger.info(f"Campaign {campaign_id} outside working hours, waiting...")
                 await asyncio.sleep(60)  # Check again in 1 minute
                 continue
             
             # Check daily limit
-            if campaign.settings.daily_limit:
-                daily_count = await get_daily_sent_count(db, campaign_id)
-                if daily_count >= campaign.settings.daily_limit:
-                    logger.info(f"Campaign {campaign_id} reached daily limit ({daily_count}/{campaign.settings.daily_limit})")
+            if settings.get("daily_limit"):
+                daily_count = await db.count_messages_sent_today(campaign_id)
+                if daily_count >= settings["daily_limit"]:
+                    logger.info(f"Campaign {campaign_id} reached daily limit ({daily_count}/{settings['daily_limit']})")
                     await asyncio.sleep(60)  # Check again in 1 minute
                     continue
             
             # Get next pending contact
-            contact_data = await db.contacts.find_one({
-                "campaign_id": campaign_id,
-                "status": ContactStatus.PENDING.value
-            })
+            contact_data = await db.get_next_pending_contact(campaign_id)
             
             if not contact_data:
                 # No more pending contacts - campaign completed
-                await db.campaigns.update_one(
-                    {"id": campaign_id},
-                    {
-                        "$set": {
-                            "status": CampaignStatus.COMPLETED.value,
-                            "completed_at": datetime.utcnow(),
-                            "updated_at": datetime.utcnow()
-                        }
-                    }
-                )
+                await db.update_campaign(campaign_id, {
+                    "status": "completed",
+                    "completed_at": datetime.utcnow().isoformat()
+                })
                 logger.info(f"Campaign {campaign_id} completed - no more pending contacts")
                 break
             
-            contact = Contact(**contact_data)
-            
             # Prepare message with variables
+            extra_data = contact_data.get("extra_data", {})
             message_data = {
-                "nome": contact.name,
-                "name": contact.name,
-                "telefone": contact.phone,
-                "phone": contact.phone,
-                "email": contact.email or "",
-                "categoria": contact.category or "",
-                "category": contact.category or "",
-                **contact.extra_data
+                "nome": contact_data.get("name", ""),
+                "name": contact_data.get("name", ""),
+                "telefone": contact_data.get("phone", ""),
+                "phone": contact_data.get("phone", ""),
+                "email": contact_data.get("email") or "",
+                "categoria": contact_data.get("category") or "",
+                "category": contact_data.get("category") or "",
+                **(extra_data if isinstance(extra_data, dict) else {})
             }
             
-            final_message = replace_variables(campaign.message.text, message_data)
+            message_text = campaign_data.get("message_text", "")
+            final_message = replace_variables(message_text, message_data)
             
             # Send message based on type
+            message_type = campaign_data.get("message_type", "text")
             result: Dict[str, Any]
             
-            if campaign.message.type == MessageType.TEXT:
+            if message_type == "text":
                 result = await waha_service.send_text_message(
-                    contact.phone,
+                    contact_data["phone"],
                     final_message
                 )
-            elif campaign.message.type == MessageType.IMAGE:
+            elif message_type == "image":
                 result = await waha_service.send_image_message(
-                    contact.phone,
+                    contact_data["phone"],
                     final_message,
-                    image_url=campaign.message.media_url,
-                    image_base64=campaign.message.media_base64
+                    image_url=campaign_data.get("media_url")
                 )
-            elif campaign.message.type == MessageType.DOCUMENT:
+            elif message_type == "document":
                 result = await waha_service.send_document_message(
-                    contact.phone,
+                    contact_data["phone"],
                     final_message,
-                    document_url=campaign.message.media_url,
-                    document_base64=campaign.message.media_base64,
-                    filename=campaign.message.media_filename or "document"
+                    document_url=campaign_data.get("media_url"),
+                    filename=campaign_data.get("media_filename") or "document"
                 )
             else:
                 result = {"success": False, "error": "Unknown message type"}
             
             # Update contact status
-            now = datetime.utcnow()
+            now = datetime.utcnow().isoformat()
             if result.get("success"):
-                new_status = ContactStatus.SENT
+                new_status = "sent"
                 error_msg = None
                 
                 # Update campaign counters
-                await db.campaigns.update_one(
-                    {"id": campaign_id},
-                    {
-                        "$inc": {"sent_count": 1, "pending_count": -1},
-                        "$set": {"updated_at": now}
-                    }
-                )
+                sent_count = (campaign_data.get("sent_count") or 0) + 1
+                pending_count = max((campaign_data.get("pending_count") or 0) - 1, 0)
+                await db.update_campaign(campaign_id, {
+                    "sent_count": sent_count,
+                    "pending_count": pending_count
+                })
             else:
-                new_status = ContactStatus.ERROR
+                new_status = "error"
                 error_msg = result.get("error", "Unknown error")
                 
                 # Update campaign counters
-                await db.campaigns.update_one(
-                    {"id": campaign_id},
-                    {
-                        "$inc": {"error_count": 1, "pending_count": -1},
-                        "$set": {"updated_at": now}
-                    }
-                )
+                error_count = (campaign_data.get("error_count") or 0) + 1
+                pending_count = max((campaign_data.get("pending_count") or 0) - 1, 0)
+                await db.update_campaign(campaign_id, {
+                    "error_count": error_count,
+                    "pending_count": pending_count
+                })
             
             # Update contact
-            await db.contacts.update_one(
-                {"id": contact.id},
-                {
-                    "$set": {
-                        "status": new_status.value,
-                        "error_message": error_msg,
-                        "sent_at": now
-                    }
-                }
-            )
+            await db.update_contact(contact_data["id"], {
+                "status": new_status,
+                "error_message": error_msg,
+                "sent_at": now
+            })
             
             # Log message
-            log = MessageLog(
-                campaign_id=campaign_id,
-                contact_id=contact.id,
-                contact_name=contact.name,
-                contact_phone=contact.phone,
-                status=new_status,
-                error_message=error_msg,
-                message_sent=final_message,
-                sent_at=now
-            )
-            await db.message_logs.insert_one(log.dict())
+            log_data = {
+                "campaign_id": campaign_id,
+                "contact_id": contact_data["id"],
+                "contact_name": contact_data.get("name"),
+                "contact_phone": contact_data.get("phone"),
+                "status": new_status,
+                "error_message": error_msg,
+                "message_sent": final_message,
+                "sent_at": now
+            }
+            await db.create_message_log(log_data)
             
-            logger.info(f"Message sent to {contact.phone}: {new_status.value}")
+            logger.info(f"Message sent to {contact_data['phone']}: {new_status}")
             
             # Wait for random interval
             interval = random.randint(
-                campaign.settings.interval_min,
-                campaign.settings.interval_max
+                settings.get("interval_min", 30),
+                settings.get("interval_max", 60)
             )
             logger.info(f"Waiting {interval} seconds before next message...")
             await asyncio.sleep(interval)
@@ -223,15 +204,7 @@ async def process_campaign(
     except Exception as e:
         logger.error(f"Error in campaign worker {campaign_id}: {e}")
         # Mark campaign as paused due to error
-        await db.campaigns.update_one(
-            {"id": campaign_id},
-            {
-                "$set": {
-                    "status": CampaignStatus.PAUSED.value,
-                    "updated_at": datetime.utcnow()
-                }
-            }
-        )
+        await db.update_campaign(campaign_id, {"status": "paused"})
     finally:
         # Remove from running campaigns
         if campaign_id in running_campaigns:
@@ -239,7 +212,7 @@ async def process_campaign(
 
 
 async def start_campaign_worker(
-    db: AsyncIOMotorDatabase,
+    db: SupabaseService,
     campaign_id: str,
     waha_service: WahaService
 ) -> bool:
