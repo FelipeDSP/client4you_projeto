@@ -88,13 +88,11 @@ export default function Admin() {
   }
 
   const handleRefresh = async () => {
-    setIsRefreshing(true);
-    await refreshData();
-    setIsRefreshing(false);
+    await forceRefresh();
     toast({ title: "Dados atualizados!" });
   };
 
-  // Get company and subscription info for each user
+  // Get company and subscription info for each user (recalculate on updateKey change)
   const usersWithDetails = users.map((user) => {
     const company = companies.find((c) => c.id === user.companyId);
     return {
