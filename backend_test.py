@@ -13,7 +13,7 @@ from typing import Dict, Any, Optional
 
 # Get backend URL from frontend .env
 BACKEND_URL = "https://disparador.preview.emergentagent.com/api"
-COMPANY_ID = "test-company-id"
+COMPANY_ID = "550e8400-e29b-41d4-a716-446655440000"  # Valid UUID format
 
 class BackendTester:
     def __init__(self):
