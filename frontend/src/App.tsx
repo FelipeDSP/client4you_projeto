@@ -126,14 +126,6 @@ const AppRoutes = () => (
       }
     />
     <Route
-      path="/pricing"
-      element={
-        <ProtectedRoute>
-          <Pricing />
-        </ProtectedRoute>
-      }
-    />
-    <Route
       path="/settings"
       element={
         <ProtectedRoute>
