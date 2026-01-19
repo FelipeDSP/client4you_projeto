@@ -165,10 +165,21 @@ export function useCampaigns() {
     }
   };
 
-  const startCampaign = async (campaignId: string): Promise<boolean> => {
+  const startCampaign = async (
+    campaignId: string,
+    wahaConfig?: { url: string; apiKey: string; session: string }
+  ): Promise<boolean> => {
     try {
+      const params = new URLSearchParams({ user_id: "default" });
+      
+      if (wahaConfig) {
+        params.append("waha_url", wahaConfig.url);
+        params.append("waha_api_key", wahaConfig.apiKey);
+        params.append("waha_session", wahaConfig.session);
+      }
+      
       const response = await fetch(
-        `${BACKEND_URL}/api/campaigns/${campaignId}/start?user_id=default`,
+        `${BACKEND_URL}/api/campaigns/${campaignId}/start?${params.toString()}`,
         { method: "POST" }
       );
 
