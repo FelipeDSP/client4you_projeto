@@ -4,10 +4,12 @@ import { useAdmin } from "@/hooks/useAdmin";
 import { useToast } from "@/hooks/use-toast";
 import { plans } from "@/hooks/useSubscription";
 import { Navigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Table,
@@ -24,6 +26,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -45,9 +56,8 @@ import {
   Send,
   CheckCircle,
   XCircle,
+  UserPlus,
 } from "lucide-react";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
 
 export default function Admin() {
   const {
@@ -65,13 +75,21 @@ export default function Admin() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterPlan, setFilterPlan] = useState<string>("all");
-  const [updateKey, setUpdateKey] = useState(0); // Force re-render
+  const [updateKey, setUpdateKey] = useState(0);
+  
+  // Create user dialog state
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [newUserName, setNewUserName] = useState("");
+  const [newUserEmail, setNewUserEmail] = useState("");
+  const [newUserPassword, setNewUserPassword] = useState("");
+  const [newUserPlan, setNewUserPlan] = useState("starter");
+  const [isCreating, setIsCreating] = useState(false);
 
   // Force refresh helper
   const forceRefresh = useCallback(async () => {
     setIsRefreshing(true);
     await refreshData();
-    setUpdateKey(k => k + 1); // Force re-render
+    setUpdateKey(k => k + 1);
     setIsRefreshing(false);
   }, [refreshData]);
 
@@ -92,7 +110,7 @@ export default function Admin() {
     toast({ title: "Dados atualizados!" });
   };
 
-  // Get company and subscription info for each user (recalculate on updateKey change)
+  // Get company and subscription info for each user
   const usersWithDetails = users.map((user) => {
     const company = companies.find((c) => c.id === user.companyId);
     return {
@@ -139,7 +157,7 @@ export default function Admin() {
     }
     
     if (success) {
-      await forceRefresh(); // Auto refresh after change
+      await forceRefresh();
     } else {
       toast({
         title: "Erro",
@@ -167,7 +185,7 @@ export default function Admin() {
         title: "Plano atualizado",
         description: `${userName} agora está no plano ${planName}.`,
       });
-      await forceRefresh(); // Auto refresh after change
+      await forceRefresh();
     } else {
       toast({
         title: "Erro",
@@ -184,13 +202,98 @@ export default function Admin() {
         title: "Usuário excluído",
         description: `${userName} foi removido do sistema.`,
       });
-      await forceRefresh(); // Auto refresh after change
+      await forceRefresh();
     } else {
       toast({
         title: "Erro",
         description: "Não foi possível excluir o usuário.",
         variant: "destructive",
       });
+    }
+  };
+
+  const handleCreateUser = async () => {
+    if (!newUserEmail || !newUserPassword) {
+      toast({
+        title: "Erro",
+        description: "Email e senha são obrigatórios.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (newUserPassword.length < 6) {
+      toast({
+        title: "Erro",
+        description: "A senha deve ter no mínimo 6 caracteres.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsCreating(true);
+
+    try {
+      // 1. Create user in Supabase Auth using admin API
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: newUserEmail,
+        password: newUserPassword,
+        options: {
+          data: {
+            full_name: newUserName,
+          },
+          emailRedirectTo: undefined,
+        },
+      });
+
+      if (authError) {
+        throw new Error(authError.message);
+      }
+
+      if (!authData.user) {
+        throw new Error("Erro ao criar usuário");
+      }
+
+      // 2. Wait a bit for the trigger to create the company and subscription
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // 3. Find the company created for this user
+      const { data: profileData } = await supabase
+        .from("profiles")
+        .select("company_id")
+        .eq("id", authData.user.id)
+        .single();
+
+      if (profileData?.company_id) {
+        // 4. Update the subscription plan
+        await supabase
+          .from("subscriptions")
+          .update({ plan_id: newUserPlan })
+          .eq("company_id", profileData.company_id);
+      }
+
+      toast({
+        title: "Usuário criado!",
+        description: `${newUserEmail} foi criado com sucesso.`,
+      });
+
+      // Reset form
+      setNewUserName("");
+      setNewUserEmail("");
+      setNewUserPassword("");
+      setNewUserPlan("starter");
+      setShowCreateDialog(false);
+      
+      await forceRefresh();
+    } catch (error: any) {
+      console.error("Error creating user:", error);
+      toast({
+        title: "Erro ao criar usuário",
+        description: error.message || "Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreating(false);
     }
   };
 
@@ -215,10 +318,94 @@ export default function Admin() {
               Gerencie usuários e planos
             </p>
           </div>
-          <Button onClick={handleRefresh} disabled={isRefreshing} variant="outline">
-            <RefreshCw className={`mr-2 h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
-            Atualizar
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={handleRefresh} disabled={isRefreshing} variant="outline">
+              <RefreshCw className={`mr-2 h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
+              Atualizar
+            </Button>
+            
+            {/* Create User Dialog */}
+            <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
+              <DialogTrigger asChild>
+                <Button>
+                  <UserPlus className="mr-2 h-4 w-4" />
+                  Criar Usuário
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Criar Novo Usuário</DialogTitle>
+                  <DialogDescription>
+                    Crie uma conta para um novo cliente
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Nome completo</Label>
+                    <Input
+                      id="name"
+                      placeholder="Nome do usuário"
+                      value={newUserName}
+                      onChange={(e) => setNewUserName(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="email">E-mail *</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="email@exemplo.com"
+                      value={newUserEmail}
+                      onChange={(e) => setNewUserEmail(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="password">Senha *</Label>
+                    <Input
+                      id="password"
+                      type="password"
+                      placeholder="Mínimo 6 caracteres"
+                      value={newUserPassword}
+                      onChange={(e) => setNewUserPassword(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="plan">Plano</Label>
+                    <Select value={newUserPlan} onValueChange={setNewUserPlan}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {plans.filter(p => !p.isDemo).map((plan) => (
+                          <SelectItem key={plan.id} value={plan.id}>
+                            {plan.name} - R$ {plan.price}/mês
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Professional e Business têm acesso ao Disparador
+                    </p>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
+                    Cancelar
+                  </Button>
+                  <Button onClick={handleCreateUser} disabled={isCreating}>
+                    {isCreating ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Criando...
+                      </>
+                    ) : (
+                      "Criar Usuário"
+                    )}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
 
         {/* Stats */}
@@ -261,7 +448,7 @@ export default function Admin() {
           </Card>
         </div>
 
-        {/* Filters */}
+        {/* Users Table */}
         <Card>
           <CardHeader>
             <CardTitle>Gerenciar Contas</CardTitle>
@@ -296,7 +483,7 @@ export default function Admin() {
               </Select>
             </div>
 
-            {/* Users Table */}
+            {/* Table */}
             <div className="rounded-md border">
               <Table>
                 <TableHeader>
@@ -319,20 +506,15 @@ export default function Admin() {
                   ) : (
                     filteredUsers.map((user) => (
                       <TableRow key={user.id}>
-                        {/* User Info */}
                         <TableCell>
                           <div>
                             <p className="font-medium">{user.fullName || "Sem nome"}</p>
                             <p className="text-sm text-muted-foreground">{user.email}</p>
                           </div>
                         </TableCell>
-
-                        {/* Company */}
                         <TableCell>
                           <span className="text-sm">{user.companyName || "-"}</span>
                         </TableCell>
-
-                        {/* Plan Dropdown */}
                         <TableCell>
                           <Select
                             value={user.planId}
@@ -351,8 +533,6 @@ export default function Admin() {
                             </SelectContent>
                           </Select>
                         </TableCell>
-
-                        {/* Disparador Access */}
                         <TableCell className="text-center">
                           {user.hasDisparador ? (
                             <Badge variant="default" className="bg-green-600 gap-1">
@@ -366,8 +546,6 @@ export default function Admin() {
                             </Badge>
                           )}
                         </TableCell>
-
-                        {/* Admin Toggle */}
                         <TableCell className="text-center">
                           <Checkbox
                             checked={user.isSuperAdmin}
@@ -376,8 +554,6 @@ export default function Admin() {
                             }
                           />
                         </TableCell>
-
-                        {/* Actions */}
                         <TableCell className="text-center">
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
@@ -389,8 +565,7 @@ export default function Admin() {
                               <AlertDialogHeader>
                                 <AlertDialogTitle>Excluir usuário?</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  <strong>{user.fullName || user.email}</strong> será removido permanentemente. 
-                                  Esta ação não pode ser desfeita.
+                                  <strong>{user.fullName || user.email}</strong> será removido permanentemente.
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
