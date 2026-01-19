@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 
 const BACKEND_URL = import.meta.env.REACT_APP_BACKEND_URL || "";
 
@@ -34,6 +35,7 @@ export interface CampaignStats {
 export interface Campaign {
   id: string;
   user_id: string;
+  company_id: string;
   name: string;
   status: CampaignStatus;
   message: CampaignMessage;
@@ -79,10 +81,17 @@ export function useCampaigns() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const fetchCampaigns = useCallback(async () => {
+    if (!user?.companyId) {
+      setCampaigns([]);
+      setIsLoading(false);
+      return;
+    }
+
     try {
-      const response = await fetch(`${BACKEND_URL}/api/campaigns?user_id=default`);
+      const response = await fetch(`${BACKEND_URL}/api/campaigns?company_id=${user.companyId}`);
       const data = await response.json();
       setCampaigns(data.campaigns || []);
     } catch (error) {
@@ -90,7 +99,7 @@ export function useCampaigns() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [user?.companyId]);
 
   useEffect(() => {
     fetchCampaigns();
@@ -101,15 +110,28 @@ export function useCampaigns() {
     message: CampaignMessage,
     settings: CampaignSettings
   ): Promise<Campaign | null> => {
-    try {
-      const response = await fetch(`${BACKEND_URL}/api/campaigns?user_id=default`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, message, settings }),
+    if (!user?.companyId) {
+      toast({
+        title: "Erro",
+        description: "Usuário não autenticado.",
+        variant: "destructive",
       });
+      return null;
+    }
+
+    try {
+      const response = await fetch(
+        `${BACKEND_URL}/api/campaigns?company_id=${user.companyId}&user_id=${user.id}`, 
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, message, settings }),
+        }
+      );
 
       if (!response.ok) {
-        throw new Error("Erro ao criar campanha");
+        const error = await response.json();
+        throw new Error(error.detail || "Erro ao criar campanha");
       }
 
       const campaign = await response.json();
@@ -121,10 +143,10 @@ export function useCampaigns() {
       });
       
       return campaign;
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "Erro",
-        description: "Não foi possível criar a campanha.",
+        description: error.message || "Não foi possível criar a campanha.",
         variant: "destructive",
       });
       return null;
@@ -170,7 +192,11 @@ export function useCampaigns() {
     wahaConfig?: { url: string; apiKey: string; session: string }
   ): Promise<boolean> => {
     try {
-      const params = new URLSearchParams({ user_id: "default" });
+      const params = new URLSearchParams();
+      
+      if (user?.companyId) {
+        params.append("company_id", user.companyId);
+      }
       
       if (wahaConfig) {
         params.append("waha_url", wahaConfig.url);
