@@ -42,13 +42,20 @@ class WahaService:
                 )
                 
                 if response.status_code == 200:
-                    data = response.json()
-                    return {
-                        "connected": True,
-                        "status": data.get("status", "unknown"),
-                        "name": data.get("name", self.session_name),
-                        "me": data.get("me", {})
-                    }
+                    try:
+                        data = response.json()
+                        return {
+                            "connected": True,
+                            "status": data.get("status", "unknown"),
+                            "name": data.get("name", self.session_name),
+                            "me": data.get("me", {})
+                        }
+                    except:
+                        return {
+                            "connected": True,
+                            "status": "connected",
+                            "name": self.session_name
+                        }
                 elif response.status_code == 404:
                     return {
                         "connected": False,
@@ -56,10 +63,17 @@ class WahaService:
                         "error": "Sessão não encontrada. Verifique o nome da sessão."
                     }
                 else:
+                    error_text = ""
+                    try:
+                        error_data = response.json()
+                        error_text = error_data.get("message", "")
+                    except:
+                        error_text = response.text[:100] if response.text else ""
+                    
                     return {
                         "connected": False,
                         "status": "error",
-                        "error": f"Erro HTTP {response.status_code}"
+                        "error": f"Erro HTTP {response.status_code}: {error_text}"
                     }
         except httpx.ConnectError:
             return {
@@ -67,12 +81,18 @@ class WahaService:
                 "status": "connection_error",
                 "error": "Não foi possível conectar ao WAHA. Verifique a URL."
             }
+        except httpx.TimeoutException:
+            return {
+                "connected": False,
+                "status": "timeout",
+                "error": "Tempo limite excedido ao conectar ao WAHA."
+            }
         except Exception as e:
             logger.error(f"Error checking WAHA connection: {e}")
             return {
                 "connected": False,
                 "status": "error",
-                "error": str(e)
+                "error": f"Erro: {str(e)}"
             }
     
     async def send_text_message(self, phone: str, message: str) -> Dict[str, Any]:
