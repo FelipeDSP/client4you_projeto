@@ -220,6 +220,7 @@ export default function Disparador() {
                 campaign={campaign}
                 onViewLogs={(id) => setSelectedCampaignId(id)}
                 wahaConfig={wahaConfig}
+                onRefresh={() => fetchCampaigns()}
               />
             ))}
           </div>
