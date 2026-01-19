@@ -44,33 +44,26 @@ class BackendTester:
             "response": response_data
         })
     
-    async def test_waha_config_save(self) -> bool:
-        """Test POST /api/waha/config - Save WAHA configuration"""
+    async def test_api_root(self) -> bool:
+        """Test GET /api/ - Root endpoint (should return version 2.0.0 and database Supabase)"""
         try:
-            config_data = {
-                "waha_url": "http://localhost:3000",
-                "api_key": "test-key-12345",
-                "session_name": "default"
-            }
+            response = await self.client.get(f"{BACKEND_URL}/")
             
-            response = await self.client.post(
-                f"{BACKEND_URL}/waha/config",
-                params={"user_id": USER_ID},
-                json=config_data
-            )
-            
-            if response.status_code in [200, 201]:
+            if response.status_code == 200:
                 data = response.json()
-                success = data.get("success", False) and "config" in data
+                has_version = data.get("version") == "2.0.0"
+                has_database = data.get("database") == "Supabase"
+                success = has_version and has_database
+                
                 self.log_test(
-                    "POST /api/waha/config - Save configuration",
+                    "GET /api/ - Root endpoint",
                     success,
-                    f"Status: {response.status_code}, Success: {data.get('success')}"
+                    f"Status: {response.status_code}, Version: {data.get('version')}, Database: {data.get('database')}"
                 )
                 return success
             else:
                 self.log_test(
-                    "POST /api/waha/config - Save configuration",
+                    "GET /api/ - Root endpoint",
                     False,
                     f"Status: {response.status_code}",
                     response.text
@@ -79,7 +72,7 @@ class BackendTester:
                 
         except Exception as e:
             self.log_test(
-                "POST /api/waha/config - Save configuration",
+                "GET /api/ - Root endpoint",
                 False,
                 f"Exception: {str(e)}"
             )
