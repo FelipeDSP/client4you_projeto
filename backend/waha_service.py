@@ -111,17 +111,41 @@ class WahaService:
                     }
                 )
                 
+                logger.info(f"WAHA sendText response: {response.status_code} - {response.text[:200] if response.text else 'empty'}")
+                
                 if response.status_code == 200 or response.status_code == 201:
-                    return {
-                        "success": True,
-                        "data": response.json()
-                    }
+                    try:
+                        return {
+                            "success": True,
+                            "data": response.json()
+                        }
+                    except:
+                        return {
+                            "success": True,
+                            "data": {"status": "sent"}
+                        }
                 else:
-                    error_data = response.json() if response.text else {}
+                    error_msg = f"HTTP {response.status_code}"
+                    try:
+                        error_data = response.json()
+                        error_msg = error_data.get("message", error_msg)
+                    except:
+                        if response.text:
+                            error_msg = f"{error_msg}: {response.text[:100]}"
                     return {
                         "success": False,
-                        "error": error_data.get("message", f"HTTP {response.status_code}")
+                        "error": error_msg
                     }
+        except httpx.ConnectError:
+            return {
+                "success": False,
+                "error": "Não foi possível conectar ao WAHA"
+            }
+        except httpx.TimeoutException:
+            return {
+                "success": False,
+                "error": "Tempo limite excedido"
+            }
         except Exception as e:
             logger.error(f"Error sending text message: {e}")
             return {
