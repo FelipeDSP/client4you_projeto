@@ -244,14 +244,12 @@ frontend:
 metadata:
   created_by: "main_agent"
   version: "1.0"
-  test_sequence: 1
+  test_sequence: 2
   run_ui: false
 
 test_plan:
   current_focus:
-    - "WAHA Config API - Salvar/Obter/Testar configurações"
-    - "Campaign CRUD API - Criar, listar, atualizar, deletar campanhas"
-    - "Upload de Contatos API - Parse de Excel/CSV"
+    - "Dashboard Stats API - Estatísticas do dashboard"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
@@ -259,3 +257,5 @@ test_plan:
 agent_communication:
   - agent: "main"
     message: "Implementado sistema completo de Disparador de Mensagens WhatsApp. Backend com endpoints para WAHA config, CRUD de campanhas, upload de contatos e controle de disparo. Frontend com página /disparador, configuração WAHA, criação de campanhas e visualização de logs. Por favor testar os endpoints de backend primeiro."
+  - agent: "testing"
+    message: "✅ BACKEND TESTING COMPLETO - Todos os 13 endpoints testados com sucesso (100% pass rate). Testados: WAHA config (save/get/test), Campaign CRUD (create/list/get/delete), Upload de contatos, Controle de campanhas (start/pause/reset), Dashboard stats, Message logs. Todos retornando status 200/201 e dados corretos. Sistema backend totalmente funcional. Logs do supervisor confirmam sem erros. Pronto para uso em produção."
