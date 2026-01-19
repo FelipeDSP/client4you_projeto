@@ -137,11 +137,40 @@ export function useLeads() {
         return [];
       }
 
-      // Refresh data to get the new leads
-      await fetchData();
+      // Fetch the newly inserted leads directly from database
+      const { data: newLeadsData, error: newLeadsError } = await supabase
+        .from("leads")
+        .select("*")
+        .eq("search_id", historyData.id);
 
-      // Get the newly inserted leads
-      const newLeads = leads.filter((l) => l.searchId === historyData.id);
+      if (newLeadsError) {
+        console.error("Error fetching new leads:", newLeadsError);
+        setIsSearching(false);
+        return [];
+      }
+
+      // Map the new leads
+      const newLeads: Lead[] = (newLeadsData || []).map((lead) => ({
+        id: lead.id,
+        name: lead.name,
+        phone: lead.phone || "",
+        hasWhatsApp: lead.has_whatsapp || false,
+        email: lead.email,
+        hasEmail: lead.has_email || false,
+        address: lead.address || "",
+        city: "",
+        state: "",
+        rating: Number(lead.rating) || 0,
+        reviews: lead.reviews_count || 0,
+        category: lead.category || "",
+        website: lead.website,
+        extractedAt: lead.created_at,
+        searchId: lead.search_id || undefined,
+        companyId: lead.company_id,
+      }));
+
+      // Refresh all data to update the UI
+      await fetchData();
 
       setIsSearching(false);
       return newLeads;
