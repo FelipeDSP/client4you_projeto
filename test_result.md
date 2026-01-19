@@ -122,9 +122,9 @@ backend:
 
   - task: "Campaign CRUD API - Criar, listar, atualizar, deletar campanhas"
     implemented: true
-    working: true
+    working: false
     file: "server.py"
-    stuck_count: 0
+    stuck_count: 1
     priority: "high"
     needs_retesting: false
     status_history:
@@ -134,6 +134,9 @@ backend:
       - working: true
         agent: "testing"
         comment: "✅ TESTADO - Todos os endpoints de campanhas funcionando: POST /api/campaigns (criar), GET /api/campaigns (listar), GET /api/campaigns/{id} (obter específica), DELETE /api/campaigns/{id} (excluir). Dados corretos retornados com estatísticas."
+      - working: false
+        agent: "testing"
+        comment: "❌ SUPABASE MIGRATION - POST /api/campaigns falha com RLS policy violation. GET /api/campaigns funciona (200). Backend usando anon key precisa service_role key ou RLS policy para INSERT. Erro: 'new row violates row-level security policy for table campaigns'"
 
   - task: "Upload de Contatos API - Parse de Excel/CSV"
     implemented: true
@@ -191,6 +194,21 @@ backend:
       - working: true
         agent: "testing"
         comment: "✅ TESTADO - GET /api/dashboard/stats funcionando perfeitamente: retorna total_campaigns, active_campaigns, total_messages_sent, messages_sent_today. Agregações do MongoDB funcionando corretamente."
+      - working: true
+        agent: "testing"
+        comment: "✅ SUPABASE MIGRATION - GET /api/dashboard/stats funcionando com company_id: retorna total_campaigns=0, active_campaigns=0, total_messages_sent=0, messages_sent_today=0. Status 200 OK."
+
+  - task: "Root API Endpoint - Version and Database Info"
+    implemented: true
+    working: true
+    file: "server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "✅ SUPABASE MIGRATION - GET /api/ retorna version='2.0.0' e database='Supabase' corretamente. Status 200 OK."
 
 frontend:
   - task: "Página Disparador - Layout e navegação"
