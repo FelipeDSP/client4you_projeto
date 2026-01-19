@@ -63,7 +63,7 @@ export function CampaignCard({ campaign, onViewLogs, wahaConfig }: CampaignCardP
 
   const handleStart = async () => {
     setIsLoading(true);
-    await startCampaign(campaign.id);
+    await startCampaign(campaign.id, wahaConfig);
     setIsLoading(false);
   };
 
