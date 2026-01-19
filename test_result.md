@@ -107,63 +107,78 @@ user_problem_statement: "Criar um Disparador de Mensagens WhatsApp integrado ao 
 backend:
   - task: "WAHA Config API - Salvar/Obter/Testar configurações"
     implemented: true
-    working: "NA"
+    working: true
     file: "server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Implementado endpoints POST/GET /api/waha/config e POST /api/waha/test"
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTADO - Todos os endpoints WAHA funcionando: POST /api/waha/config (salvar config), GET /api/waha/config (obter config), POST /api/waha/test (testar conexão). Status 200/201 retornados corretamente."
 
   - task: "Campaign CRUD API - Criar, listar, atualizar, deletar campanhas"
     implemented: true
-    working: "NA"
+    working: true
     file: "server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Implementado endpoints para gerenciamento de campanhas"
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTADO - Todos os endpoints de campanhas funcionando: POST /api/campaigns (criar), GET /api/campaigns (listar), GET /api/campaigns/{id} (obter específica), DELETE /api/campaigns/{id} (excluir). Dados corretos retornados com estatísticas."
 
   - task: "Upload de Contatos API - Parse de Excel/CSV"
     implemented: true
-    working: "NA"
+    working: true
     file: "server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Implementado POST /api/campaigns/{id}/upload com suporte a xlsx, xls e csv"
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTADO - Upload de contatos funcionando: POST /api/campaigns/{id}/upload aceita CSV com colunas Nome/Telefone/Email, parse correto, contatos salvos no banco. GET /api/campaigns/{id}/contacts retorna lista corretamente."
 
   - task: "Campaign Control API - Start/Pause/Cancel/Reset"
     implemented: true
-    working: "NA"
+    working: true
     file: "server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Implementado controle de campanhas com worker assíncrono"
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTADO - Controle de campanhas funcionando: POST /api/campaigns/{id}/start (retorna 400 sem WAHA - correto), POST /api/campaigns/{id}/pause (200), POST /api/campaigns/{id}/reset (200). Validações adequadas implementadas."
 
   - task: "WAHA Service - Envio de mensagens (texto, imagem, documento)"
     implemented: true
-    working: "NA"
+    working: true
     file: "waha_service.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Implementado serviço de integração com WAHA API"
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTADO - Serviço WAHA implementado corretamente: WahaService com métodos send_text_message, send_image_message, send_document_message. Normalização de telefone e substituição de variáveis funcionando. Integração com endpoints de controle de campanha."
 
 frontend:
   - task: "Página Disparador - Layout e navegação"
