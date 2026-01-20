@@ -2,35 +2,26 @@ FROM node:20-alpine as builder
 
 WORKDIR /app
 
-# Copiar package files
-COPY package.json ./
-COPY yarn.lock* ./
-
 # Instalar dependências
+COPY package.json yarn.lock* ./
 RUN yarn install --frozen-lockfile || yarn install
 
-# Copiar código fonte
+# Copiar o restante do código
 COPY . .
 
-# Definir variável de ambiente para build
-ARG REACT_APP_BACKEND_URL=http://localhost
+# Variável de ambiente necessária para o build
+ARG REACT_APP_BACKEND_URL
 ENV REACT_APP_BACKEND_URL=$REACT_APP_BACKEND_URL
 
-# Build - criar pasta dist
-RUN yarn build || (echo "Build failed, creating empty dist" && mkdir -p dist && echo "<h1>Build Error</h1>" > dist/index.html)
+# Executar o build (Isso vai criar a pasta /app/build)
+RUN yarn build
 
-# Verificar se dist existe
-RUN ls -la /app/dist/
-
-# Estágio de produção com Nginx
+# Estágio de produção
 FROM nginx:alpine
 
-# Copiar build
-COPY --from=builder /app/dist /usr/share/nginx/html
-
-# Copiar configuração do nginx
+# MUDANÇA AQUI: Copiando de 'build' em vez de 'dist'
+COPY --from=builder /app/build /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 80
-
 CMD ["nginx", "-g", "daemon off;"]
