@@ -1,11 +1,21 @@
 services:
-  app:
-    build: .
-    container_name: disparador-app
+  backend:
+    build: ./backend
+    container_name: disparador-backend
     restart: always
-    environment:
-      - SUPABASE_URL=https://owlignktsqlrqaqhzujb.supabase.co
-      - SUPABASE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im93bGlnbmt0c3FscnFhcWh6dWpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgzMjUzMzAsImV4cCI6MjA4MzkwMTMzMH0.B9UhTYi8slAx2UWsSckys55O9VQHdkYIHyqhSeFy8Z0
-      - CORS_ORIGINS=*
+    env_file: .env
+    ports:
+      - "8001:8001"
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # Substitua pelo IP da sua VPS ou seu domínio
+        - REACT_APP_BACKEND_URL=http://72.60.10.10
+    container_name: disparador-frontend
+    restart: always
     ports:
       - "80:80"
+    depends_on:
+      - backend
