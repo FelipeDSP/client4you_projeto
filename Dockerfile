@@ -26,8 +26,8 @@ RUN yarn install
 COPY frontend/ /app/frontend/
 
 # Build com variável de ambiente
-ARG REACT_APP_BACKEND_URL=http://72.60.10.10
-ENV REACT_APP_BACKEND_URL=$REACT_APP_BACKEND_URL
+ARG VITE_BACKEND_URL
+ENV VITE_BACKEND_URL=$VITE_BACKEND_URL
 RUN yarn build
 
 # Copiar build para nginx
