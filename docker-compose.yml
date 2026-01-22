@@ -2,19 +2,20 @@ services:
   backend:
     build: ./backend
     restart: always
-    # No Coolify, as variáveis do .env são configuradas no painel UI
-    environment:
-      - SUPABASE_URL=${SUPABASE_URL}
-      - SUPABASE_KEY=${SUPABASE_KEY}
-    # O backend não precisa de portas expostas se o frontend for acessá-lo internamente
-    # ou se você definir um domínio para ele no Coolify.
+    # No Coolify, as variáveis do .env devem ser colocadas no painel UI (aba Environment Variables)
+    # Remova 'container_name' e 'ports' para permitir que o Coolify gira internamente
+    networks:
+      - coolify
 
   frontend:
     build:
       context: ./frontend
       args:
-        # Importante: O Coolify injeta variáveis de ambiente como Build Args automaticamente
-        - REACT_APP_BACKEND_URL=${REACT_APP_BACKEND_URL}
+        # Importante: No Coolify, use apenas o nome da variável. 
+        # O valor será injetado pelo painel se marcado como 'Build Variable'
+        - VITE_BACKEND_URL=${VITE_BACKEND_URL}
     restart: always
     depends_on:
       - backend
+    networks:
+      - coolify
