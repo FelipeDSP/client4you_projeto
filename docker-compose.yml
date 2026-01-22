@@ -2,20 +2,30 @@ services:
   backend:
     build: ./backend
     restart: always
+    expose:
+      - "8001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/api/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     # As variáveis de ambiente do backend ficam no painel 'Environment Variables'
 
   frontend:
     build:
       context: ./frontend
       args:
-        # IMPORTANTE: No Coolify, esta variável deve ser o domínio público do seu backend
         - VITE_BACKEND_URL=${VITE_BACKEND_URL}
     restart: always
     depends_on:
-      - backend
-    ports:
-      - "80" # Indica ao Coolify que a porta interna é a 80
-    labels:
-      - "traefik.enable=true"
-      # Substitua 'frontend' pelo nome do seu serviço se for diferente
-      - "traefik.http.services.frontend.loadbalancer.server.port=80"
+      backend:
+        condition: service_healthy
+    expose:
+      - "80"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
