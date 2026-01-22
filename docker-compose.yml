@@ -1,21 +1,20 @@
 services:
   backend:
     build: ./backend
-    container_name: disparador-backend
     restart: always
-    env_file: .env
-    ports:
-      - "8001:8001"
+    # No Coolify, as variáveis do .env são configuradas no painel UI
+    environment:
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_KEY=${SUPABASE_KEY}
+    # O backend não precisa de portas expostas se o frontend for acessá-lo internamente
+    # ou se você definir um domínio para ele no Coolify.
 
   frontend:
     build:
       context: ./frontend
       args:
-        # Substitua pelo IP da sua VPS ou seu domínio
-        - REACT_APP_BACKEND_URL=http://72.60.10.10
-    container_name: disparador-frontend
+        # Importante: O Coolify injeta variáveis de ambiente como Build Args automaticamente
+        - REACT_APP_BACKEND_URL=${REACT_APP_BACKEND_URL}
     restart: always
-    ports:
-      - "80:80"
     depends_on:
       - backend
