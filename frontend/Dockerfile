@@ -1,25 +1,26 @@
+# Estágio de construção
 FROM node:20-alpine as builder
 
 WORKDIR /app
 
-# Instalar dependências
-COPY package.json yarn.lock* ./
-RUN yarn install --frozen-lockfile || yarn install
+# O repositório contém package-lock.json, então usamos npm
+COPY package*.json ./
+RUN npm ci
 
-# Copiar o restante do código
 COPY . .
 
-# Variável de ambiente necessária para o build
-ARG REACT_APP_BACKEND_URL
-ENV REACT_APP_BACKEND_URL=$REACT_APP_BACKEND_URL
+# O Vite exige o prefixo VITE_ para expor variáveis ao código frontend.
+# Se o seu código usa 'import.meta.env.VITE_BACKEND_URL', altere aqui:
+ARG VITE_BACKEND_URL
+ENV VITE_BACKEND_URL=$VITE_BACKEND_URL
 
-# Executar o build (Isso vai criar a pasta /app/build)
-RUN yarn build
+# Executa o build usando o script definido no seu package.json
+RUN npm run build
 
-# Estágio de produção
+# Estágio de produção com Nginx
 FROM nginx:alpine
 
-# MUDANÇA AQUI: Copiando de 'build' em vez de 'dist'
+# O seu vite.config.ts define 'build' como pasta de saída
 COPY --from=builder /app/build /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
