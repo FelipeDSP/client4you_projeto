@@ -2,13 +2,20 @@ services:
   backend:
     build: ./backend
     restart: always
-    # As variáveis de ambiente devem ser configuradas na aba 'Environment Variables' do Coolify
+    # As variáveis de ambiente do backend ficam no painel 'Environment Variables'
 
   frontend:
     build:
       context: ./frontend
       args:
+        # IMPORTANTE: No Coolify, esta variável deve ser o domínio público do seu backend
         - VITE_BACKEND_URL=${VITE_BACKEND_URL}
     restart: always
     depends_on:
       - backend
+    ports:
+      - "80" # Indica ao Coolify que a porta interna é a 80
+    labels:
+      - "traefik.enable=true"
+      # Substitua 'frontend' pelo nome do seu serviço se for diferente
+      - "traefik.http.services.frontend.loadbalancer.server.port=80"
