@@ -14,6 +14,10 @@ ENV VITE_BACKEND_URL=$VITE_BACKEND_URL
 RUN npm run build
 
 FROM nginx:alpine
+
+# Instalar curl para healthcheck
+RUN apk add --no-cache curl
+
 # O seu vite.config.ts define 'build' como pasta de saída
 COPY --from=builder /app/build /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
