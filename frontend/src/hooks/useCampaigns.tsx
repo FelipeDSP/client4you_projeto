@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 
-const BACKEND_URL = import.meta.env.REACT_APP_BACKEND_URL || "";
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "";
 
 export type CampaignStatus = "draft" | "ready" | "running" | "paused" | "completed" | "cancelled";
 export type MessageType = "text" | "image" | "document";
