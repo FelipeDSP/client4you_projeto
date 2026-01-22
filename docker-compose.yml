@@ -2,20 +2,13 @@ services:
   backend:
     build: ./backend
     restart: always
-    # No Coolify, as variáveis do .env devem ser colocadas no painel UI (aba Environment Variables)
-    # Remova 'container_name' e 'ports' para permitir que o Coolify gira internamente
-    networks:
-      - coolify
+    # As variáveis de ambiente devem ser configuradas na aba 'Environment Variables' do Coolify
 
   frontend:
     build:
       context: ./frontend
       args:
-        # Importante: No Coolify, use apenas o nome da variável. 
-        # O valor será injetado pelo painel se marcado como 'Build Variable'
         - VITE_BACKEND_URL=${VITE_BACKEND_URL}
     restart: always
     depends_on:
       - backend
-    networks:
-      - coolify
