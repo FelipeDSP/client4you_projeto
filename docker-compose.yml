@@ -4,17 +4,18 @@ services:
     restart: always
     expose:
       - "8001"
-healthcheck:
-      test: ["CMD", "curl", "-f", "http://127.0.0.1:80/"] # Usar IP em vez de localhost
-      interval: 10s # Reduzi para ser mais rápido
+    healthcheck:
+      # CORREÇÃO AQUI: Porta 8001
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8001/api/"] 
+      interval: 10s
       timeout: 5s
       retries: 5
       start_period: 30s
-    # As variáveis de ambiente do backend ficam no painel 'Environment Variables'
 
   frontend:
     build:
       context: ./frontend
+      # Mantendo os args para garantir que o Vite pegue no build time
       args:
         - VITE_BACKEND_URL=${VITE_BACKEND_URL}
     restart: always
