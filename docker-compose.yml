@@ -4,19 +4,23 @@ services:
     restart: always
     expose:
       - "8001"
+    environment:
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_KEY=${SUPABASE_KEY}
     healthcheck:
-      # CORREÇÃO AQUI: Porta 8001
-      test: ["CMD", "curl", "-f", "http://127.0.0.1:8001/api/"] 
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8001/api/"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 30s
+    networks:
+      - app_network
 
   frontend:
     build:
       context: ./frontend
-      # Mantendo os args para garantir que o Vite pegue no build time
       args:
+        # No Coolify, você definirá esta variável no painel
         - VITE_BACKEND_URL=${VITE_BACKEND_URL}
     restart: always
     depends_on:
@@ -30,3 +34,9 @@ services:
       timeout: 10s
       retries: 3
       start_period: 20s
+    networks:
+      - app_network
+
+networks:
+  app_network:
+    driver: bridge
