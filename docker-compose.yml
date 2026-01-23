@@ -35,16 +35,19 @@ services:
       start_period: 20s
     networks:
       - app_network
+      - coolify  # <--- OBRIGATÓRIO: Conecta na rede do Porteiro
     
-    # --- AQUI ESTÃO AS LABELS MÁGICAS (Configuradas para seu IP) ---
     labels:
       - "traefik.enable=true"
-      # Esta linha diz: "Aceite conexões que venham para este IP"
+      # Troque pelo seu IP se mudar no futuro
       - "traefik.http.routers.frontend-custom.rule=Host(`72.60.10.10`)"
       - "traefik.http.routers.frontend-custom.entrypoints=http"
-      # Esta linha diz: "Entregue a visita na porta 80 DENTRO do container"
       - "traefik.http.services.frontend-custom.loadbalancer.server.port=80"
+      # Esta linha diz para o Traefik usar a rede 'coolify' para falar com o container
+      - "traefik.docker.network=coolify" # <--- OBRIGATÓRIO
 
 networks:
   app_network:
     driver: bridge
+  coolify:       # <--- OBRIGATÓRIO: Declara que a rede existe
+    external: true
