@@ -92,6 +92,8 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+// ... (imports existentes)
+
 const AppRoutes = () => (
   <Routes>
     <Route
@@ -102,11 +104,15 @@ const AppRoutes = () => (
         </PublicRoute>
       }
     />
+    
+    {/* Rotas Protegidas com Layout */}
     <Route
       path="/dashboard"
       element={
         <ProtectedRoute>
-          <Dashboard />
+          <MainLayout>
+            <Dashboard />
+          </MainLayout>
         </ProtectedRoute>
       }
     />
@@ -114,7 +120,9 @@ const AppRoutes = () => (
       path="/history"
       element={
         <ProtectedRoute>
-          <History />
+          <MainLayout>
+            <History />
+          </MainLayout>
         </ProtectedRoute>
       }
     />
@@ -122,7 +130,9 @@ const AppRoutes = () => (
       path="/profile"
       element={
         <ProtectedRoute>
-          <Profile />
+          <MainLayout>
+            <Profile />
+          </MainLayout>
         </ProtectedRoute>
       }
     />
@@ -130,7 +140,9 @@ const AppRoutes = () => (
       path="/settings"
       element={
         <ProtectedRoute>
-          <Settings />
+          <MainLayout>
+            <Settings />
+          </MainLayout>
         </ProtectedRoute>
       }
     />
@@ -138,7 +150,9 @@ const AppRoutes = () => (
       path="/disparador"
       element={
         <ProtectedRoute>
-          <Disparador />
+          <MainLayout>
+            <Disparador />
+          </MainLayout>
         </ProtectedRoute>
       }
     />
@@ -146,13 +160,17 @@ const AppRoutes = () => (
       path="/admin"
       element={
         <ProtectedRoute requireAdmin>
-          <Admin />
+          <MainLayout>
+            <Admin />
+          </MainLayout>
         </ProtectedRoute>
       }
     />
     <Route path="*" element={<NotFound />} />
   </Routes>
 );
+
+// ... (resto do código)
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
