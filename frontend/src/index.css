@@ -6,45 +6,43 @@
 
 @layer base {
   :root {
-    --background: 210 20% 98%;
-    --foreground: 222 47% 11%;
+    /* --- Base do Site (Claro/Cinza Suave) --- */
+    --background: 210 40% 98%; /* Cinza muito claro, quase branco */
+    --foreground: 222 47% 11%; /* Texto escuro */
 
+    /* --- Cor Principal (Verde de Ação) --- */
+    --primary: 142 76% 36%; /* Um verde sólido e profissional */
+    --primary-foreground: 355 100% 100%; /* Texto branco no botão verde */
+
+    /* --- Sidebar (Azul Petróleo Escuro - Forçado) --- */
+    --sidebar-background: 215 28% 17%; /* Azul petróleo escuro */
+    --sidebar-foreground: 210 40% 98%; /* Texto claro na sidebar */
+    --sidebar-primary: 142 76% 36%; /* Verde para item ativo na sidebar */
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 217 19% 27%; /* Item ao passar o mouse (levemente mais claro que o fundo) */
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 217 19% 27%; /* Borda sutil */
+    --sidebar-ring: 217 91% 60%;
+    
+    /* --- Outras Cores (Soft UI) --- */
     --card: 0 0% 100%;
     --card-foreground: 222 47% 11%;
-
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
-
-    --primary: 217 91% 50%;
-    --primary-foreground: 0 0% 100%;
-
-    --secondary: 210 40% 96%;
-    --secondary-foreground: 222 47% 11%;
-
-    --muted: 210 40% 96%;
-    --muted-foreground: 215 16% 47%;
-
-    --accent: 160 84% 39%;
-    --accent-foreground: 0 0% 100%;
-
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 100%;
-
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 217 91% 50%;
-
-    --radius: 0.5rem;
-
-    --sidebar-background: 222 47% 11%;
-    --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 217 91% 50%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 217 33% 17%;
-    --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 217 33% 17%;
-    --sidebar-ring: 217 91% 60%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222 47% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222 47% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
+    --radius: 0.75rem; /* Bordas arredondadas maiores (Soft UI) */
   }
+}
 
   .dark {
     --background: 222 47% 6%;
