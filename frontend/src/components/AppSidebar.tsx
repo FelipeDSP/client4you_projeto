@@ -1,4 +1,4 @@
-import { Home, History, Settings, Send, LogOut, User } from "lucide-react"
+import { Home, History, Settings, Send, LogOut, User, Search } from "lucide-react"
 import {
   Sidebar,
   SidebarContent,
@@ -20,6 +20,11 @@ const items = [
     title: "Dashboard",
     url: "/dashboard",
     icon: Home,
+  },
+  {
+    title: "Buscar Leads", // Novo item
+    url: "/search",
+    icon: Search,
   },
   {
     title: "Disparador",

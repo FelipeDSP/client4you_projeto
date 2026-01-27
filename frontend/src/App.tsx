@@ -1,4 +1,5 @@
 import MainLayout from "@/layouts/MainLayout";
+import SearchLeads from "./pages/SearchLeads";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -115,6 +116,16 @@ const AppRoutes = () => (
           </MainLayout>
         </ProtectedRoute>
       }
+    />
+    <Route
+  path="/search"
+  element={
+    <ProtectedRoute>
+      <MainLayout>
+        <SearchLeads />
+      </MainLayout>
+    </ProtectedRoute>
+  }
     />
     <Route
       path="/history"

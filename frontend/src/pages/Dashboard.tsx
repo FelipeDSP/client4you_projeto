@@ -1,142 +1,68 @@
-import { useState, useMemo } from "react";
-import { Header } from "@/components/Header";
-import { LeadSearch } from "@/components/LeadSearch";
-import { LeadTable } from "@/components/LeadTable";
-import { ExportButton } from "@/components/ExportButton";
 import { StatsCards } from "@/components/StatsCards";
-import { LeadFiltersComponent, LeadFilters, defaultFilters, filterLeads } from "@/components/LeadFilters";
-import { useLeads } from "@/hooks/useLeads";
-import { useSubscription } from "@/hooks/useSubscription";
-import { useToast } from "@/hooks/use-toast";
-import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+import { Card } from "@/components/ui/card";
 import { Link } from "react-router-dom";
+import { Search, ArrowRight, Activity } from "lucide-react";
 
 export default function Dashboard() {
-  const { leads, searchHistory, isSearching, searchLeads, deleteLead, clearAllLeads } = useLeads();
-  const { currentPlan, demoUsed, setDemoUsed } = useSubscription();
-  const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
-  const [filters, setFilters] = useState<LeadFilters>(defaultFilters);
-  const { toast } = useToast();
-
-  const filteredLeads = useMemo(() => filterLeads(leads, filters), [leads, filters]);
-
-  const handleSearch = async (query: string, location: string) => {
-    // Check if demo is used
-    if (currentPlan.isDemo && demoUsed) {
-      toast({
-        title: "Demonstração expirada",
-        description: "Faça upgrade para um plano pago para continuar usando.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const results = await searchLeads(query, location);
-    
-    // Mark demo as used if on demo plan
-    if (currentPlan.isDemo) {
-      setDemoUsed();
-    }
-
-    toast({
-      title: "Busca concluída!",
-      description: `${results.length} leads encontrados para "${query}" em ${location}.`,
-    });
-    setSelectedLeads([]);
-  };
-
-  const handleClearAll = () => {
-    clearAllLeads();
-    setSelectedLeads([]);
-    toast({
-      title: "Leads removidos",
-      description: "Todos os leads foram removidos com sucesso.",
-    });
-  };
-
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
-      
-      <main className="container py-6 space-y-6">
-        {/* Stats */}
-        <StatsCards leads={leads} searchHistory={searchHistory} />
-
-        {/* Search */}
-        <LeadSearch onSearch={handleSearch} isSearching={isSearching} />
-
-        {/* Actions Bar */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <h2 className="text-xl font-semibold">
-            Leads Extraídos
-            {selectedLeads.length > 0 && (
-              <span className="ml-2 text-sm font-normal text-muted-foreground">
-                ({selectedLeads.length} selecionados)
-              </span>
-            )}
-            {filteredLeads.length !== leads.length && (
-              <span className="ml-2 text-sm font-normal text-muted-foreground">
-                (mostrando {filteredLeads.length} de {leads.length})
-              </span>
-            )}
-          </h2>
-          <div className="flex items-center gap-2">
-            <ExportButton leads={leads} selectedLeads={selectedLeads} />
-            
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="destructive" size="sm" disabled={leads.length === 0}>
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Limpar Tudo
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Tem certeza?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Esta ação irá remover todos os {leads.length} leads. Esta ação não pode ser desfeita.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleClearAll}>
-                    Sim, limpar tudo
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </div>
+    <div className="space-y-8 animate-fade-in">
+      {/* Cabeçalho do Dashboard */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight text-gray-800">Visão Geral</h2>
+          <p className="text-muted-foreground mt-1">
+            Acompanhe o desempenho das suas campanhas e base de leads.
+          </p>
         </div>
+        
+        {/* Botão de Ação Rápida */}
+        <Link to="/search">
+          <Button className="gap-2 shadow-sm">
+            <Search className="h-4 w-4" />
+            Buscar Novos Leads
+          </Button>
+        </Link>
+      </div>
 
-        {/* Filters */}
-        {leads.length > 0 && (
-          <LeadFiltersComponent
-            leads={leads}
-            filters={filters}
-            onFiltersChange={setFilters}
-          />
-        )}
+      {/* Cards de Estatísticas (Mantidos) */}
+      <StatsCards />
 
-        {/* Leads Table */}
-        <LeadTable
-          leads={filteredLeads}
-          onDelete={deleteLead}
-          selectedLeads={selectedLeads}
-          onSelectionChange={setSelectedLeads}
-        />
-      </main>
+      {/* Exemplo de nova seção: Atividade Recente ou Gráficos (Placeholder) */}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-7">
+        <Card className="col-span-4 p-6 bg-white shadow-sm border-none rounded-xl">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold text-gray-800 flex items-center gap-2">
+              <Activity className="h-4 w-4 text-green-600" />
+              Atividade Recente
+            </h3>
+          </div>
+          <div className="h-[300px] flex items-center justify-center border-2 border-dashed border-gray-100 rounded-lg">
+            <p className="text-muted-foreground text-sm">Gráfico de desempenho será exibido aqui</p>
+          </div>
+        </Card>
+
+        <Card className="col-span-3 p-6 bg-white shadow-sm border-none rounded-xl">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-semibold text-gray-800">Status do Sistema</h3>
+          </div>
+           <div className="space-y-4">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-500">API do WhatsApp</span>
+                <span className="text-green-600 font-medium px-2 py-1 bg-green-50 rounded-full text-xs">Online</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-500">Servidor de Disparos</span>
+                <span className="text-green-600 font-medium px-2 py-1 bg-green-50 rounded-full text-xs">Ativo</span>
+              </div>
+              <div className="mt-4 pt-4 border-t">
+                <Link to="/disparador" className="text-sm text-green-700 hover:text-green-800 font-medium flex items-center gap-1">
+                   Ir para Disparador <ArrowRight className="h-3 w-3" />
+                </Link>
+              </div>
+           </div>
+        </Card>
+      </div>
     </div>
   );
 }
