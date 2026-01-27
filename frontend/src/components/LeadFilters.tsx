@@ -12,25 +12,29 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Lead } from "@/types";
 
-export interface LeadFilters {
+// 1. Renomeamos a interface para LeadFilterState (era LeadFilters)
+export interface LeadFilterState {
   search: string;
   hasWhatsApp: boolean | null;
   hasEmail: boolean | null;
 }
 
+// 2. Atualizamos a interface das Props
 interface LeadFiltersProps {
   leads: Lead[];
-  filters: LeadFilters;
-  onFiltersChange: (filters: LeadFilters) => void;
+  filters: LeadFilterState;
+  onFiltersChange: (filters: LeadFilterState) => void;
 }
 
-export const defaultFilters: LeadFilters = {
+export const defaultFilters: LeadFilterState = {
   search: "",
   hasWhatsApp: null,
   hasEmail: null,
 };
 
-export function LeadFiltersComponent({ leads, filters, onFiltersChange }: LeadFiltersProps) {
+// 3. Renomeamos o componente para LeadFilters (era LeadFiltersComponent)
+// Isso corrige o erro de importação na outra página
+export function LeadFilters({ leads, filters, onFiltersChange }: LeadFiltersProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   const activeFiltersCount = useMemo(() => {
@@ -152,7 +156,8 @@ export function LeadFiltersComponent({ leads, filters, onFiltersChange }: LeadFi
   );
 }
 
-export function filterLeads(leads: Lead[], filters: LeadFilters): Lead[] {
+// 4. Helper function também atualizada com o novo tipo
+export function filterLeads(leads: Lead[], filters: LeadFilterState): Lead[] {
   return leads.filter((lead) => {
     // Search filter
     if (filters.search && !lead.name.toLowerCase().includes(filters.search.toLowerCase())) {
