@@ -23,15 +23,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Search, MapPin, Calendar, Hash, Trash2, Eye, Phone, Mail, MessageCircle, Star, Download } from "lucide-react";
+import { LeadTable } from "@/components/LeadTable";
+import { Search, MapPin, Calendar, Hash, Trash2, Eye, Download } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { SearchHistory, Lead } from "@/types";
@@ -39,13 +32,16 @@ import { SearchHistory, Lead } from "@/types";
 export default function History() {
   const { searchHistory, getLeadsBySearchId, deleteSearchHistory, clearAllHistory } = useLeads();
   const { toast } = useToast();
+  
   const [selectedSearch, setSelectedSearch] = useState<SearchHistory | null>(null);
   const [searchLeads, setSearchLeads] = useState<Lead[]>([]);
+  const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([]);
 
   const handleViewSearch = (search: SearchHistory) => {
     const leads = getLeadsBySearchId(search.id);
     setSearchLeads(leads);
     setSelectedSearch(search);
+    setSelectedLeadIds([]);
   };
 
   const handleDeleteSearch = (searchId: string) => {
@@ -64,53 +60,76 @@ export default function History() {
     });
   };
 
-  const handleDownloadLeads = (search: SearchHistory) => {
-    const leads = getLeadsBySearchId(search.id);
+  // Mesma lógica de separação de endereço
+  const splitAddress = (fullAddress: string) => {
+    if (!fullAddress) return { location: "", cityState: "" };
+    const match = fullAddress.match(/, ([^,]+?) - ([A-Z]{2})/);
+    if (match) {
+      return { 
+        location: fullAddress.substring(0, match.index).trim(), 
+        cityState: `${match[1]} - ${match[2]}` 
+      };
+    }
+    if (fullAddress.match(/^([^,]+?) - ([A-Z]{2})/)) {
+       return { location: "", cityState: fullAddress };
+    }
+    return { location: fullAddress, cityState: "" };
+  };
+
+  const handleDownloadLeads = (search: SearchHistory, leadsToExport?: Lead[]) => {
+    const leads = leadsToExport || getLeadsBySearchId(search.id);
     
     if (leads.length === 0) {
       toast({
         title: "Nenhum lead disponível",
-        description: "Os leads desta pesquisa não estão mais disponíveis.",
+        description: "Não há leads para exportar.",
         variant: "destructive",
       });
       return;
     }
 
-    const data = leads.map((lead) => ({
-      Nome: lead.name,
-      Categoria: lead.category,
-      Telefone: lead.phone,
-      "Tem WhatsApp": lead.hasWhatsApp ? "Sim" : "Não",
-      Email: lead.email || "",
-      "Tem Email": lead.email ? "Sim" : "Não",
-      Endereço: lead.address,
-      Cidade: lead.city,
-      Estado: lead.state,
-      Avaliação: lead.rating,
-      "Nº Avaliações": lead.reviews,
-      Website: lead.website || "",
-      "Data Extração": new Date(lead.extractedAt).toLocaleDateString("pt-BR"),
-    }));
+    const data = leads.map((lead) => {
+      const addressInfo = splitAddress(lead.address);
+      return {
+        "Nome": lead.name,
+        "Categoria": lead.category,
+        "Telefone": lead.phone,
+        "WhatsApp": lead.hasWhatsApp ? "Sim" : "Não",
+        "Endereço (Local)": addressInfo.location,   // <--- Separado
+        "Cidade/Estado": addressInfo.cityState,     // <--- Separado
+        "Endereço Completo": lead.address,          // Mantido
+        "Avaliação": lead.rating,
+        "Website": lead.website || "",
+        "Data": new Date(lead.extractedAt).toLocaleDateString("pt-BR"),
+      };
+    });
 
     const worksheet = XLSX.utils.json_to_sheet(data);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Leads");
 
-    const colWidths = Object.keys(data[0] || {}).map((key) => ({
+    const colWidths = Object.keys(data[0]).map((key) => ({
       wch: Math.max(key.length, 15),
     }));
     worksheet["!cols"] = colWidths;
 
     const sanitizedQuery = search.query.replace(/[^a-zA-Z0-9]/g, "_").toLowerCase();
-    const sanitizedLocation = search.location.replace(/[^a-zA-Z0-9]/g, "_").toLowerCase();
-    const fileName = `leads_${sanitizedQuery}_${sanitizedLocation}_${new Date(search.searchedAt).toISOString().split("T")[0]}.xlsx`;
+    const fileName = `leads_${sanitizedQuery}_${new Date(search.searchedAt).toISOString().split("T")[0]}.xlsx`;
     
     XLSX.writeFile(workbook, fileName);
 
     toast({
       title: "Download concluído!",
-      description: `${leads.length} leads exportados para ${fileName}`,
+      description: `${leads.length} leads exportados com sucesso.`,
     });
+  };
+
+  const handleModalDownload = () => {
+    if (!selectedSearch) return;
+    const leadsToExport = selectedLeadIds.length > 0
+      ? searchLeads.filter(l => selectedLeadIds.includes(l.id))
+      : searchLeads;
+    handleDownloadLeads(selectedSearch, leadsToExport);
   };
 
   return (
@@ -133,7 +152,7 @@ export default function History() {
               <AlertDialogHeader>
                 <AlertDialogTitle>Limpar todo o histórico?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Esta ação irá remover todas as {searchHistory.length} pesquisas e seus leads associados. Esta ação não pode ser desfeita.
+                  Esta ação irá remover todas as {searchHistory.length} pesquisas.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
@@ -199,7 +218,7 @@ export default function History() {
                     size="icon"
                     className="h-8 w-8"
                     onClick={() => handleDownloadLeads(search)}
-                    title="Baixar Excel"
+                    title="Baixar Excel Completo"
                   >
                     <Download className="h-4 w-4" />
                   </Button>
@@ -214,7 +233,7 @@ export default function History() {
                       <AlertDialogHeader>
                         <AlertDialogTitle>Remover pesquisa?</AlertDialogTitle>
                         <AlertDialogDescription>
-                          Esta ação irá remover a pesquisa "{search.query}" e todos os {search.resultsCount} leads associados.
+                          Remover "{search.query}"?
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
@@ -232,109 +251,50 @@ export default function History() {
         </div>
       )}
 
-      {/* Modal View Leads */}
       <Dialog open={!!selectedSearch} onOpenChange={(open) => !open && setSelectedSearch(null)}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
-          <DialogHeader>
+        <DialogContent className="max-w-5xl h-[85vh] flex flex-col p-0 gap-0 overflow-hidden bg-white">
+          <DialogHeader className="p-6 pb-2 flex-none">
             <div className="flex items-center justify-between pr-8">
               <div>
-                <DialogTitle className="flex items-center gap-2">
+                <DialogTitle className="flex items-center gap-2 text-xl">
                   <Search className="h-5 w-5 text-primary" />
-                  {selectedSearch?.query}
+                  Resultados: {selectedSearch?.query}
                 </DialogTitle>
-                <DialogDescription className="flex items-center gap-4 mt-1">
-                  <span className="flex items-center gap-1">
+                <DialogDescription className="flex items-center gap-3 mt-1.5">
+                  <span className="flex items-center gap-1 bg-gray-100 px-2 py-0.5 rounded text-xs">
                     <MapPin className="h-3 w-3" />
                     {selectedSearch?.location}
                   </span>
-                  <span className="flex items-center gap-1">
-                    <Hash className="h-3 w-3" />
-                    {searchLeads.length} leads
+                  <span className="text-xs text-muted-foreground">
+                    {searchLeads.length} leads encontrados
                   </span>
                 </DialogDescription>
               </div>
+              
               {searchLeads.length > 0 && selectedSearch && (
                 <Button 
                   size="sm" 
-                  onClick={() => handleDownloadLeads(selectedSearch)}
+                  variant={selectedLeadIds.length > 0 ? "default" : "outline"}
+                  onClick={handleModalDownload}
+                  className="gap-2"
                 >
-                  <Download className="mr-2 h-4 w-4" />
-                  Baixar Excel
+                  <Download className="h-4 w-4" />
+                  {selectedLeadIds.length > 0 
+                    ? `Baixar Selecionados (${selectedLeadIds.length})` 
+                    : "Baixar Todos"}
                 </Button>
               )}
             </div>
           </DialogHeader>
 
-          <div className="flex-1 overflow-auto">
-            {searchLeads.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                <Search className="h-8 w-8 mb-2" />
-                <p>Os leads desta pesquisa não estão mais disponíveis.</p>
-                <p className="text-sm">Eles podem ter sido removidos ou limpos.</p>
-              </div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nome</TableHead>
-                    <TableHead>Telefone</TableHead>
-                    <TableHead>WhatsApp</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Avaliação</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {searchLeads.map((lead) => (
-                    <TableRow key={lead.id}>
-                      <TableCell>
-                        <div className="flex flex-col">
-                          <span className="font-medium">{lead.name}</span>
-                          <span className="text-xs text-muted-foreground">{lead.address}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <a href={`tel:${lead.phone}`} className="flex items-center gap-1 text-sm hover:text-primary">
-                          <Phone className="h-3 w-3" />
-                          {lead.phone}
-                        </a>
-                      </TableCell>
-                      <TableCell>
-                        {lead.hasWhatsApp ? (
-                          <Badge variant="default" className="bg-emerald-600 hover:bg-emerald-700">
-                            <MessageCircle className="h-3 w-3 mr-1" />
-                            Sim
-                          </Badge>
-                        ) : (
-                          <Badge variant="secondary">
-                            Não
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {lead.email ? (
-                          <a
-                            href={`mailto:${lead.email}`}
-                            className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700"
-                          >
-                            <Mail className="h-3 w-3" />
-                            {lead.email}
-                          </a>
-                        ) : (
-                          <span className="text-muted-foreground">-</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                          <span className="text-sm font-medium">{lead.rating}</span>
-                          <span className="text-xs text-muted-foreground">({lead.reviews})</span>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
+          <div className="flex-1 overflow-hidden p-2 bg-gray-50/30">
+            <div className="h-full border rounded-lg bg-white overflow-y-auto">
+              <LeadTable 
+                leads={searchLeads} 
+                selectedLeads={selectedLeadIds}
+                onSelectionChange={setSelectedLeadIds}
+              />
+            </div>
           </div>
         </DialogContent>
       </Dialog>
