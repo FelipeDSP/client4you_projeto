@@ -1,10 +1,12 @@
-import { useState, useEffect, useCallback } from "react";
-import { Header } from "@/components/Header";
+import { useState, useCallback } from "react";
 import { useAdmin } from "@/hooks/useAdmin";
 import { useToast } from "@/hooks/use-toast";
 import { plans } from "@/hooks/useSubscription";
 import { Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+
+// Componentes UI
+import { Separator } from "@/components/ui/separator";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -46,6 +48,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+
+// Ícones
 import { 
   Users, 
   RefreshCw,
@@ -57,6 +61,7 @@ import {
   CheckCircle,
   XCircle,
   UserPlus,
+  Building2
 } from "lucide-react";
 
 export default function Admin() {
@@ -95,8 +100,11 @@ export default function Admin() {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="flex h-[calc(100vh-4rem)] items-center justify-center">
+        <div className="flex flex-col items-center gap-2">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-muted-foreground text-sm">Verificando permissões...</p>
+        </div>
       </div>
     );
   }
@@ -234,7 +242,6 @@ export default function Admin() {
     setIsCreating(true);
 
     try {
-      // 1. Create user in Supabase Auth using admin API
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: newUserEmail,
         password: newUserPassword,
@@ -246,18 +253,11 @@ export default function Admin() {
         },
       });
 
-      if (authError) {
-        throw new Error(authError.message);
-      }
+      if (authError) throw new Error(authError.message);
+      if (!authData.user) throw new Error("Erro ao criar usuário");
 
-      if (!authData.user) {
-        throw new Error("Erro ao criar usuário");
-      }
-
-      // 2. Wait a bit for the trigger to create the company and subscription
       await new Promise(resolve => setTimeout(resolve, 2000));
 
-      // 3. Find the company created for this user
       const { data: profileData } = await supabase
         .from("profiles")
         .select("company_id")
@@ -265,7 +265,6 @@ export default function Admin() {
         .single();
 
       if (profileData?.company_id) {
-        // 4. Update the subscription plan
         await supabase
           .from("subscriptions")
           .update({ plan_id: newUserPlan })
@@ -277,7 +276,6 @@ export default function Admin() {
         description: `${newUserEmail} foi criado com sucesso.`,
       });
 
-      // Reset form
       setNewUserName("");
       setNewUserEmail("");
       setNewUserPassword("");
@@ -303,23 +301,23 @@ export default function Admin() {
   const professionalUsers = usersWithDetails.filter((u) => ["professional", "business"].includes(u.planId)).length;
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
+    <div className="space-y-8 animate-fade-in pb-10">
       
-      <main className="container py-6 space-y-6">
-        {/* Header */}
+      {/* CABEÇALHO LIMPO E FUNCIONAL */}
+      <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold flex items-center gap-2">
-              <Crown className="h-8 w-8 text-primary" />
-              Painel Admin
-            </h1>
+          <div className="space-y-1">
+            <h2 className="text-3xl font-bold tracking-tight text-gray-900 flex items-center gap-2">
+              <Crown className="h-6 w-6 text-primary" />
+              Painel Administrativo
+            </h2>
             <p className="text-muted-foreground">
-              Gerencie usuários e planos
+              Gestão centralizada de usuários e assinaturas.
             </p>
           </div>
+          
           <div className="flex gap-2">
-            <Button onClick={handleRefresh} disabled={isRefreshing} variant="outline">
+            <Button onClick={handleRefresh} disabled={isRefreshing} variant="outline" className="bg-white border-gray-200">
               <RefreshCw className={`mr-2 h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
               Atualizar
             </Button>
@@ -327,7 +325,7 @@ export default function Admin() {
             {/* Create User Dialog */}
             <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
               <DialogTrigger asChild>
-                <Button>
+                <Button className="bg-primary hover:bg-primary/90">
                   <UserPlus className="mr-2 h-4 w-4" />
                   Criar Usuário
                 </Button>
@@ -336,7 +334,7 @@ export default function Admin() {
                 <DialogHeader>
                   <DialogTitle>Criar Novo Usuário</DialogTitle>
                   <DialogDescription>
-                    Crie uma conta para um novo cliente
+                    Crie uma conta para um novo cliente manualmente.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
@@ -383,9 +381,6 @@ export default function Admin() {
                         ))}
                       </SelectContent>
                     </Select>
-                    <p className="text-xs text-muted-foreground">
-                      Professional e Business têm acesso ao Disparador
-                    </p>
                   </div>
                 </div>
                 <DialogFooter>
@@ -407,73 +402,85 @@ export default function Admin() {
             </Dialog>
           </div>
         </div>
+        <Separator className="my-4" />
+      </div>
 
-        {/* Stats */}
-        <div className="grid gap-4 md:grid-cols-3">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Total de Usuários</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{totalUsers}</div>
-              <p className="text-xs text-muted-foreground">
-                {totalAdmins} admin(s)
-              </p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Com Disparador</CardTitle>
-              <Send className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">{professionalUsers}</div>
-              <p className="text-xs text-muted-foreground">
-                Plano Professional ou Business
-              </p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Empresas</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{companies.length}</div>
-              <p className="text-xs text-muted-foreground">
-                {companies.filter((c) => c.subscription?.status === "active").length} ativas
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Users Table */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Gerenciar Contas</CardTitle>
-            <CardDescription>
-              Altere planos e permissões dos usuários
-            </CardDescription>
+      {/* ESTATÍSTICAS (CARDS) */}
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card className="bg-white shadow-sm border-none hover:shadow-md transition-shadow">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total de Usuários</CardTitle>
+            <div className="h-8 w-8 bg-blue-50 rounded-full flex items-center justify-center">
+              <Users className="h-4 w-4 text-blue-600" />
+            </div>
           </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Search and Filter */}
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="relative flex-1">
+          <CardContent>
+            <div className="text-2xl font-bold text-gray-800">{totalUsers}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {totalAdmins} com acesso administrativo
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-white shadow-sm border-none hover:shadow-md transition-shadow">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Usuários Premium</CardTitle>
+            <div className="h-8 w-8 bg-emerald-50 rounded-full flex items-center justify-center">
+              <Send className="h-4 w-4 text-emerald-600" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-gray-800">{professionalUsers}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Planos com Disparador ativo
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-white shadow-sm border-none hover:shadow-md transition-shadow">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Empresas Ativas</CardTitle>
+            <div className="h-8 w-8 bg-purple-50 rounded-full flex items-center justify-center">
+              <Building2 className="h-4 w-4 text-purple-600" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-gray-800">{companies.length}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {companies.filter((c) => c.subscription?.status === "active").length} com assinatura regular
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* ÁREA PRINCIPAL - SEM ABAS DESNECESSÁRIAS */}
+      <Card className="bg-white shadow-sm border-none">
+        <CardHeader>
+          <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+            <div>
+              <CardTitle>Base de Usuários</CardTitle>
+              <CardDescription>
+                Visualize, edite planos e gerencie permissões.
+              </CardDescription>
+            </div>
+            
+            {/* Filtros */}
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="relative w-full sm:w-64">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Buscar por nome, email ou empresa..."
+                  placeholder="Buscar usuário..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
+                  className="pl-9 bg-gray-50 border-gray-200"
                 />
               </div>
               <Select value={filterPlan} onValueChange={setFilterPlan}>
-                <SelectTrigger className="w-full sm:w-48">
-                  <SelectValue placeholder="Filtrar por plano" />
+                <SelectTrigger className="w-full sm:w-40 bg-gray-50 border-gray-200">
+                  <SelectValue placeholder="Filtrar Plano" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Todos os planos</SelectItem>
+                  <SelectItem value="all">Todos</SelectItem>
                   {plans.map((plan) => (
                     <SelectItem key={plan.id} value={plan.id}>
                       {plan.name}
@@ -482,128 +489,126 @@ export default function Admin() {
                 </SelectContent>
               </Select>
             </div>
-
-            {/* Table */}
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
+          </div>
+        </CardHeader>
+        
+        <CardContent>
+          <div className="rounded-md border border-gray-100 overflow-hidden">
+            <Table>
+              <TableHeader className="bg-gray-50">
+                <TableRow>
+                  <TableHead className="font-semibold text-gray-600">Usuário</TableHead>
+                  <TableHead className="font-semibold text-gray-600">Empresa</TableHead>
+                  <TableHead className="font-semibold text-gray-600">Plano</TableHead>
+                  <TableHead className="text-center font-semibold text-gray-600">Recursos</TableHead>
+                  <TableHead className="text-center font-semibold text-gray-600">Admin</TableHead>
+                  <TableHead className="text-right font-semibold text-gray-600 pr-6">Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredUsers.length === 0 ? (
                   <TableRow>
-                    <TableHead>Usuário</TableHead>
-                    <TableHead>Empresa</TableHead>
-                    <TableHead>Plano</TableHead>
-                    <TableHead className="text-center">Disparador</TableHead>
-                    <TableHead className="text-center">Admin</TableHead>
-                    <TableHead className="text-center">Ações</TableHead>
+                    <TableCell colSpan={6} className="text-center text-muted-foreground py-12">
+                      Nenhum usuário encontrado com os filtros atuais.
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredUsers.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                        Nenhum usuário encontrado
+                ) : (
+                  filteredUsers.map((user) => (
+                    <TableRow key={user.id} className="hover:bg-gray-50/50 transition-colors">
+                      <TableCell>
+                        <div className="flex flex-col">
+                          <span className="font-medium text-gray-900">{user.fullName || "Sem nome"}</span>
+                          <span className="text-xs text-muted-foreground">{user.email}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-sm text-gray-700 font-medium">
+                          {user.companyName || <span className="text-muted-foreground italic">Sem empresa</span>}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <Select
+                          value={user.planId}
+                          onValueChange={(value) => handleChangePlan(user.companyId, value, user.fullName || user.email)}
+                          disabled={!user.companyId}
+                        >
+                          <SelectTrigger className="w-32 h-8 text-xs bg-white">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {plans.map((plan) => (
+                              <SelectItem key={plan.id} value={plan.id}>
+                                {plan.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {user.hasDisparador ? (
+                          <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 gap-1 text-[10px]">
+                            <CheckCircle className="h-3 w-3" /> Disparador
+                          </Badge>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Checkbox
+                          checked={user.isSuperAdmin}
+                          onCheckedChange={() => 
+                            handleToggleAdmin(user.id, user.fullName || user.email, user.isSuperAdmin)
+                          }
+                          aria-label="Toggle Admin"
+                        />
+                      </TableCell>
+                      <TableCell className="text-right pr-6">
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-red-600 hover:bg-red-50">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Excluir usuário?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                O usuário <strong>{user.fullName || user.email}</strong> será removido permanentemente. 
+                                Esta ação não pode ser desfeita.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                              <AlertDialogAction
+                                className="bg-red-600 hover:bg-red-700 text-white"
+                                onClick={() => handleDeleteUser(user.id, user.fullName || user.email)}
+                              >
+                                Sim, excluir
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       </TableCell>
                     </TableRow>
-                  ) : (
-                    filteredUsers.map((user) => (
-                      <TableRow key={user.id}>
-                        <TableCell>
-                          <div>
-                            <p className="font-medium">{user.fullName || "Sem nome"}</p>
-                            <p className="text-sm text-muted-foreground">{user.email}</p>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <span className="text-sm">{user.companyName || "-"}</span>
-                        </TableCell>
-                        <TableCell>
-                          <Select
-                            value={user.planId}
-                            onValueChange={(value) => handleChangePlan(user.companyId, value, user.fullName || user.email)}
-                            disabled={!user.companyId}
-                          >
-                            <SelectTrigger className="w-32">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {plans.map((plan) => (
-                                <SelectItem key={plan.id} value={plan.id}>
-                                  {plan.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          {user.hasDisparador ? (
-                            <Badge variant="default" className="bg-green-600 gap-1">
-                              <CheckCircle className="h-3 w-3" />
-                              Sim
-                            </Badge>
-                          ) : (
-                            <Badge variant="secondary" className="gap-1">
-                              <XCircle className="h-3 w-3" />
-                              Não
-                            </Badge>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <Checkbox
-                            checked={user.isSuperAdmin}
-                            onCheckedChange={() => 
-                              handleToggleAdmin(user.id, user.fullName || user.email, user.isSuperAdmin)
-                            }
-                          />
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Excluir usuário?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  <strong>{user.fullName || user.email}</strong> será removido permanentemente.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                <AlertDialogAction
-                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                  onClick={() => handleDeleteUser(user.id, user.fullName || user.email)}
-                                >
-                                  Excluir
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+          
+          {/* Legenda simples no rodapé */}
+          <div className="flex gap-6 mt-4 text-xs text-muted-foreground px-1">
+            <div className="flex items-center gap-1.5">
+              <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
+              <span>Disparador Ativo</span>
             </div>
-
-            {/* Legend */}
-            <div className="flex flex-wrap gap-4 text-sm text-muted-foreground pt-2">
-              <div className="flex items-center gap-2">
-                <Badge variant="default" className="bg-green-600 gap-1">
-                  <CheckCircle className="h-3 w-3" />
-                  Sim
-                </Badge>
-                <span>= Acesso ao Disparador (Professional/Business)</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Checkbox checked disabled className="opacity-50" />
-                <span>= Super Admin (acesso a este painel)</span>
-              </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-2 h-2 rounded-full bg-gray-300"></div>
+              <span>Sem acesso</span>
             </div>
-          </CardContent>
-        </Card>
-      </main>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
