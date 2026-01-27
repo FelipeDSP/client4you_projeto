@@ -1,84 +1,248 @@
-import { StatsCards } from "@/components/StatsCards";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { useMemo } from "react";
 import { Link } from "react-router-dom";
-import { Search, ArrowRight, Activity } from "lucide-react";
-import { useLeads } from "@/hooks/useLeads"; // <--- 1. Importar o hook de dados
+import { 
+  Users, 
+  Send, 
+  Activity, 
+  Search, 
+  ArrowRight, 
+  MessageSquare, 
+  CheckCircle2, 
+  AlertCircle,
+  Clock
+} from "lucide-react";
+
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
+import { useLeads } from "@/hooks/useLeads";
+import { useCampaigns } from "@/hooks/useCampaigns";
+import { useCompanySettings } from "@/hooks/useCompanySettings";
+import { formatDistanceToNow } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 export default function Dashboard() {
-  // 2. Buscar os dados reais do sistema
-  // "leads" e "searchHistory" vêm daqui, evitando que sejam "undefined"
-  const { leads, searchHistory, isLoading } = useLeads();
+  // 1. Buscamos TODOS os dados do sistema
+  const { leads, searchHistory, isLoading: isLoadingLeads } = useLeads();
+  const { campaigns, isLoading: isLoadingCampaigns } = useCampaigns();
+  const { hasWahaConfig } = useCompanySettings();
+
+  // 2. Calculamos os KPIs (Indicadores Chave)
+  const stats = useMemo(() => {
+    const totalLeads = leads?.length || 0;
+    const activeCampaigns = campaigns?.filter(c => c.status === 'running').length || 0;
+    const completedCampaigns = campaigns?.filter(c => c.status === 'completed').length || 0;
+    
+    // Soma todas as mensagens enviadas em todas as campanhas
+    const totalMessagesSent = campaigns?.reduce((acc, curr) => acc + (curr.sent_count || 0), 0) || 0;
+    
+    return { totalLeads, activeCampaigns, completedCampaigns, totalMessagesSent };
+  }, [leads, campaigns]);
+
+  // 3. Criamos uma "Timeline" misturando buscas e campanhas
+  const recentActivity = useMemo(() => {
+    const activities = [];
+
+    // Adiciona buscas ao histórico
+    if (searchHistory) {
+      searchHistory.forEach(search => {
+        activities.push({
+          id: `search-${search.id}`,
+          type: 'search',
+          title: `Busca: ${search.query}`,
+          subtitle: `${search.resultsCount} leads em ${search.location}`,
+          date: new Date(search.searchedAt),
+          icon: Search,
+          color: "text-blue-500 bg-blue-50"
+        });
+      });
+    }
+
+    // Adiciona campanhas ao histórico
+    if (campaigns) {
+      campaigns.forEach(campaign => {
+        activities.push({
+          id: `camp-${campaign.id}`,
+          type: 'campaign',
+          title: `Campanha: ${campaign.name}`,
+          subtitle: `${campaign.total_contacts} contatos • Status: ${campaign.status}`,
+          date: new Date(campaign.created_at || new Date()),
+          icon: MessageSquare,
+          color: "text-green-500 bg-green-50"
+        });
+      });
+    }
+
+    // Ordena do mais recente para o mais antigo e pega os top 5
+    return activities.sort((a, b) => b.date.getTime() - a.date.getTime()).slice(0, 5);
+  }, [searchHistory, campaigns]);
+
+  // Campanhas rodando agora (para destaque)
+  const runningCampaigns = campaigns?.filter(c => c.status === 'running') || [];
 
   return (
-    <div className="space-y-8 animate-fade-in">
-      {/* Cabeçalho do Dashboard */}
-      <div className="flex justify-between items-center">
+    <div className="space-y-8 animate-fade-in pb-10">
+      {/* Cabeçalho */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-3xl font-bold tracking-tight text-gray-800">Visão Geral</h2>
           <p className="text-muted-foreground mt-1">
-            Acompanhe o desempenho das suas campanhas e base de leads.
+            Métricas em tempo real da sua operação.
           </p>
         </div>
-        
-        {/* Botão de Ação Rápida */}
-        <Link to="/search">
-          <Button className="gap-2 shadow-sm">
-            <Search className="h-4 w-4" />
-            Buscar Novos Leads
-          </Button>
-        </Link>
+        <div className="flex gap-2">
+          <Link to="/search">
+            <Button className="gap-2 shadow-sm">
+              <Search className="h-4 w-4" />
+              Buscar Leads
+            </Button>
+          </Link>
+          <Link to="/disparador">
+            <Button variant="outline" className="gap-2 shadow-sm bg-white">
+              <Send className="h-4 w-4" />
+              Criar Campanha
+            </Button>
+          </Link>
+        </div>
       </div>
 
-      {/* 3. Passar os dados para os Cards (CRUCIAL para corrigir o erro) */}
-      {/* Usamos "|| []" para garantir que, mesmo carregando, seja uma lista vazia e não quebre */}
-      <StatsCards 
-        leads={leads || []} 
-        searchHistory={searchHistory || []} 
-      />
-
-      {/* Seção de Atividade e Status */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-7">
-        <Card className="col-span-4 p-6 bg-white shadow-sm border-none rounded-xl">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-gray-800 flex items-center gap-2">
-              <Activity className="h-4 w-4 text-green-600" />
-              Atividade Recente
-            </h3>
-          </div>
-          <div className="h-[300px] flex items-center justify-center border-2 border-dashed border-gray-100 rounded-lg">
-            {isLoading ? (
-              <p className="text-muted-foreground text-sm">Carregando dados...</p>
-            ) : leads?.length === 0 ? (
-              <div className="text-center">
-                <p className="text-muted-foreground text-sm mb-2">Nenhum lead encontrado ainda.</p>
-                <Link to="/search" className="text-green-600 hover:underline text-sm">Começar busca</Link>
-              </div>
-            ) : (
-              <p className="text-muted-foreground text-sm">Gráfico de desempenho será exibido aqui</p>
-            )}
-          </div>
+      {/* Cards de KPI Globais */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card className="bg-white shadow-sm border-none">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total de Leads</CardTitle>
+            <Users className="h-4 w-4 text-blue-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-gray-800">{stats.totalLeads}</div>
+            <p className="text-xs text-muted-foreground mt-1">Contatos na base</p>
+          </CardContent>
         </Card>
 
-        <Card className="col-span-3 p-6 bg-white shadow-sm border-none rounded-xl">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-gray-800">Status do Sistema</h3>
-          </div>
-           <div className="space-y-4">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-500">API do WhatsApp</span>
-                <span className="text-green-600 font-medium px-2 py-1 bg-green-50 rounded-full text-xs">Online</span>
+        <Card className="bg-white shadow-sm border-none">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Campanhas Ativas</CardTitle>
+            <Activity className="h-4 w-4 text-green-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-gray-800">{stats.activeCampaigns}</div>
+            <p className="text-xs text-muted-foreground mt-1">Disparando agora</p>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-white shadow-sm border-none">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Mensagens Enviadas</CardTitle>
+            <Send className="h-4 w-4 text-purple-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-gray-800">{stats.totalMessagesSent}</div>
+            <p className="text-xs text-muted-foreground mt-1">Total acumulado</p>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-white shadow-sm border-none">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Status WhatsApp</CardTitle>
+            {hasWahaConfig ? (
+              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+            ) : (
+              <AlertCircle className="h-4 w-4 text-yellow-500" />
+            )}
+          </CardHeader>
+          <CardContent>
+            <div className="text-lg font-medium text-gray-800">
+              {hasWahaConfig ? "Conectado" : "Configurar"}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">API de envio</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-6 md:grid-cols-7">
+        
+        {/* Coluna Principal (Esq) - Status de Campanhas */}
+        <Card className="md:col-span-4 bg-white shadow-sm border-none flex flex-col">
+          <CardHeader>
+            <CardTitle className="text-lg text-gray-800">Campanhas em Execução</CardTitle>
+            <CardDescription>Acompanhe o progresso dos disparos atuais.</CardDescription>
+          </CardHeader>
+          <CardContent className="flex-1">
+            {runningCampaigns.length > 0 ? (
+              <div className="space-y-6">
+                {runningCampaigns.map(campaign => (
+                  <div key={campaign.id} className="space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="font-medium text-gray-700">{campaign.name}</span>
+                      <span className="text-muted-foreground">
+                        {campaign.sent_count} / {campaign.total_contacts}
+                      </span>
+                    </div>
+                    <Progress 
+                      value={campaign.total_contacts > 0 ? (campaign.sent_count / campaign.total_contacts) * 100 : 0} 
+                      className="h-2" 
+                    />
+                  </div>
+                ))}
               </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-500">Servidor de Disparos</span>
-                <span className="text-green-600 font-medium px-2 py-1 bg-green-50 rounded-full text-xs">Ativo</span>
-              </div>
-              <div className="mt-4 pt-4 border-t">
-                <Link to="/disparador" className="text-sm text-green-700 hover:text-green-800 font-medium flex items-center gap-1">
-                   Ir para Disparador <ArrowRight className="h-3 w-3" />
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center text-center p-6 border-2 border-dashed border-gray-100 rounded-lg min-h-[200px]">
+                <div className="bg-gray-50 p-3 rounded-full mb-3">
+                  <Activity className="h-6 w-6 text-gray-400" />
+                </div>
+                <h3 className="text-sm font-medium text-gray-900">Nenhuma campanha ativa</h3>
+                <p className="text-sm text-muted-foreground mt-1 mb-4 max-w-xs">
+                  Todas as suas campanhas foram concluídas ou estão pausadas.
+                </p>
+                <Link to="/disparador">
+                  <Button variant="outline" size="sm">Iniciar Nova Campanha</Button>
                 </Link>
               </div>
-           </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Coluna Secundária (Dir) - Feed de Atividade */}
+        <Card className="md:col-span-3 bg-white shadow-sm border-none flex flex-col">
+          <CardHeader>
+            <CardTitle className="text-lg text-gray-800">Atividade Recente</CardTitle>
+            <CardDescription>Últimas ações realizadas no sistema.</CardDescription>
+          </CardHeader>
+          <CardContent className="flex-1">
+            <div className="space-y-6">
+              {recentActivity.length > 0 ? (
+                recentActivity.map((activity, index) => (
+                  <div key={activity.id} className="flex gap-4 relative">
+                    {/* Linha vertical conectora (exceto no último item) */}
+                    {index !== recentActivity.length - 1 && (
+                      <div className="absolute left-[19px] top-10 bottom-[-24px] w-[2px] bg-gray-100" />
+                    )}
+                    
+                    <div className={`relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${activity.color} border border-white shadow-sm`}>
+                      <activity.icon className="h-5 w-5" />
+                    </div>
+                    <div className="flex flex-col gap-1 pt-1">
+                      <span className="text-sm font-medium text-gray-900 leading-none">
+                        {activity.title}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {activity.subtitle}
+                      </span>
+                      <span className="text-[10px] text-gray-400 flex items-center gap-1 mt-1">
+                        <Clock className="h-3 w-3" />
+                        {formatDistanceToNow(activity.date, { addSuffix: true, locale: ptBR })}
+                      </span>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-10 text-muted-foreground text-sm">
+                  Nenhuma atividade recente encontrada.
+                </div>
+              )}
+            </div>
+          </CardContent>
         </Card>
       </div>
     </div>
