@@ -1,35 +1,45 @@
-import { Home, History, Settings, Send, LogOut, User, Search } from "lucide-react"
+import { 
+  LayoutDashboard, 
+  Search, 
+  History, 
+  Settings, 
+  User, 
+  MessageSquare, 
+  LogOut,
+  ShieldCheck // <--- Ícone para Admin
+} from "lucide-react";
+import { useLocation, Link } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
+import { useAdmin } from "@/hooks/useAdmin"; // <--- Importante
 import {
   Sidebar,
   SidebarContent,
-  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
-  SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from "@/components/ui/sidebar"
-import { useAuth } from "@/hooks/useAuth"
-import { useLocation, Link } from "react-router-dom"
+  SidebarFooter,
+} from "@/components/ui/sidebar";
+import { Button } from "./ui/button";
 
-// Itens do menu
+// Itens fixos para todos os usuários
 const items = [
   {
     title: "Dashboard",
     url: "/dashboard",
-    icon: Home,
+    icon: LayoutDashboard,
   },
   {
-    title: "Buscar Leads", // Novo item
+    title: "Buscar Leads",
     url: "/search",
     icon: Search,
   },
   {
     title: "Disparador",
     url: "/disparador",
-    icon: Send,
+    icon: MessageSquare,
   },
   {
     title: "Histórico",
@@ -46,27 +56,27 @@ const items = [
     url: "/settings",
     icon: Settings,
   },
-]
+];
 
 export function AppSidebar() {
-  const { signOut } = useAuth()
-  const location = useLocation()
+  const location = useLocation();
+  const { signOut } = useAuth();
+  const { isAdmin, isLoading } = useAdmin(); // <--- Verificação de Admin
 
   return (
     <Sidebar collapsible="icon">
-      <SidebarHeader className="py-4">
-        <div className="flex items-center gap-2 px-2">
-          {/* Logo ou Ícone do App */}
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-green-600 text-white font-bold">
-            LD
-          </div>
-          <span className="truncate font-semibold text-white">Lead Dispatcher</span>
-        </div>
-      </SidebarHeader>
-      
       <SidebarContent>
+        <div className="p-4 flex items-center justify-center">
+          <h1 className="text-xl font-bold text-primary group-data-[collapsible=icon]:hidden">
+            Busca<span className="text-gray-900">Lead</span>
+          </h1>
+          <span className="text-xl font-bold text-primary hidden group-data-[collapsible=icon]:block">
+            B<span className="text-gray-900">L</span>
+          </span>
+        </div>
+        
         <SidebarGroup>
-          <SidebarGroupLabel className="text-gray-400">Menu Principal</SidebarGroupLabel>
+          <SidebarGroupLabel>Aplicação</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {items.map((item) => (
@@ -75,33 +85,47 @@ export function AppSidebar() {
                     asChild 
                     isActive={location.pathname === item.url}
                     tooltip={item.title}
-                    className="hover:bg-sidebar-accent hover:text-white transition-colors"
                   >
                     <Link to={item.url}>
-                      <item.icon />
+                      <item.icon className="h-4 w-4" />
                       <span>{item.title}</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
+
+              {/* ITEM EXCLUSIVO DE ADMIN */}
+              {!isLoading && isAdmin && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton 
+                    asChild 
+                    isActive={location.pathname === "/admin"}
+                    tooltip="Administração"
+                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                  >
+                    <Link to="/admin">
+                      <ShieldCheck className="h-4 w-4" />
+                      <span>Administração</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
+
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton 
-              onClick={() => signOut()}
-              className="text-red-400 hover:text-red-300 hover:bg-red-900/20"
-            >
-              <LogOut />
-              <span>Sair do Sistema</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
+      <SidebarFooter className="p-4">
+        <Button 
+          variant="ghost" 
+          className="w-full justify-start text-muted-foreground hover:text-red-600 gap-2 group-data-[collapsible=icon]:justify-center"
+          onClick={signOut}
+        >
+          <LogOut className="h-4 w-4" />
+          <span className="group-data-[collapsible=icon]:hidden">Sair</span>
+        </Button>
       </SidebarFooter>
     </Sidebar>
-  )
+  );
 }
