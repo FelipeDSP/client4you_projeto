@@ -144,7 +144,7 @@ Deno.serve(async (req) => {
       console.log("Using SerpAPI for search...");
       
       const searchQuery = `${sanitizedQuery} em ${sanitizedLocation}`;
-      const serpApiUrl = `https://serpapi.com/search.json?engine=google_maps&q=${encodeURIComponent(searchQuery)}&api_key=${serpapiKey}&hl=pt-br&gl=br`;
+      const serpApiUrl = `https://serpapi.com/search.json?engine=google_maps&q=${encodeURIComponent(searchQuery)}&api_key=${serpapiKey}&hl=pt-br&gl=br&num=50`;
 
       try {
         const serpResponse = await fetch(serpApiUrl);
