@@ -3,8 +3,13 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Link } from "react-router-dom";
 import { Search, ArrowRight, Activity } from "lucide-react";
+import { useLeads } from "@/hooks/useLeads"; // <--- 1. Importar o hook de dados
 
 export default function Dashboard() {
+  // 2. Buscar os dados reais do sistema
+  // "leads" e "searchHistory" vêm daqui, evitando que sejam "undefined"
+  const { leads, searchHistory, isLoading } = useLeads();
+
   return (
     <div className="space-y-8 animate-fade-in">
       {/* Cabeçalho do Dashboard */}
@@ -25,10 +30,14 @@ export default function Dashboard() {
         </Link>
       </div>
 
-      {/* Cards de Estatísticas (Mantidos) */}
-      <StatsCards />
+      {/* 3. Passar os dados para os Cards (CRUCIAL para corrigir o erro) */}
+      {/* Usamos "|| []" para garantir que, mesmo carregando, seja uma lista vazia e não quebre */}
+      <StatsCards 
+        leads={leads || []} 
+        searchHistory={searchHistory || []} 
+      />
 
-      {/* Exemplo de nova seção: Atividade Recente ou Gráficos (Placeholder) */}
+      {/* Seção de Atividade e Status */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-7">
         <Card className="col-span-4 p-6 bg-white shadow-sm border-none rounded-xl">
           <div className="flex items-center justify-between mb-4">
@@ -38,7 +47,16 @@ export default function Dashboard() {
             </h3>
           </div>
           <div className="h-[300px] flex items-center justify-center border-2 border-dashed border-gray-100 rounded-lg">
-            <p className="text-muted-foreground text-sm">Gráfico de desempenho será exibido aqui</p>
+            {isLoading ? (
+              <p className="text-muted-foreground text-sm">Carregando dados...</p>
+            ) : leads?.length === 0 ? (
+              <div className="text-center">
+                <p className="text-muted-foreground text-sm mb-2">Nenhum lead encontrado ainda.</p>
+                <Link to="/search" className="text-green-600 hover:underline text-sm">Começar busca</Link>
+              </div>
+            ) : (
+              <p className="text-muted-foreground text-sm">Gráfico de desempenho será exibido aqui</p>
+            )}
           </div>
         </Card>
 
