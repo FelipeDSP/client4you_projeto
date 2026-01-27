@@ -7,14 +7,19 @@ import { ExportButton } from "@/components/ExportButton";
 import { useLeads } from "@/hooks/useLeads";
 
 export default function SearchLeads() {
-  // 1. Estado para os filtros e seleção
   const [filters, setFilters] = useState<LeadFilterState>(defaultFilters);
   const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
   
-  // 2. Buscar dados do hook (incluindo função de deletar)
-  const { leads, deleteLead, isLoading } = useLeads();
+  // 1. IMPORTANTE: Extraímos a função searchLeads e o estado isSearching do hook
+  const { 
+    leads, 
+    deleteLead, 
+    isLoading, 
+    searchLeads,   // <--- Faltava isto
+    isSearching    // <--- Faltava isto
+  } = useLeads();
 
-  // 3. Garantir que leads é um array e aplicar filtros
+  // Garante que leads é um array
   const safeLeads = leads || [];
   const filteredLeads = filterLeads(safeLeads, filters);
 
@@ -28,7 +33,6 @@ export default function SearchLeads() {
           </p>
         </div>
         
-        {/* CORREÇÃO: Passar props obrigatórias para o ExportButton */}
         <ExportButton 
           leads={filteredLeads} 
           selectedLeads={selectedLeads} 
@@ -38,7 +42,12 @@ export default function SearchLeads() {
       {/* Área de Busca e Filtros */}
       <Card className="p-6 bg-white shadow-sm border-none rounded-xl">
         <div className="space-y-6">
-          <LeadSearch />
+          {/* 2. IMPORTANTE: Passamos as funções para o componente funcionar */}
+          <LeadSearch 
+            onSearch={searchLeads} 
+            isSearching={isSearching} 
+          />
+          
           <LeadFilters 
             leads={safeLeads} 
             filters={filters} 
@@ -56,9 +65,10 @@ export default function SearchLeads() {
           </span>
         </div>
         
-        {/* CORREÇÃO: Passar props obrigatórias para a LeadTable */}
         {isLoading ? (
-          <div className="p-8 text-center text-muted-foreground">Carregando leads...</div>
+          <div className="p-12 text-center text-muted-foreground animate-pulse">
+            Carregando sua base de leads...
+          </div>
         ) : (
           <LeadTable 
             leads={filteredLeads} 
