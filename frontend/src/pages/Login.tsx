@@ -62,7 +62,7 @@ export default function Login() {
     if (result.success) {
       toast({
         title: "Login realizado!",
-        description: "Bem-vindo ao LeadExtractor.",
+        description: "Bem-vindo ao Leads4you.",
       });
       navigate("/dashboard");
     } else {
