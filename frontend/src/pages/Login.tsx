@@ -77,8 +77,8 @@ export default function Login() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(26,92,150,0.15),transparent_50%),radial-gradient(circle_at_70%_80%,rgba(0,184,93,0.1),transparent_50%)]" />
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-orange-950 p-4">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(255,170,0,0.15),transparent_50%),radial-gradient(circle_at_70%_80%,rgba(0,102,204,0.1),transparent_50%)]" />
       
       <Card className="relative w-full max-w-md border-slate-700 bg-slate-800/50 backdrop-blur">
         <CardHeader className="text-center">
@@ -86,7 +86,7 @@ export default function Login() {
             <img 
               src="/leads4you-logo.png" 
               alt="Leads4you" 
-              className="h-16 w-auto"
+              className="h-20 w-auto"
             />
           </div>
           <CardTitle className="text-2xl text-white">Leads4you</CardTitle>
