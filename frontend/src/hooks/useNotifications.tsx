@@ -1,0 +1,129 @@
+import { useState, useEffect, useCallback } from "react";
+import { useAuth } from "./useAuth";
+
+export interface Notification {
+  id: string;
+  user_id: string;
+  company_id: string;
+  type: string;
+  title: string;
+  message: string;
+  link?: string;
+  read: boolean;
+  metadata?: any;
+  created_at: string;
+  read_at?: string;
+}
+
+const API_URL = import.meta.env.REACT_APP_BACKEND_URL || process.env.REACT_APP_BACKEND_URL;
+
+export function useNotifications() {
+  const { user } = useAuth();
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const fetchNotifications = useCallback(async (unreadOnly: boolean = false) => {
+    if (!user?.id) return;
+
+    try {
+      const response = await fetch(
+        `${API_URL}/api/notifications?user_id=${user.id}&unread_only=${unreadOnly}&limit=20`
+      );
+      
+      if (response.ok) {
+        const data = await response.json();
+        setNotifications(data.notifications || []);
+      }
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user?.id]);
+
+  const fetchUnreadCount = useCallback(async () => {
+    if (!user?.id) return;
+
+    try {
+      const response = await fetch(
+        `${API_URL}/api/notifications/unread-count?user_id=${user.id}`
+      );
+      
+      if (response.ok) {
+        const data = await response.json();
+        setUnreadCount(data.unread_count || 0);
+      }
+    } catch (error) {
+      console.error("Error fetching unread count:", error);
+    }
+  }, [user?.id]);
+
+  const markAsRead = useCallback(async (notificationId: string) => {
+    try {
+      const response = await fetch(
+        `${API_URL}/api/notifications/${notificationId}/read`,
+        { method: "PUT" }
+      );
+      
+      if (response.ok) {
+        // Update local state
+        setNotifications(prev =>
+          prev.map(n => n.id === notificationId ? { ...n, read: true, read_at: new Date().toISOString() } : n)
+        );
+        setUnreadCount(prev => Math.max(0, prev - 1));
+      }
+    } catch (error) {
+      console.error("Error marking notification as read:", error);
+    }
+  }, []);
+
+  const markAllAsRead = useCallback(async () => {
+    if (!user?.id) return;
+
+    try {
+      const response = await fetch(
+        `${API_URL}/api/notifications/mark-all-read?user_id=${user.id}`,
+        { method: "PUT" }
+      );
+      
+      if (response.ok) {
+        // Update local state
+        setNotifications(prev =>
+          prev.map(n => ({ ...n, read: true, read_at: new Date().toISOString() }))
+        );
+        setUnreadCount(0);
+      }
+    } catch (error) {
+      console.error("Error marking all as read:", error);
+    }
+  }, [user?.id]);
+
+  const refresh = useCallback(() => {
+    fetchNotifications();
+    fetchUnreadCount();
+  }, [fetchNotifications, fetchUnreadCount]);
+
+  useEffect(() => {
+    if (user?.id) {
+      fetchNotifications();
+      fetchUnreadCount();
+
+      // Poll for new notifications every 30 seconds
+      const interval = setInterval(() => {
+        fetchUnreadCount();
+      }, 30000);
+
+      return () => clearInterval(interval);
+    }
+  }, [user?.id, fetchNotifications, fetchUnreadCount]);
+
+  return {
+    notifications,
+    unreadCount,
+    isLoading,
+    markAsRead,
+    markAllAsRead,
+    refresh
+  };
+}
