@@ -4,7 +4,9 @@ import { LeadFilters, LeadFilterState, defaultFilters, filterLeads } from "@/com
 import { LeadTable } from "@/components/LeadTable";
 import { Card } from "@/components/ui/card";
 import { ExportButton } from "@/components/ExportButton";
+import { QuotaLimitModal } from "@/components/QuotaLimitModal";
 import { useLeads } from "@/hooks/useLeads";
+import { useQuotas } from "@/hooks/useQuotas";
 import { Lead } from "@/types";
 import { Search, ArrowDown } from "lucide-react";
 
@@ -16,10 +18,23 @@ export default function SearchLeads() {
   const [filters, setFilters] = useState<LeadFilterState>(defaultFilters);
   const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
   
+  // Quota Management
+  const { quota, checkQuota, incrementQuota } = useQuotas();
+  const [showQuotaModal, setShowQuotaModal] = useState(false);
+  
   const { deleteLead, searchLeads, isSearching } = useLeads();
 
   // Função Wrapper para capturar o resultado e colocar no estado local
   const handleSearch = async (term: string, location: string) => {
+    // ✅ VERIFICAR QUOTA ANTES DE BUSCAR
+    const quotaCheck = await checkQuota('lead_search');
+    
+    if (!quotaCheck.allowed) {
+      // Mostrar modal de limite atingido
+      setShowQuotaModal(true);
+      return;
+    }
+    
     // Limpa resultados anteriores enquanto busca
     setCurrentResults([]);
     setHasSearched(true);
@@ -29,6 +44,8 @@ export default function SearchLeads() {
     
     if (newLeads && newLeads.length > 0) {
       setCurrentResults(newLeads);
+      // ✅ INCREMENTAR QUOTA APÓS SUCESSO
+      await incrementQuota('lead_search');
     }
   };
 
