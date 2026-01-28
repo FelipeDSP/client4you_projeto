@@ -24,8 +24,12 @@
     --sidebar-border: 210 50% 25%; /* Borda sutil */
     --sidebar-ring: 40 100% 50%;
     
-    /* --- Accent (Laranja Leads4you) --- */
-    --accent: 30 94% 54%; /* Laranja #F7931E */
+    /* --- Secondary (Verde Leads4you) 🟢 --- */
+    --secondary: 120 100% 40%; /* Verde #33cc33 */
+    --secondary-foreground: 0 0% 100%;
+    
+    /* --- Accent (Azul Leads4you) 🔵 --- */
+    --accent: 210 100% 40%; /* Azul #0066cc */
     --accent-foreground: 0 0% 100%;
     
     /* --- Outras Cores (Soft UI) --- */
@@ -33,15 +37,13 @@
     --card-foreground: 222 47% 11%;
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222 47% 11.2%;
-    --muted: 210 40% 96.1%;
+    --muted: 40 10% 96%;
     --muted-foreground: 215.4 16.3% 46.9%;
     --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 150 100% 36%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 40 20% 91%;
+    --input: 40 20% 91%;
+    --ring: 40 100% 50%;
     --radius: 0.75rem; /* Bordas arredondadas maiores (Soft UI) */
   }
 }
