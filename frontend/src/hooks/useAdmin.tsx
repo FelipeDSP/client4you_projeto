@@ -29,11 +29,14 @@ export interface Company {
 }
 
 export function useAdmin() {
-  // CORREÇÃO 1: Pegamos user, session e isLoading (como authLoading)
-  // Usamos 'as any' para garantir que não dá erro de TypeScript se a tipagem do useAuth estiver incompleta
+  // Pegamos user, session e isLoading (como authLoading)
   const { user, session, isLoading: authLoading } = useAuth() as any;
   
-  const [isAdmin, setIsAdmin] = useState<boolean | null>(null); // null = loading
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(() => {
+    // Tenta recuperar do sessionStorage para evitar flicker
+    const cached = sessionStorage.getItem('isAdmin');
+    return cached !== null ? cached === 'true' : null;
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -49,6 +52,7 @@ export function useAdmin() {
     if (!user?.id) {
       setIsAdmin(false);
       setIsLoading(false);
+      sessionStorage.setItem('isAdmin', 'false');
       return;
     }
 
@@ -64,12 +68,16 @@ export function useAdmin() {
       if (error) {
         console.error("Error checking admin status:", error);
         setIsAdmin(false);
+        sessionStorage.setItem('isAdmin', 'false');
       } else {
-        setIsAdmin(data === true); // Garante boolean estrito
+        const adminStatus = data === true;
+        setIsAdmin(adminStatus);
+        sessionStorage.setItem('isAdmin', String(adminStatus));
       }
     } catch (error) {
       console.error("Error checking admin status:", error);
       setIsAdmin(false);
+      sessionStorage.setItem('isAdmin', 'false');
     } finally {
       setIsLoading(false);
     }
