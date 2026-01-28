@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useAdmin } from "@/hooks/useAdmin";
-import { NotificationDropdownSimple } from "@/components/NotificationDropdownSimple";
+import { NotificationDropdown } from "@/components/NotificationDropdown";
 
 export function Header() {
   const { user, logout } = useAuth();
