@@ -129,6 +129,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
     setUser(null);
     setSession(null);
+    // Limpa o cache do status de admin
+    sessionStorage.removeItem('isAdmin');
   };
 
   return (
