@@ -578,6 +578,46 @@ async def mark_all_read(user_id: str):
     return {"success": success}
 
 
+# ========== Quotas Endpoints ==========
+@api_router.get("/quotas/me")
+async def get_my_quota(user_id: str):
+    """Get current user quota"""
+    if not user_id:
+        raise HTTPException(status_code=400, detail="user_id é obrigatório")
+    
+    db = get_db()
+    quota = await db.get_user_quota(user_id)
+    
+    if not quota:
+        raise HTTPException(status_code=404, detail="Quota não encontrada")
+    
+    return quota
+
+
+@api_router.post("/quotas/check")
+async def check_quota_endpoint(user_id: str, action: str):
+    """Check if user can perform action"""
+    if not user_id or not action:
+        raise HTTPException(status_code=400, detail="user_id e action são obrigatórios")
+    
+    db = get_db()
+    result = await db.check_quota(user_id, action)
+    
+    return result
+
+
+@api_router.post("/quotas/increment")
+async def increment_quota_endpoint(user_id: str, action: str, amount: int = 1):
+    """Increment quota usage"""
+    if not user_id or not action:
+        raise HTTPException(status_code=400, detail="user_id e action são obrigatórios")
+    
+    db = get_db()
+    success = await db.increment_quota(user_id, action, amount)
+    
+    return {"success": success}
+
+
 # Include the router in the main app
 app.include_router(api_router)
 
