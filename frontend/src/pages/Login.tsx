@@ -147,7 +147,7 @@ export default function Login() {
           <CardFooter className="flex-col gap-4">
             <Button
               type="submit"
-              className="w-full bg-gradient-to-r from-[#1A5C96] to-[#00B85D] hover:from-[#144a7a] hover:to-[#009949]"
+              className="w-full bg-gradient-to-r from-[#FF8C00] via-[#FFAA00] to-[#FFC300] hover:from-[#FF7700] hover:via-[#FF9500] hover:to-[#FFB800] shadow-lg shadow-orange-500/20"
               disabled={isLoading}
             >
               {isLoading ? (
