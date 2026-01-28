@@ -69,10 +69,15 @@ export function Header() {
             {currentPlan.name}
           </Badge>
 
+          {/* Notifications */}
+          <NotificationDropdown />
+
+          {/* User Profile */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-10 w-10 rounded-full">
                 <Avatar className="h-10 w-10">
+                  <AvatarImage src={user?.avatarUrl} alt={user?.name || "User"} />
                   <AvatarFallback className="bg-primary text-primary-foreground">
                     {user?.name?.charAt(0).toUpperCase() || "U"}
                   </AvatarFallback>
