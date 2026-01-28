@@ -1,5 +1,6 @@
 import httpx
 import logging
+import base64
 from typing import Optional, Dict, Any
 import re
 
@@ -32,6 +33,64 @@ class WahaService:
             "X-Api-Key": api_key
         }
     
+    # --- MÉTODOS DE SESSÃO (NOVO SAAS) ---
+
+    async def start_session(self) -> Dict[str, Any]:
+        """Inicia uma nova sessão no WAHA (Cria o worker do navegador)"""
+        try:
+            payload = {"name": self.session_name, "config": {"webhooks": []}}
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(
+                    f"{self.waha_url}/api/sessions",
+                    headers=self.headers,
+                    json=payload
+                )
+                # 201 Created ou 409 Conflict (já existe) são sucessos para nós
+                if response.status_code in [200, 201, 409]:
+                    return {"success": True, "status": "session_started"}
+                return {"success": False, "error": f"WAHA Error {response.status_code}: {response.text}"}
+        except Exception as e:
+            logger.error(f"Erro start_session: {e}")
+            return {"success": False, "error": str(e)}
+
+    async def get_qr_code(self) -> Dict[str, Any]:
+        """Obtém a imagem do QR Code em Base64"""
+        try:
+            async with httpx.AsyncClient(timeout=20.0) as client:
+                # Pede o QR code no formato imagem
+                response = await client.get(
+                    f"{self.waha_url}/api/sessions/{self.session_name}/auth/qr?format=image",
+                    headers=self.headers
+                )
+                
+                if response.status_code == 200:
+                    # Converte os bytes da imagem para base64 para o frontend exibir
+                    b64_img = base64.b64encode(response.content).decode('utf-8')
+                    return {
+                        "success": True, 
+                        "image": f"data:image/png;base64,{b64_img}"
+                    }
+                elif response.status_code == 404:
+                     return {"success": False, "error": "Sessão não encontrada. Tente iniciar novamente."}
+                
+                return {"success": False, "error": "QR Code indisponível no momento."}
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    async def logout_session(self) -> Dict[str, Any]:
+        """Desconecta a sessão do WhatsApp"""
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                await client.post(
+                    f"{self.waha_url}/api/sessions/{self.session_name}/logout",
+                    headers=self.headers
+                )
+            return {"success": True}
+        except:
+            return {"success": False}
+
+    # --- MÉTODOS DE OPERAÇÃO (DISPARO) ---
+
     async def check_connection(self) -> Dict[str, Any]:
         """Check if WAHA is connected and session is active"""
         try:
@@ -44,56 +103,35 @@ class WahaService:
                 if response.status_code == 200:
                     try:
                         data = response.json()
+                        # O status crucial é "WORKING"
+                        status = data.get("status", "unknown")
+                        # WORKING = Conectado e pronto
+                        # CONNECTED = Conectado mas talvez sincronizando
+                        is_connected = status == "WORKING" or status == "CONNECTED"
+                        
                         return {
-                            "connected": True,
-                            "status": data.get("status", "unknown"),
+                            "connected": is_connected,
+                            "status": status,
                             "name": data.get("name", self.session_name),
                             "me": data.get("me", {})
                         }
                     except:
-                        return {
-                            "connected": True,
-                            "status": "connected",
-                            "name": self.session_name
-                        }
+                        return {"connected": False, "status": "error_parsing"}
                 elif response.status_code == 404:
                     return {
                         "connected": False,
                         "status": "session_not_found",
-                        "error": "Sessão não encontrada. Verifique o nome da sessão."
+                        "error": "Sessão não encontrada."
                     }
                 else:
-                    error_text = ""
-                    try:
-                        error_data = response.json()
-                        error_text = error_data.get("message", "")
-                    except:
-                        error_text = response.text[:100] if response.text else ""
-                    
                     return {
                         "connected": False,
                         "status": "error",
-                        "error": f"Erro HTTP {response.status_code}: {error_text}"
+                        "error": f"Erro HTTP {response.status_code}"
                     }
-        except httpx.ConnectError:
-            return {
-                "connected": False,
-                "status": "connection_error",
-                "error": "Não foi possível conectar ao WAHA. Verifique a URL."
-            }
-        except httpx.TimeoutException:
-            return {
-                "connected": False,
-                "status": "timeout",
-                "error": "Tempo limite excedido ao conectar ao WAHA."
-            }
         except Exception as e:
             logger.error(f"Error checking WAHA connection: {e}")
-            return {
-                "connected": False,
-                "status": "error",
-                "error": f"Erro: {str(e)}"
-            }
+            return {"connected": False, "status": "error", "error": str(e)}
     
     async def send_text_message(self, phone: str, message: str) -> Dict[str, Any]:
         """Send a text message via WAHA"""
@@ -111,47 +149,13 @@ class WahaService:
                     }
                 )
                 
-                logger.info(f"WAHA sendText response: {response.status_code} - {response.text[:200] if response.text else 'empty'}")
-                
-                if response.status_code == 200 or response.status_code == 201:
-                    try:
-                        return {
-                            "success": True,
-                            "data": response.json()
-                        }
-                    except:
-                        return {
-                            "success": True,
-                            "data": {"status": "sent"}
-                        }
+                if response.status_code in [200, 201]:
+                    return {"success": True, "data": response.json()}
                 else:
-                    error_msg = f"HTTP {response.status_code}"
-                    try:
-                        error_data = response.json()
-                        error_msg = error_data.get("message", error_msg)
-                    except:
-                        if response.text:
-                            error_msg = f"{error_msg}: {response.text[:100]}"
-                    return {
-                        "success": False,
-                        "error": error_msg
-                    }
-        except httpx.ConnectError:
-            return {
-                "success": False,
-                "error": "Não foi possível conectar ao WAHA"
-            }
-        except httpx.TimeoutException:
-            return {
-                "success": False,
-                "error": "Tempo limite excedido"
-            }
+                    return {"success": False, "error": f"HTTP {response.status_code}: {response.text}"}
         except Exception as e:
             logger.error(f"Error sending text message: {e}")
-            return {
-                "success": False,
-                "error": str(e)
-            }
+            return {"success": False, "error": str(e)}
     
     async def send_image_message(
         self, 
@@ -184,23 +188,13 @@ class WahaService:
                     json=payload
                 )
                 
-                if response.status_code == 200 or response.status_code == 201:
-                    return {
-                        "success": True,
-                        "data": response.json()
-                    }
+                if response.status_code in [200, 201]:
+                    return {"success": True, "data": response.json()}
                 else:
-                    error_data = response.json() if response.text else {}
-                    return {
-                        "success": False,
-                        "error": error_data.get("message", f"HTTP {response.status_code}")
-                    }
+                    return {"success": False, "error": f"HTTP {response.status_code}"}
         except Exception as e:
             logger.error(f"Error sending image message: {e}")
-            return {
-                "success": False,
-                "error": str(e)
-            }
+            return {"success": False, "error": str(e)}
     
     async def send_document_message(
         self,
@@ -237,23 +231,13 @@ class WahaService:
                     json=payload
                 )
                 
-                if response.status_code == 200 or response.status_code == 201:
-                    return {
-                        "success": True,
-                        "data": response.json()
-                    }
+                if response.status_code in [200, 201]:
+                    return {"success": True, "data": response.json()}
                 else:
-                    error_data = response.json() if response.text else {}
-                    return {
-                        "success": False,
-                        "error": error_data.get("message", f"HTTP {response.status_code}")
-                    }
+                    return {"success": False, "error": f"HTTP {response.status_code}"}
         except Exception as e:
             logger.error(f"Error sending document message: {e}")
-            return {
-                "success": False,
-                "error": str(e)
-            }
+            return {"success": False, "error": str(e)}
 
 
 def replace_variables(template: str, data: Dict[str, Any]) -> str:
