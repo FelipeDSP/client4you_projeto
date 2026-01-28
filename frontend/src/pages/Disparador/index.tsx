@@ -82,12 +82,15 @@ export default function Disparador() {
               <p className="text-sm font-medium mb-2">Seu plano atual:</p>
               <div className="flex items-center gap-2">
                 <Crown className="h-5 w-5 text-primary" />
-                <span className="font-bold">{currentPlan.name}</span>
+                <span className="font-bold">{quota.plan_name}</span>
               </div>
             </div>
-            <p className="text-sm text-muted-foreground">
-              Entre em contato conosco para fazer upgrade do seu plano.
-            </p>
+            <Link to="/plans">
+              <Button size="lg" className="gap-2">
+                <Crown className="h-4 w-4" />
+                Ver Planos e Fazer Upgrade
+              </Button>
+            </Link>
           </CardContent>
         </Card>
       </div>
