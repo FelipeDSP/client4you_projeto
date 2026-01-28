@@ -141,6 +141,7 @@ export function useNotifications() {
     notifications,
     unreadCount,
     isLoading,
+    error,
     markAsRead,
     markAllAsRead,
     refresh
