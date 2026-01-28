@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* LeadExtractor Design System - Blue & Emerald Theme */
+/* Leads4you Design System - Blue, Green & Orange Theme */
 
 @layer base {
   :root {
@@ -10,19 +10,19 @@
     --background: 210 40% 98%; /* Cinza muito claro, quase branco */
     --foreground: 222 47% 11%; /* Texto escuro */
 
-    /* --- Cor Principal (Verde de Ação) --- */
-    --primary: 142 76% 36%; /* Um verde sólido e profissional */
-    --primary-foreground: 355 100% 100%; /* Texto branco no botão verde */
+    /* --- Cor Principal (Verde Leads4you) --- */
+    --primary: 150 100% 36%; /* Verde vibrante #00B85D */
+    --primary-foreground: 0 0% 100%; /* Texto branco no botão verde */
 
-    /* --- Sidebar (Azul Petróleo Escuro - Forçado) --- */
-    --sidebar-background: 215 28% 17%; /* Azul petróleo escuro */
+    /* --- Sidebar (Azul Leads4you) --- */
+    --sidebar-background: 207 72% 35%; /* Azul profissional #1A5C96 */
     --sidebar-foreground: 210 40% 98%; /* Texto claro na sidebar */
-    --sidebar-primary: 142 76% 36%; /* Verde para item ativo na sidebar */
+    --sidebar-primary: 150 100% 36%; /* Verde para item ativo */
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 217 19% 27%; /* Item ao passar o mouse (levemente mais claro que o fundo) */
+    --sidebar-accent: 207 72% 45%; /* Azul mais claro ao passar o mouse */
     --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 217 19% 27%; /* Borda sutil */
-    --sidebar-ring: 217 91% 60%;
+    --sidebar-border: 207 72% 30%; /* Borda sutil */
+    --sidebar-ring: 150 100% 36%;
     
     /* --- Outras Cores (Soft UI) --- */
     --card: 0 0% 100%;
