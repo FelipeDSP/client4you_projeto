@@ -71,6 +71,15 @@ const AppRoutes = () => (
       }
     />
     
+    <Route
+      path="/signup"
+      element={
+        <PublicRoute>
+          <Signup />
+        </PublicRoute>
+      }
+    />
+    
     {/* Rotas Protegidas com Layout */}
     <Route
       path="/dashboard"
