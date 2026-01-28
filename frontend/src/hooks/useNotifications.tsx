@@ -22,21 +22,33 @@ export function useNotifications() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchNotifications = useCallback(async (unreadOnly: boolean = false) => {
-    if (!user?.id) return;
+    if (!user?.id) {
+      setIsLoading(false);
+      return;
+    }
 
     try {
+      console.log('Fetching notifications for user:', user.id);
       const response = await fetch(
         `${API_URL}/api/notifications?user_id=${user.id}&unread_only=${unreadOnly}&limit=20`
       );
       
       if (response.ok) {
         const data = await response.json();
+        console.log('Notifications fetched:', data);
         setNotifications(data.notifications || []);
+        setError(null);
+      } else {
+        const errorText = await response.text();
+        console.error('Error fetching notifications:', response.status, errorText);
+        setError(`Erro ${response.status}`);
       }
     } catch (error) {
       console.error("Error fetching notifications:", error);
+      setError('Erro de conexão');
     } finally {
       setIsLoading(false);
     }
