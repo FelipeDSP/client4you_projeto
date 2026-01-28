@@ -2,27 +2,27 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Leads4you Design System - Blue, Green & Orange Theme */
+/* Leads4you Design System - Orange Primary Theme */
 
 @layer base {
   :root {
     /* --- Base do Site (Claro/Cinza Suave) --- */
-    --background: 210 40% 98%; /* Cinza muito claro, quase branco */
+    --background: 0 0% 98%; /* Cinza muito claro, quase branco */
     --foreground: 222 47% 11%; /* Texto escuro */
 
-    /* --- Cor Principal (Verde Leads4you) --- */
-    --primary: 150 100% 36%; /* Verde vibrante #00B85D */
-    --primary-foreground: 0 0% 100%; /* Texto branco no botão verde */
+    /* --- Cor Principal (LARANJA Leads4you) 🟠 --- */
+    --primary: 40 100% 50%; /* Laranja vibrante #FFAA00 */
+    --primary-foreground: 0 0% 100%; /* Texto branco no botão laranja */
 
-    /* --- Sidebar (Azul Leads4you) --- */
-    --sidebar-background: 207 72% 35%; /* Azul profissional #1A5C96 */
-    --sidebar-foreground: 210 40% 98%; /* Texto claro na sidebar */
-    --sidebar-primary: 150 100% 36%; /* Verde para item ativo */
+    /* --- Sidebar (Gradiente de Azul Escuro) --- */
+    --sidebar-background: 210 50% 20%; /* Azul escuro profissional */
+    --sidebar-foreground: 0 0% 98%; /* Texto claro na sidebar */
+    --sidebar-primary: 40 100% 50%; /* Laranja para item ativo */
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 207 72% 45%; /* Azul mais claro ao passar o mouse */
-    --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 207 72% 30%; /* Borda sutil */
-    --sidebar-ring: 150 100% 36%;
+    --sidebar-accent: 210 50% 30%; /* Azul ligeiramente mais claro ao passar o mouse */
+    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-border: 210 50% 25%; /* Borda sutil */
+    --sidebar-ring: 40 100% 50%;
     
     /* --- Accent (Laranja Leads4you) --- */
     --accent: 30 94% 54%; /* Laranja #F7931E */
