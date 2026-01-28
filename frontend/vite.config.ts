@@ -6,16 +6,11 @@ import { componentTagger } from "lovable-tagger";
 export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
-    port: 3000, // Porta do Frontend
-    hmr: {
-      host: 'admin-panel-debug-11.preview.emergentagent.com',
-      protocol: 'wss',
-      clientPort: 443,
-    },
+    port: 3000,
+    // REMOVIDO O BLOCO HMR QUE CAUSAVA O ERRO LOCAL
     proxy: {
-      // Regra Mágica: Tudo que for /api vai para o Python (8001)
       "/api": {
-        target: "http://127.0.0.1:8001", // Endereço do seu Backend Python
+        target: "http://127.0.0.1:8001",
         changeOrigin: true,
         secure: false,
       },
