@@ -78,14 +78,18 @@ export default function Login() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(59,130,246,0.15),transparent_50%),radial-gradient(circle_at_70%_80%,rgba(16,185,129,0.1),transparent_50%)]" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(26,92,150,0.15),transparent_50%),radial-gradient(circle_at_70%_80%,rgba(0,184,93,0.1),transparent_50%)]" />
       
       <Card className="relative w-full max-w-md border-slate-700 bg-slate-800/50 backdrop-blur">
         <CardHeader className="text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-emerald-500">
-            <MapPin className="h-8 w-8 text-white" />
+          <div className="mx-auto mb-4 flex items-center justify-center">
+            <img 
+              src="/leads4you-logo.png" 
+              alt="Leads4you" 
+              className="h-16 w-auto"
+            />
           </div>
-          <CardTitle className="text-2xl text-white">LeadExtractor</CardTitle>
+          <CardTitle className="text-2xl text-white">Leads4you</CardTitle>
           <CardDescription className="text-slate-400">
             Extraia leads do Google Maps de forma simples e eficiente
           </CardDescription>
