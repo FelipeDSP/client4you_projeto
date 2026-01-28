@@ -529,6 +529,55 @@ async def get_dashboard_stats(company_id: str = None):
     return stats
 
 
+# ========== Notifications Endpoints ==========
+@api_router.get("/notifications")
+async def get_notifications(user_id: str, limit: int = 50, unread_only: bool = False):
+    """Get user notifications"""
+    if not user_id:
+        raise HTTPException(status_code=400, detail="user_id é obrigatório")
+    
+    db = get_db()
+    notifications = await db.get_notifications(user_id, limit, unread_only)
+    
+    return {"notifications": notifications}
+
+
+@api_router.get("/notifications/unread-count")
+async def get_unread_count(user_id: str):
+    """Get unread notification count"""
+    if not user_id:
+        raise HTTPException(status_code=400, detail="user_id é obrigatório")
+    
+    db = get_db()
+    count = await db.get_unread_notification_count(user_id)
+    
+    return {"unread_count": count}
+
+
+@api_router.put("/notifications/{notification_id}/read")
+async def mark_notification_read(notification_id: str):
+    """Mark notification as read"""
+    db = get_db()
+    success = await db.mark_notification_read(notification_id)
+    
+    if not success:
+        raise HTTPException(status_code=404, detail="Notificação não encontrada")
+    
+    return {"success": True}
+
+
+@api_router.put("/notifications/mark-all-read")
+async def mark_all_read(user_id: str):
+    """Mark all notifications as read"""
+    if not user_id:
+        raise HTTPException(status_code=400, detail="user_id é obrigatório")
+    
+    db = get_db()
+    success = await db.mark_all_notifications_read(user_id)
+    
+    return {"success": success}
+
+
 # Include the router in the main app
 app.include_router(api_router)
 
