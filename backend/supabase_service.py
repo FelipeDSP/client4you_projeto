@@ -307,6 +307,58 @@ class SupabaseService:
         except Exception as e:
             logger.error(f"Error creating notification: {e}")
             return None
+    
+    # ========== Quotas ==========
+    async def get_user_quota(self, user_id: str) -> Optional[Dict[str, Any]]:
+        """Get user quota"""
+        try:
+            result = self.client.table('user_quotas')\
+                .select('*')\
+                .eq('user_id', user_id)\
+                .single()\
+                .execute()
+            return result.data
+        except Exception as e:
+            logger.error(f"Error getting user quota: {e}")
+            return None
+    
+    async def check_quota(self, user_id: str, action: str) -> Dict[str, Any]:
+        """Check if user can perform action"""
+        try:
+            result = self.client.rpc('check_user_quota', {
+                'p_user_id': user_id,
+                'p_action': action
+            }).execute()
+            return result.data if result.data else {'allowed': False, 'reason': 'Unknown error'}
+        except Exception as e:
+            logger.error(f"Error checking quota: {e}")
+            return {'allowed': False, 'reason': str(e)}
+    
+    async def increment_quota(self, user_id: str, action: str, amount: int = 1) -> bool:
+        """Increment quota usage"""
+        try:
+            self.client.rpc('increment_quota_usage', {
+                'p_user_id': user_id,
+                'p_action': action,
+                'p_amount': amount
+            }).execute()
+            return True
+        except Exception as e:
+            logger.error(f"Error incrementing quota: {e}")
+            return False
+    
+    async def upgrade_plan(self, user_id: str, plan_type: str, plan_name: str) -> bool:
+        """Upgrade user plan"""
+        try:
+            self.client.rpc('upgrade_user_plan', {
+                'p_user_id': user_id,
+                'p_plan_type': plan_type,
+                'p_plan_name': plan_name
+            }).execute()
+            return True
+        except Exception as e:
+            logger.error(f"Error upgrading plan: {e}")
+            return False
 
 
 # Global instance
