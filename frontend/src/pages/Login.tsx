@@ -159,9 +159,13 @@ export default function Login() {
                 "Entrar"
               )}
             </Button>
-            <p className="text-xs text-slate-500 text-center">
-              Acesso restrito. Entre em contato com o administrador para criar uma conta.
-            </p>
+            
+            <div className="text-center text-sm text-slate-400">
+              Não tem uma conta?{" "}
+              <Link to="/signup" className="text-primary hover:underline font-medium">
+                Criar conta grátis
+              </Link>
+            </div>
           </CardFooter>
         </form>
       </Card>
