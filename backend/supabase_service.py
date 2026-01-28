@@ -230,6 +230,83 @@ class SupabaseService:
             "total_messages_sent": total_sent,
             "messages_sent_today": messages_today
         }
+    
+    # ========== Notifications ==========
+    async def get_notifications(self, user_id: str, limit: int = 50, unread_only: bool = False) -> List[Dict[str, Any]]:
+        """Get user notifications"""
+        query = self.client.table('notifications')\
+            .select('*')\
+            .eq('user_id', user_id)\
+            .order('created_at', desc=True)\
+            .limit(limit)
+        
+        if unread_only:
+            query = query.eq('read', False)
+        
+        result = query.execute()
+        return result.data or []
+    
+    async def get_unread_notification_count(self, user_id: str) -> int:
+        """Get unread notification count"""
+        result = self.client.table('notifications')\
+            .select('id', count='exact')\
+            .eq('user_id', user_id)\
+            .eq('read', False)\
+            .execute()
+        return result.count or 0
+    
+    async def mark_notification_read(self, notification_id: str) -> bool:
+        """Mark notification as read"""
+        try:
+            result = self.client.table('notifications')\
+                .update({'read': True, 'read_at': datetime.utcnow().isoformat()})\
+                .eq('id', notification_id)\
+                .execute()
+            return len(result.data) > 0 if result.data else False
+        except Exception as e:
+            logger.error(f"Error marking notification as read: {e}")
+            return False
+    
+    async def mark_all_notifications_read(self, user_id: str) -> bool:
+        """Mark all notifications as read"""
+        try:
+            result = self.client.table('notifications')\
+                .update({'read': True, 'read_at': datetime.utcnow().isoformat()})\
+                .eq('user_id', user_id)\
+                .eq('read', False)\
+                .execute()
+            return True
+        except Exception as e:
+            logger.error(f"Error marking all notifications as read: {e}")
+            return False
+    
+    async def create_notification(
+        self, 
+        user_id: str, 
+        company_id: str,
+        notification_type: str,
+        title: str,
+        message: str,
+        link: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> Optional[str]:
+        """Create a notification"""
+        try:
+            notification_data = {
+                'user_id': user_id,
+                'company_id': company_id,
+                'type': notification_type,
+                'title': title,
+                'message': message,
+                'link': link,
+                'metadata': metadata,
+                'read': False
+            }
+            result = self.client.table('notifications').insert(notification_data).execute()
+            return result.data[0]['id'] if result.data else None
+        except Exception as e:
+            logger.error(f"Error creating notification: {e}")
+            return None
 
 
 # Global instance
