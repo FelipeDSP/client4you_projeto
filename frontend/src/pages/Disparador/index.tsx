@@ -39,13 +39,13 @@ export default function Disparador() {
   useEffect(() => {
     const hasRunning = campaigns.some((c) => c.status === "running");
     
-    if (autoRefresh && hasRunning && hasDisparadorAccess) {
+    if (autoRefresh && hasRunning && canUseCampaigns) {
       const interval = setInterval(() => {
         fetchCampaigns();
       }, 5000);
       return () => clearInterval(interval);
     }
-  }, [autoRefresh, campaigns, fetchCampaigns, hasDisparadorAccess]);
+  }, [autoRefresh, campaigns, fetchCampaigns, canUseCampaigns]);
 
   const selectedCampaign = campaigns.find((c) => c.id === selectedCampaignId);
 
@@ -56,7 +56,7 @@ export default function Disparador() {
     totalContacts: campaigns.reduce((sum, c) => sum + c.total_contacts, 0),
   };
 
-  if (isLoadingSettings || isLoadingSubscription) {
+  if (isLoadingSettings || !quota) {
     return (
       <div className="flex h-[50vh] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -64,19 +64,19 @@ export default function Disparador() {
     );
   }
 
-  if (!hasDisparadorAccess) {
+  if (!canUseCampaigns) {
     return (
       <div className="py-12 animate-fade-in">
         <Card className="max-w-2xl mx-auto shadow-sm border-none">
           <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-            <div className="rounded-full bg-yellow-500/10 p-4 mb-6">
-              <Lock className="h-12 w-12 text-yellow-600" />
+            <div className="rounded-full bg-primary/10 p-4 mb-6">
+              <Lock className="h-12 w-12 text-primary" />
             </div>
-            <h2 className="text-2xl font-bold mb-2">Acesso Restrito</h2>
+            <h2 className="text-2xl font-bold mb-2">Disparador Bloqueado 🔒</h2>
             <p className="text-muted-foreground mb-6 max-w-md">
-              O Disparador de Mensagens WhatsApp está disponível apenas para os planos 
-              <strong className="text-foreground"> Professional</strong> e 
-              <strong className="text-foreground"> Business</strong>.
+              O Disparador de Mensagens WhatsApp está disponível apenas nos planos 
+              <strong className="text-foreground"> Pro</strong> e 
+              <strong className="text-foreground"> Enterprise</strong>.
             </p>
             <div className="bg-muted p-4 rounded-lg mb-6 text-left w-full max-w-sm">
               <p className="text-sm font-medium mb-2">Seu plano atual:</p>
