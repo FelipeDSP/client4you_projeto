@@ -58,7 +58,7 @@ export function NotificationDropdown() {
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
             <Badge 
-              className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-[10px] bg-primary"
+              className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-[10px] bg-primary text-white"
               variant="default"
             >
               {unreadCount > 9 ? "9+" : unreadCount}
@@ -85,18 +85,44 @@ export function NotificationDropdown() {
         
         <DropdownMenuSeparator />
         
+        {/* Filter Tabs */}
+        <div className="px-2 py-2">
+          <div className="flex gap-2">
+            <Button
+              variant={filter === "all" ? "default" : "outline"}
+              size="sm"
+              className="flex-1 h-8"
+              onClick={() => setFilter("all")}
+            >
+              Todas ({notifications.length})
+            </Button>
+            <Button
+              variant={filter === "unread" ? "default" : "outline"}
+              size="sm"
+              className="flex-1 h-8"
+              onClick={() => setFilter("unread")}
+            >
+              Não lidas ({unreadCount})
+            </Button>
+          </div>
+        </div>
+        
+        <DropdownMenuSeparator />
+        
         <ScrollArea className="h-[400px]">
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
-          ) : notifications.length === 0 ? (
+          ) : filteredNotifications.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 text-center">
               <Bell className="h-12 w-12 text-muted-foreground/50 mb-2" />
-              <p className="text-sm text-muted-foreground">Nenhuma notificação</p>
+              <p className="text-sm text-muted-foreground">
+                {filter === "unread" ? "Nenhuma notificação não lida" : "Nenhuma notificação"}
+              </p>
             </div>
           ) : (
-            notifications.map((notification) => (
+            filteredNotifications.map((notification) => (
               <DropdownMenuItem
                 key={notification.id}
                 className={`flex flex-col items-start p-4 cursor-pointer ${
