@@ -21,42 +21,8 @@ const queryClient = new QueryClient();
 
 function ProtectedRoute({ children, requireAdmin = false }: { children: React.ReactNode; requireAdmin?: boolean }) {
   const { user, isLoading } = useAuth();
-  const [isAdmin, setIsAdmin] = React.useState<boolean | null>(null);
-  const [checkingAdmin, setCheckingAdmin] = React.useState(requireAdmin);
 
-  React.useEffect(() => {
-    async function checkAdminStatus() {
-      if (!requireAdmin || !user) {
-        setIsAdmin(false);
-        setCheckingAdmin(false);
-        return;
-      }
-
-      try {
-        const { supabase } = await import("@/integrations/supabase/client");
-        const { data, error } = await supabase.rpc('has_role', {
-          _role: 'super_admin',
-          _user_id: user.id
-        });
-
-        if (error) {
-          console.error("Error checking admin status:", error);
-          setIsAdmin(false);
-        } else {
-          setIsAdmin(data === true);
-        }
-      } catch (err) {
-        console.error("Failed to check admin status:", err);
-        setIsAdmin(false);
-      } finally {
-        setCheckingAdmin(false);
-      }
-    }
-
-    checkAdminStatus();
-  }, [requireAdmin, user]);
-
-  if (isLoading || checkingAdmin) {
+  if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
@@ -68,10 +34,8 @@ function ProtectedRoute({ children, requireAdmin = false }: { children: React.Re
     return <Navigate to="/" replace />;
   }
 
-  if (requireAdmin && !isAdmin) {
-    return <Navigate to="/dashboard" replace />;
-  }
-
+  // Para rotas admin, não fazemos verificação aqui
+  // O próprio componente Admin fará a verificação
   return <>{children}</>;
 }
 
