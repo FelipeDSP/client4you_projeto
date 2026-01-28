@@ -2,247 +2,198 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { Key, Globe, MessageCircle, Eye, EyeOff, CheckCircle, XCircle, Loader2, ExternalLink } from "lucide-react";
+import { Globe, MessageCircle, CheckCircle, Smartphone, Loader2, QrCode, Power, ExternalLink } from "lucide-react";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+
+const api = {
+  get: async (url: string) => (await fetch(`/api${url}`)).json(),
+  post: async (url: string) => (await fetch(`/api${url}`, { method: 'POST' })).json()
+};
 
 export default function Settings() {
-  const { settings, isLoading, isSaving, saveSettings, hasSerpapiKey, hasWahaConfig } = useCompanySettings();
+  const { settings, saveSettings, hasSerpapiKey } = useCompanySettings();
+  const { user } = useAuth();
+  const { toast } = useToast();
 
   const [serpapiKey, setSerpapiKey] = useState("");
-  const [wahaApiUrl, setWahaApiUrl] = useState("");
-  const [wahaApiKey, setWahaApiKey] = useState("");
-  const [wahaSession, setWahaSession] = useState("");
-  const [showSerpapiKey, setShowSerpapiKey] = useState(false);
-  const [showWahaKey, setShowWahaKey] = useState(false);
+  const [isSavingSerp, setIsSavingSerp] = useState(false);
+  
+  // Status visual
+  const [waStatus, setWaStatus] = useState<"LOADING" | "CONNECTED" | "DISCONNECTED" | "SCANNING">("LOADING");
+  const [qrCode, setQrCode] = useState<string>("");
+  const [isWaLoading, setIsWaLoading] = useState(false);
 
   useEffect(() => {
-    if (settings) {
-      setSerpapiKey(settings.serpapiKey || "");
-      setWahaApiUrl(settings.wahaApiUrl || "");
-      setWahaApiKey(settings.wahaApiKey || "");
-      setWahaSession(settings.wahaSession || "default");
-    }
+    if (settings?.serpapiKey) setSerpapiKey(settings.serpapiKey);
   }, [settings]);
 
-  const handleSave = async () => {
-    await saveSettings({
-      serpapiKey,
-      wahaApiUrl,
-      wahaApiKey,
-      wahaSession,
-    });
+  // Polling Leve (Apenas checa status, não cria sessão)
+  useEffect(() => {
+    if (!user?.companyId) return;
+    
+    const check = async () => {
+      try {
+        const res = await api.get(`/whatsapp/status?company_id=${user.companyId}`);
+        // Se estiver Working/Connected
+        if (res.status === 'WORKING' || res.status === 'CONNECTED') {
+          setWaStatus("CONNECTED");
+          setQrCode(""); 
+        } else if (waStatus !== "SCANNING") {
+          // Só muda para disconnected se não estivermos mostrando o QR Code agora
+          setWaStatus("DISCONNECTED");
+        }
+      } catch (e) { console.error(e); }
+    };
+
+    check();
+    const interval = setInterval(check, 5000); // 5 segundos
+    return () => clearInterval(interval);
+  }, [user?.companyId, waStatus]);
+
+  const handleSaveSerp = async () => {
+    setIsSavingSerp(true);
+    await saveSettings({ serpapiKey });
+    setIsSavingSerp(false);
+    toast({ title: "Salvo", description: "Chave SerpAPI atualizada." });
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex h-[50vh] items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
+  // BOTÃO MANUAL: Inicia o processo pesado (Criar Sessão + QR)
+  const handleGenerateQR = async () => {
+    if (!user?.companyId) return;
+    setIsWaLoading(true);
+    try {
+      const res = await api.post(`/whatsapp/session/start?company_id=${user.companyId}`);
+      
+      if (res.image) {
+        setQrCode(res.image);
+        setWaStatus("SCANNING");
+        toast({ title: "Aguardando Leitura", description: "Escaneie o código com seu celular." });
+      } else if (res.status === 'connected') {
+        setWaStatus("CONNECTED");
+        toast({ title: "Conectado", description: "O WhatsApp já está ativo." });
+      }
+    } catch (e) {
+      toast({ variant: "destructive", title: "Erro", description: "Falha ao iniciar sessão." });
+    } finally {
+      setIsWaLoading(false);
+    }
+  };
+
+  const handleDisconnect = async () => {
+    if(!confirm("Tem certeza? Isso irá parar os envios.")) return;
+    setIsWaLoading(true);
+    try {
+      await api.post(`/whatsapp/session/stop?company_id=${user.companyId}`);
+      setWaStatus("DISCONNECTED");
+      setQrCode("");
+      toast({ title: "Desconectado", description: "Sessão encerrada." });
+    } catch (e) {
+      toast({ variant: "destructive", title: "Erro", description: "Falha ao desconectar." });
+    } finally {
+      setIsWaLoading(false);
+    }
+  };
 
   return (
-    <div className="space-y-6 animate-fade-in max-w-3xl">
+    <div className="space-y-8 animate-fade-in max-w-4xl mx-auto pb-10">
       <div>
-        <h2 className="text-3xl font-bold tracking-tight text-gray-800">Configurações</h2>
-        <p className="text-muted-foreground mt-1">
-          Configure suas chaves de API para extração de leads e envio de mensagens.
-        </p>
+        <h2 className="text-3xl font-bold tracking-tight text-gray-900">Configurações</h2>
+        <p className="text-muted-foreground mt-1">Gerencie suas chaves e conexões.</p>
       </div>
 
-      <div className="grid gap-6">
-        {/* SerpAPI Configuration */}
-        <Card className="bg-white shadow-sm border-none">
+      <div className="grid gap-8">
+        
+        {/* SERP API */}
+        <Card className="border-l-4 border-l-blue-500 shadow-sm">
           <CardHeader>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-                  <Globe className="h-5 w-5 text-primary" />
-                </div>
+                <Globe className="h-6 w-6 text-blue-600" />
                 <div>
-                  <CardTitle className="text-lg">SerpAPI</CardTitle>
-                  <CardDescription>Extração de dados do Google Maps</CardDescription>
+                  <CardTitle>SerpAPI (Busca de Leads)</CardTitle>
+                  <CardDescription>Necessário para usar o módulo de Busca.</CardDescription>
                 </div>
               </div>
-              <Badge variant={hasSerpapiKey ? "default" : "secondary"} className="gap-1">
-                {hasSerpapiKey ? (
-                  <>
-                    <CheckCircle className="h-3 w-3" />
-                    Configurado
-                  </>
-                ) : (
-                  <>
-                    <XCircle className="h-3 w-3" />
-                    Não configurado
-                  </>
-                )}
-              </Badge>
+              <Badge variant={hasSerpapiKey ? "default" : "outline"}>{hasSerpapiKey ? "Ativo" : "Pendente"}</Badge>
             </div>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="serpapi-key">API Key</Label>
-              <div className="relative">
-                <Input
-                  id="serpapi-key"
-                  type={showSerpapiKey ? "text" : "password"}
-                  value={serpapiKey}
-                  onChange={(e) => setSerpapiKey(e.target.value)}
-                  placeholder="Cole sua chave da SerpAPI aqui"
-                  className="pr-10"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                  onClick={() => setShowSerpapiKey(!showSerpapiKey)}
-                >
-                  {showSerpapiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Obtenha sua chave em{" "}
-                <a
-                  href="https://serpapi.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary hover:underline inline-flex items-center gap-1"
-                >
-                  serpapi.com
-                  <ExternalLink className="h-3 w-3" />
-                </a>
-              </p>
+          <CardContent>
+            <div className="flex gap-2">
+              <Input 
+                type="password" 
+                value={serpapiKey} 
+                onChange={e => setSerpapiKey(e.target.value)} 
+                placeholder="Sua chave SerpAPI..." 
+              />
+              <Button onClick={handleSaveSerp} disabled={isSavingSerp}>
+                {isSavingSerp ? <Loader2 className="animate-spin" /> : "Salvar"}
+              </Button>
             </div>
           </CardContent>
         </Card>
 
-        {/* WAHA API Configuration */}
-        <Card className="bg-white shadow-sm border-none">
+        {/* WHATSAPP CONNECTION */}
+        <Card className={`border-l-4 shadow-sm ${waStatus === 'CONNECTED' ? 'border-l-green-500' : 'border-l-orange-500'}`}>
           <CardHeader>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-500/10">
-                  <MessageCircle className="h-5 w-5 text-green-500" />
-                </div>
+                <MessageCircle className={`h-6 w-6 ${waStatus === 'CONNECTED' ? 'text-green-600' : 'text-orange-600'}`} />
                 <div>
-                  <CardTitle className="text-lg">WAHA API</CardTitle>
-                  <CardDescription>Validação de números e envio de mensagens</CardDescription>
+                  <CardTitle>Conexão WhatsApp</CardTitle>
+                  <CardDescription>Necessário para o Disparador de Mensagens.</CardDescription>
                 </div>
               </div>
-              <Badge variant={hasWahaConfig ? "default" : "secondary"} className="gap-1">
-                {hasWahaConfig ? (
-                  <>
-                    <CheckCircle className="h-3 w-3" />
-                    Configurado
-                  </>
-                ) : (
-                  <>
-                    <XCircle className="h-3 w-3" />
-                    Não configurado
-                  </>
-                )}
-              </Badge>
+              {waStatus === 'CONNECTED' ? (
+                <Badge className="bg-green-600">Conectado</Badge>
+              ) : (
+                <Badge variant="secondary">Desconectado</Badge>
+              )}
             </div>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="waha-url">URL da API</Label>
-              <Input
-                id="waha-url"
-                type="url"
-                value={wahaApiUrl}
-                onChange={(e) => setWahaApiUrl(e.target.value)}
-                placeholder="https://api.minha-instancia.com.br"
-              />
-              <p className="text-xs text-muted-foreground">
-                URL base da sua instância WAHA (ex: https://api.exemplo.com.br)
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="waha-session">Nome da Sessão</Label>
-              <Input
-                id="waha-session"
-                type="text"
-                value={wahaSession}
-                onChange={(e) => setWahaSession(e.target.value)}
-                placeholder="minha-sessao"
-              />
-              <p className="text-xs text-muted-foreground">
-                Nome da sessão configurada no WAHA (ex: principal, whatsapp-1)
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="waha-key">API Key</Label>
-              <div className="relative">
-                <Input
-                  id="waha-key"
-                  type={showWahaKey ? "text" : "password"}
-                  value={wahaApiKey}
-                  onChange={(e) => setWahaApiKey(e.target.value)}
-                  placeholder="Cole sua chave da WAHA API aqui"
-                  className="pr-10"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                  onClick={() => setShowWahaKey(!showWahaKey)}
-                >
-                  {showWahaKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Chave de autenticação da API WAHA
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Separator />
-
-        {/* Info Card */}
-        <Card className="border-dashed bg-transparent shadow-none">
-          <CardHeader className="pb-2">
-            <div className="flex items-center gap-3">
-              <Key className="h-5 w-5 text-muted-foreground" />
-              <CardTitle className="text-base">Sobre as Integrações</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent className="text-sm text-muted-foreground space-y-2">
-            <p>
-              <strong>SerpAPI:</strong> Serviço que permite extrair dados do Google Maps, incluindo nome,
-              endereço, telefone e avaliações dos estabelecimentos.
-            </p>
-            <p>
-              <strong>WAHA API:</strong> API WhatsApp auto-hospedada que permite validar se um número
-              de telefone possui WhatsApp ativo.
-            </p>
-            <p className="text-xs pt-2">
-              ⚠️ Suas chaves são armazenadas de forma segura e nunca são compartilhadas.
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Save Button */}
-        <div className="flex justify-end pt-4">
-          <Button onClick={handleSave} disabled={isSaving} className="min-w-32">
-            {isSaving ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Salvando...
-              </>
-            ) : (
-              "Salvar Configurações"
+          
+          <CardContent className="flex flex-col items-center justify-center p-6 bg-slate-50/50 min-h-[200px]">
+            
+            {waStatus === 'LOADING' && (
+               <div className="flex items-center gap-2 text-muted-foreground"><Loader2 className="animate-spin"/> Verificando...</div>
             )}
-          </Button>
-        </div>
+
+            {waStatus === 'CONNECTED' && (
+              <div className="text-center space-y-4 animate-in fade-in zoom-in">
+                <div className="h-16 w-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto">
+                  <Smartphone className="h-8 w-8" />
+                </div>
+                <p className="text-green-800 font-medium">WhatsApp Conectado e Pronto!</p>
+                <Button variant="outline" onClick={handleDisconnect} disabled={isWaLoading} className="text-red-600 hover:bg-red-50">
+                  Desconectar
+                </Button>
+              </div>
+            )}
+
+            {waStatus === 'DISCONNECTED' && (
+              <div className="text-center space-y-4">
+                <p className="text-muted-foreground">Clique abaixo para gerar um novo QR Code.</p>
+                <Button onClick={handleGenerateQR} disabled={isWaLoading} className="bg-green-600 hover:bg-green-700">
+                  {isWaLoading ? <Loader2 className="mr-2 animate-spin"/> : <QrCode className="mr-2 h-4 w-4"/>}
+                  Gerar QR Code
+                </Button>
+              </div>
+            )}
+
+            {waStatus === 'SCANNING' && qrCode && (
+              <div className="text-center space-y-4 animate-in fade-in slide-in-from-bottom-4">
+                <div className="bg-white p-3 rounded-lg shadow-lg border inline-block">
+                  <img src={qrCode} alt="QR Code" className="w-64 h-64" />
+                </div>
+                <p className="text-sm font-medium">Escaneie com seu WhatsApp (Menu &gt; Aparelhos Conectados)</p>
+              </div>
+            )}
+
+          </CardContent>
+        </Card>
+
       </div>
     </div>
   );

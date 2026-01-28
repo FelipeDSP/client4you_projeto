@@ -47,18 +47,20 @@ def get_db() -> SupabaseService:
 
 async def get_session_name_for_company(company_id: str) -> str:
     """
-    Define o nome da sessão do WhatsApp para uma empresa.
-    Lógica Híbrida:
-    1. Tenta buscar no banco (para clientes antigos/legado).
-    2. Se não achar, usa o padrão 'company_{id}' (SaaS automático).
+    Define o nome da sessão do WhatsApp de forma segura.
+    Retorna sempre uma string válida, nunca falha.
     """
-    db = get_db()
-    # Tenta buscar configuração legada (se o método existir no seu service)
-    # config = await db.get_waha_config(company_id)
-    # if config and config.get("session_name"):
-    #     return config.get("session_name")
+    try:
+        db = get_db()
+        # Tenta buscar configuração legada (se existir no banco)
+        config = await db.get_waha_config(company_id)
+        if config and config.get("session_name"):
+            return config.get("session_name")
+    except Exception as e:
+        # Se der erro no banco, apenas loga e usa o fallback
+        logger.warning(f"Usando sessão padrão devido a erro ou config ausente: {e}")
     
-    # Padrão Automático (Novo Modelo)
+    # Fallback seguro: Padrão automático para SaaS
     return f"company_{company_id}"
 
 
@@ -116,7 +118,7 @@ def campaign_to_response(campaign_data: dict) -> dict:
 # ========== Root Endpoint ==========
 @api_router.get("/")
 async def root():
-    return {"message": "Lead Dispatcher API", "version": "2.1.0", "mode": "SaaS Hybrid"}
+    return {"message": "Lead Dispatcher API", "version": "2.2.0", "mode": "SaaS Hybrid"}
 
 
 # ========== WhatsApp Management (New SaaS Endpoints) ==========
@@ -131,7 +133,9 @@ async def get_whatsapp_status(company_id: str):
     waha_key = os.getenv('WAHA_MASTER_KEY')
     
     if not waha_url:
-        return {"connected": False, "error": "Server misconfiguration (WAHA URL missing)"}
+        # Erro de configuração do servidor, mas retornamos JSON válido para não quebrar o front
+        logger.error("WAHA_DEFAULT_URL not set in .env")
+        return {"connected": False, "error": "Server config error"}
 
     session_name = await get_session_name_for_company(company_id)
     waha = WahaService(waha_url, waha_key, session_name)
