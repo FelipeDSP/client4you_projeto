@@ -134,6 +134,18 @@ export default function SearchLeads() {
           />
         </Card>
       )}
+      
+      {/* Modal de Limite de Quota */}
+      {quota && (
+        <QuotaLimitModal
+          open={showQuotaModal}
+          onClose={() => setShowQuotaModal(false)}
+          limitType="leads"
+          currentPlan={quota.plan_type}
+          used={quota.leads_used}
+          limit={quota.leads_limit}
+        />
+      )}
     </div>
   );
 }
