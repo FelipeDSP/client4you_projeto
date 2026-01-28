@@ -67,12 +67,12 @@ export function AppSidebar() {
     <Sidebar collapsible="icon">
       <SidebarContent>
         <div className="p-4 flex items-center justify-center">
-          <h1 className="text-xl font-bold text-primary group-data-[collapsible=icon]:hidden">
-            Busca<span className="text-gray-900">Lead</span>
-          </h1>
-          <span className="text-xl font-bold text-primary hidden group-data-[collapsible=icon]:block">
-            B<span className="text-gray-900">L</span>
-          </span>
+          {/* Logo Leads4you */}
+          <img 
+            src="/leads4you-logo.png" 
+            alt="Leads4you" 
+            className="h-8 w-auto group-data-[collapsible=icon]:h-6"
+          />
         </div>
         
         <SidebarGroup>
