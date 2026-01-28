@@ -2,9 +2,10 @@ import { useState, useEffect } from "react";
 import { CreateCampaignDialog } from "./CreateCampaignDialog";
 import { CampaignCard } from "./CampaignCard";
 import { MessageLogsDialog } from "./MessageLogsDialog";
+import { QuotaLimitModal } from "@/components/QuotaLimitModal";
 import { useCampaigns } from "@/hooks/useCampaigns";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
-import { useSubscription } from "@/hooks/useSubscription";
+import { useQuotas } from "@/hooks/useQuotas";
 import {
   MessageSquare,
   Send,
@@ -24,11 +25,10 @@ import { Link } from "react-router-dom";
 export default function Disparador() {
   const { campaigns, isLoading, fetchCampaigns } = useCampaigns();
   const { settings, hasWahaConfig, isLoading: isLoadingSettings } = useCompanySettings();
-  const { currentPlan, isLoading: isLoadingSubscription } = useSubscription();
+  const { quota, canUseCampaigns } = useQuotas();
   const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
-
-  const hasDisparadorAccess = currentPlan.id === "professional" || currentPlan.id === "business";
+  const [showQuotaModal, setShowQuotaModal] = useState(false);
 
   const wahaConfig = hasWahaConfig && settings ? {
     url: settings.wahaApiUrl!,
