@@ -98,8 +98,8 @@ export default function Admin() {
     setIsRefreshing(false);
   }, [refreshData]);
 
-  // Loading State
-  if (isLoading) {
+  // Loading State - Aguarda até ter certeza do status
+  if (isLoading || isAdmin === null) {
     return (
       <div className="flex h-[calc(100vh-4rem)] items-center justify-center">
         <div className="flex flex-col items-center gap-2">
@@ -110,8 +110,7 @@ export default function Admin() {
     );
   }
 
-  // ✅ CORREÇÃO CRÍTICA: Só redireciona se for estritamente false
-  // Se for null, o código passa e espera (ou cai no loading acima)
+  // Só redireciona quando temos certeza que não é admin
   if (isAdmin === false) {
     return <Navigate to="/dashboard" replace />;
   }
