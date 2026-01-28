@@ -70,7 +70,7 @@ export function Header() {
           </Badge>
 
           {/* Notifications */}
-          <NotificationDropdownSimple />
+          <NotificationDropdown />
 
           {/* User Profile */}
           <DropdownMenu>
