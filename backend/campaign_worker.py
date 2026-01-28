@@ -208,13 +208,20 @@ async def process_campaign(
             
             logger.info(f"Message sent to {contact_data['phone']}: {new_status}")
             
-            # Wait for random interval
-            interval = random.randint(
-                settings.get("interval_min", 30),
-                settings.get("interval_max", 60)
-            )
-            logger.info(f"Waiting {interval} seconds before next message...")
-            await asyncio.sleep(interval)
+            # Check if there are more pending contacts before waiting
+            remaining_contacts = await db.get_next_pending_contact(campaign_id)
+            
+            if remaining_contacts:
+                # Wait for random interval only if there are more contacts
+                interval = random.randint(
+                    settings.get("interval_min", 30),
+                    settings.get("interval_max", 60)
+                )
+                logger.info(f"Waiting {interval} seconds before next message...")
+                await asyncio.sleep(interval)
+            else:
+                # No more contacts, will complete in next iteration
+                logger.info(f"Last message sent, campaign will complete in next iteration")
     
     except asyncio.CancelledError:
         logger.info(f"Campaign {campaign_id} worker cancelled")
