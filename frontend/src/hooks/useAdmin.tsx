@@ -29,21 +29,23 @@ export interface Company {
 }
 
 export function useAdmin() {
-  // CORREÇÃO AQUI: Mudámos de 'loading' para 'isLoading' para bater certo com o useAuth
+  // CORREÇÃO 1: Pegamos user, session e isLoading (como authLoading)
+  // Usamos 'as any' para garantir que não dá erro de TypeScript se a tipagem do useAuth estiver incompleta
   const { user, session, isLoading: authLoading } = useAuth() as any;
   
-  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(null); // null = loading
   const [isLoading, setIsLoading] = useState(true);
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
 
   // Check if current user is admin
   const checkAdminStatus = useCallback(async () => {
-    // Agora o authLoading será true corretamente enquanto o Auth carrega
-    if (authLoading === true) return;
+    // CORREÇÃO 2: Bloqueio robusto contra estado indefinido
+    // Se a sessão é undefined ou o auth está carregando, PARAMOS aqui.
+    // Isso impede que o código diga "não é admin" antes da hora.
+    if (session === undefined || authLoading === true) return;
 
     if (!user?.id) {
-      // Só assumimos que não é admin se tivermos certeza que o auth terminou
       setIsAdmin(false);
       setIsLoading(false);
       return;
@@ -67,9 +69,8 @@ export function useAdmin() {
     } finally {
       setIsLoading(false);
     }
-  }, [user?.id, authLoading]);
+  }, [user?.id, session, authLoading]);
 
-  // Executa a verificação sempre que o user ou o status de loading do auth mudar
   useEffect(() => {
     checkAdminStatus();
   }, [checkAdminStatus]);
@@ -79,6 +80,7 @@ export function useAdmin() {
     if (!isAdmin) return;
 
     try {
+      // Fetch profiles
       const { data: profiles, error: profilesError } = await supabase
         .from("profiles")
         .select(`
@@ -95,6 +97,7 @@ export function useAdmin() {
         return;
       }
 
+      // Fetch user roles
       const { data: roles, error: rolesError } = await supabase
         .from("user_roles")
         .select("user_id, role");
@@ -104,6 +107,7 @@ export function useAdmin() {
         return;
       }
 
+      // Map roles by user_id
       const rolesByUser: Record<string, AppRole[]> = {};
       roles?.forEach((r) => {
         if (!rolesByUser[r.user_id]) {
@@ -148,6 +152,7 @@ export function useAdmin() {
         return;
       }
 
+      // Count members per company
       const { data: profileCounts, error: countsError } = await supabase
         .from("profiles")
         .select("company_id");
@@ -222,6 +227,7 @@ export function useAdmin() {
   const removeAdminRole = async (userId: string): Promise<boolean> => {
     if (!isAdmin) return false;
 
+    // Prevent removing own admin role
     if (userId === user?.id) return false;
 
     try {
@@ -332,11 +338,13 @@ export function useAdmin() {
     if (!isAdmin) return false;
 
     try {
+      // Delete in order: leads, search_history, subscriptions, company_settings, profiles, user_roles (via profile cascade), then company
       await supabase.from("leads").delete().eq("company_id", companyId);
       await supabase.from("search_history").delete().eq("company_id", companyId);
       await supabase.from("subscriptions").delete().eq("company_id", companyId);
       await supabase.from("company_settings").delete().eq("company_id", companyId);
       
+      // Get user IDs for this company to delete their roles
       const { data: companyProfiles } = await supabase
         .from("profiles")
         .select("id")
@@ -348,6 +356,7 @@ export function useAdmin() {
         await supabase.from("profiles").delete().eq("company_id", companyId);
       }
       
+      // Finally delete the company
       const { error: companyError } = await supabase
         .from("companies")
         .delete()
@@ -371,11 +380,14 @@ export function useAdmin() {
   const deleteUser = async (userId: string): Promise<boolean> => {
     if (!isAdmin) return false;
 
+    // Prevent deleting yourself
     if (userId === user?.id) return false;
 
     try {
+      // Delete user roles
       await supabase.from("user_roles").delete().eq("user_id", userId);
       
+      // Delete the profile (this doesn't delete the auth user)
       const { error: profileError } = await supabase
         .from("profiles")
         .delete()
@@ -399,9 +411,11 @@ export function useAdmin() {
   const changeUserRole = async (userId: string, newRole: AppRole): Promise<boolean> => {
     if (!isAdmin) return false;
 
+    // Cannot change super_admin role with this function
     if (newRole === "super_admin") return false;
 
     try {
+      // First, remove existing non-super_admin roles
       const { data: existingRoles } = await supabase
         .from("user_roles")
         .select("id, role")
@@ -415,6 +429,7 @@ export function useAdmin() {
         }
       }
 
+      // Insert the new role
       const { error } = await supabase.from("user_roles").insert({
         user_id: userId,
         role: newRole,

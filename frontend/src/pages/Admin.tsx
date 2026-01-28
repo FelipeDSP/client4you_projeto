@@ -98,6 +98,7 @@ export default function Admin() {
     setIsRefreshing(false);
   }, [refreshData]);
 
+  // Loading State
   if (isLoading) {
     return (
       <div className="flex h-[calc(100vh-4rem)] items-center justify-center">
@@ -109,7 +110,9 @@ export default function Admin() {
     );
   }
 
-  if (!isAdmin) {
+  // ✅ CORREÇÃO CRÍTICA: Só redireciona se for estritamente false
+  // Se for null, o código passa e espera (ou cai no loading acima)
+  if (isAdmin === false) {
     return <Navigate to="/dashboard" replace />;
   }
 
@@ -303,7 +306,7 @@ export default function Admin() {
   return (
     <div className="space-y-8 animate-fade-in pb-10">
       
-      {/* CABEÇALHO LIMPO E FUNCIONAL */}
+      {/* CABEÇALHO */}
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
           <div className="space-y-1">
