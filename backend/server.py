@@ -21,9 +21,16 @@ from campaign_worker import (
     start_campaign_worker, stop_campaign_worker, is_campaign_running
 )
 
+# --- CORREÇÃO DO LOAD DOTENV ---
+# Pega o diretório atual (backend)
+CURRENT_DIR = Path(__file__).parent
+# Procura o .env na pasta backend OU na pasta raiz (uma acima)
+dotenv_path = CURRENT_DIR / '.env'
+if not dotenv_path.exists():
+    dotenv_path = CURRENT_DIR.parent / '.env'
 
-ROOT_DIR = Path(__file__).parent
-load_dotenv(ROOT_DIR / '.env')
+load_dotenv(dotenv_path)
+# -------------------------------
 
 # Create the main app
 app = FastAPI(title="Lead Dispatcher API")
@@ -133,7 +140,6 @@ async def get_whatsapp_status(company_id: str):
     waha_key = os.getenv('WAHA_MASTER_KEY')
     
     if not waha_url:
-        # Erro de configuração do servidor, mas retornamos JSON válido para não quebrar o front
         logger.error("WAHA_DEFAULT_URL not set in .env")
         return {"connected": False, "error": "Server config error"}
 
