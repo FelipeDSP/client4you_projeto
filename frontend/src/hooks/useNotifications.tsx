@@ -55,16 +55,23 @@ export function useNotifications() {
   }, [user?.id]);
 
   const fetchUnreadCount = useCallback(async () => {
-    if (!user?.id) return;
+    if (!user?.id) {
+      setUnreadCount(0);
+      return;
+    }
 
     try {
+      console.log('Fetching unread count for user:', user.id);
       const response = await fetch(
         `${API_URL}/api/notifications/unread-count?user_id=${user.id}`
       );
       
       if (response.ok) {
         const data = await response.json();
+        console.log('Unread count:', data.unread_count);
         setUnreadCount(data.unread_count || 0);
+      } else {
+        console.error('Error fetching unread count:', response.status);
       }
     } catch (error) {
       console.error("Error fetching unread count:", error);
