@@ -108,6 +108,9 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Quota Bar */}
+      <QuotaBar />
+
       {/* Cards de KPI Globais */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card className="bg-white shadow-sm border-none">
