@@ -18,7 +18,7 @@ import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 
 export function NotificationDropdown() {
-  const { notifications, unreadCount, isLoading, markAsRead, markAllAsRead, refresh } = useNotifications();
+  const { notifications, unreadCount, isLoading, error, markAsRead, markAllAsRead, refresh } = useNotifications();
   const navigate = useNavigate();
   const [filter, setFilter] = useState<"all" | "unread">("all");
 
