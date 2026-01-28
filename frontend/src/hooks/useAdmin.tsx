@@ -40,16 +40,20 @@ export function useAdmin() {
 
   // Check if current user is admin
   const checkAdminStatus = useCallback(async () => {
-    // CORREÇÃO 2: Bloqueio robusto contra estado indefinido
-    // Se a sessão é undefined ou o auth está carregando, PARAMOS aqui.
-    // Isso impede que o código diga "não é admin" antes da hora.
-    if (session === undefined || authLoading === true) return;
+    // Se a sessão é undefined ou o auth está carregando, mantém loading
+    if (session === undefined || authLoading === true) {
+      setIsLoading(true);
+      return;
+    }
 
     if (!user?.id) {
       setIsAdmin(false);
       setIsLoading(false);
       return;
     }
+
+    // Mantém loading enquanto faz a verificação
+    setIsLoading(true);
 
     try {
       const { data, error } = await supabase.rpc("has_role", {
@@ -61,7 +65,7 @@ export function useAdmin() {
         console.error("Error checking admin status:", error);
         setIsAdmin(false);
       } else {
-        setIsAdmin(data || false);
+        setIsAdmin(data === true); // Garante boolean estrito
       }
     } catch (error) {
       console.error("Error checking admin status:", error);
