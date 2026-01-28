@@ -7,6 +7,11 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 3000, // Porta do Frontend
+    hmr: {
+      host: 'admin-panel-debug-11.preview.emergentagent.com',
+      protocol: 'wss',
+      clientPort: 443,
+    },
     proxy: {
       // Regra Mágica: Tudo que for /api vai para o Python (8001)
       "/api": {
