@@ -5,7 +5,6 @@ import { Check, Star, Search, Send, Bot, ArrowRight, Zap, Users, TrendingUp, Shi
 import { Link, Navigate } from "react-router-dom";
 import { plans } from "@/hooks/useSubscription";
 import { useAuth } from "@/hooks/useAuth";
-import { useEffect } from "react";
 
 export default function LandingPage() {
   const { user, isLoading } = useAuth();
@@ -22,13 +21,14 @@ export default function LandingPage() {
   if (user) {
     return <Navigate to="/dashboard" replace />;
   }
+  
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
       {/* Header/Navbar */}
       <header className="sticky top-0 z-50 w-full border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60">
         <div className="container flex h-16 items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded bg-primary flex items-center justify-center text-white font-bold">
+            <div className="h-8 w-8 rounded bg-primary flex items-center justify-center text-white font-bold text-sm">
               C4Y
             </div>
             <span className="text-xl font-bold">Client4you</span>
@@ -99,38 +99,331 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* CTA Final */}
-      <section className="container py-20 bg-gradient-to-br from-primary/10 to-primary/5 rounded-lg mb-20">
-        <div className="text-center space-y-8 max-w-3xl mx-auto">
+      {/* Features Section */}
+      <section id="features" className="container py-20 bg-slate-50">
+        <div className="text-center space-y-4 mb-16">
+          <Badge variant="secondary">Recursos</Badge>
           <h2 className="text-3xl md:text-4xl font-bold">
-            Pronto para captar mais clientes?
+            Tudo que você precisa<br />em uma única plataforma
           </h2>
-          <p className="text-xl text-muted-foreground">
-            Junte-se a centenas de profissionais que já estão escalando suas vendas com Client4you
+        </div>
+        
+        <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+          <Card className="border-2">
+            <CardHeader>
+              <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
+                <Search className="h-6 w-6 text-primary" />
+              </div>
+              <CardTitle>Extrator de Leads</CardTitle>
+              <CardDescription>
+                Encontre milhares de leads qualificados direto do Google Maps em segundos.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ul className="space-y-2 text-sm">
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4 text-green-500" />
+                  Busca por segmento e localização
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4 text-green-500" />
+                  Dados completos (nome, telefone, email)
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4 text-green-500" />
+                  Exportação para Excel/CSV
+                </li>
+              </ul>
+            </CardContent>
+          </Card>
+
+          <Card className="border-2 border-primary shadow-lg">
+            <CardHeader>
+              <Badge className="w-fit mb-2">Mais Popular</Badge>
+              <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
+                <Send className="h-6 w-6 text-primary" />
+              </div>
+              <CardTitle>Disparador WhatsApp</CardTitle>
+              <CardDescription>
+                Envie mensagens personalizadas em massa via WhatsApp de forma automatizada.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ul className="space-y-2 text-sm">
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4 text-green-500" />
+                  Conexão simplificada via QR Code
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4 text-green-500" />
+                  Mensagens com variáveis dinâmicas
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4 text-green-500" />
+                  Agendamento e controle de horários
+                </li>
+              </ul>
+            </CardContent>
+          </Card>
+
+          <Card className="border-2">
+            <CardHeader>
+              <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
+                <Bot className="h-6 w-6 text-primary" />
+              </div>
+              <CardTitle>Agente IA Personalizado</CardTitle>
+              <CardDescription>
+                Automação inteligente que qualifica leads e responde automaticamente.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ul className="space-y-2 text-sm">
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4 text-green-500" />
+                  Respostas automáticas inteligentes
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4 text-green-500" />
+                  Qualificação de leads com IA
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4 text-green-500" />
+                  Follow-up automatizado
+                </li>
+              </ul>
+            </CardContent>
+          </Card>
+        </div>
+      </section>
+
+      {/* Benefits Section */}
+      <section className="container py-20">
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-6xl mx-auto">
+          <div className="text-center space-y-2">
+            <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
+              <Zap className="h-6 w-6 text-primary" />
+            </div>
+            <h3 className="font-bold text-lg">Setup Rápido</h3>
+            <p className="text-sm text-muted-foreground">
+              Comece a captar clientes em menos de 5 minutos
+            </p>
+          </div>
+
+          <div className="text-center space-y-2">
+            <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
+              <Users className="h-6 w-6 text-primary" />
+            </div>
+            <h3 className="font-bold text-lg">Escalável</h3>
+            <p className="text-sm text-muted-foreground">
+              De 10 a 10.000 leads, a plataforma cresce com você
+            </p>
+          </div>
+
+          <div className="text-center space-y-2">
+            <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
+              <TrendingUp className="h-6 w-6 text-primary" />
+            </div>
+            <h3 className="font-bold text-lg">Resultados Rápidos</h3>
+            <p className="text-sm text-muted-foreground">
+              Primeiros clientes nas primeiras 24 horas
+            </p>
+          </div>
+
+          <div className="text-center space-y-2">
+            <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
+              <Shield className="h-6 w-6 text-primary" />
+            </div>
+            <h3 className="font-bold text-lg">Seguro</h3>
+            <p className="text-sm text-muted-foreground">
+              Dados criptografados e em conformidade com LGPD
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Pricing Section */}
+      <section id="pricing" className="container py-20 bg-slate-50">
+        <div className="text-center space-y-4 mb-16">
+          <Badge variant="secondary">Preços</Badge>
+          <h2 className="text-3xl md:text-4xl font-bold">
+            Planos para todo<br />tamanho de negócio
+          </h2>
+          <p className="text-muted-foreground">
+            Escolha o plano ideal. Upgrade ou downgrade quando quiser.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link to="/signup">
-              <Button size="lg" className="text-lg h-12 px-8 gap-2">
-                Começar Grátis por 7 Dias
-                <ArrowRight className="h-5 w-5" />
-              </Button>
-            </Link>
-            <a href="#pricing">
-              <Button size="lg" variant="outline" className="text-lg h-12 px-8">
-                Ver Planos e Preços
-              </Button>
-            </a>
+        </div>
+
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
+          {plans.map((plan) => {
+            const isPopular = plan.id === "intermediario";
+            
+            return (
+              <Card key={plan.id} className={`${isPopular ? "border-primary border-2 shadow-lg relative" : ""}`}>
+                {isPopular && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                    <Badge className="bg-primary">
+                      <Star className="h-3 w-3 mr-1 fill-current" />
+                      Mais Popular
+                    </Badge>
+                  </div>
+                )}
+                
+                <CardHeader className="text-center">
+                  <CardTitle className="text-xl">{plan.name}</CardTitle>
+                  <CardDescription>{plan.description}</CardDescription>
+                  <div className="pt-4">
+                    <span className="text-4xl font-bold">
+                      {plan.price === 0 ? "Grátis" : `R$ ${plan.price.toFixed(2).replace('.', ',')}`}
+                    </span>
+                    {plan.price > 0 && (
+                      <span className="text-muted-foreground">/mês</span>
+                    )}
+                  </div>
+                </CardHeader>
+                
+                <CardContent className="space-y-4">
+                  <ul className="space-y-2 text-sm">
+                    {plan.features.map((feature, index) => (
+                      <li key={index} className="flex items-start gap-2">
+                        {feature.included ? (
+                          <Check className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+                        ) : (
+                          <span className="h-4 w-4 mt-0.5 flex-shrink-0 text-muted-foreground">−</span>
+                        )}
+                        <div>
+                          <span className={!feature.included ? "text-muted-foreground" : ""}>
+                            {feature.name}
+                          </span>
+                          {feature.limit && feature.included && (
+                            <span className="text-xs text-muted-foreground block">
+                              {feature.limit}
+                            </span>
+                          )}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                  
+                  <Link to="/signup" className="block">
+                    <Button 
+                      className="w-full" 
+                      variant={isPopular ? "default" : "outline"}
+                    >
+                      {plan.isDemo ? "Começar Grátis" : "Assinar Agora"}
+                    </Button>
+                  </Link>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+
+        <p className="text-center text-sm text-muted-foreground mt-8">
+          Todos os planos pagos incluem suporte, atualizações e podem ser cancelados a qualquer momento.
+        </p>
+      </section>
+
+      {/* FAQ Section */}
+      <section id="faq" className="container py-20">
+        <div className="text-center space-y-4 mb-16">
+          <Badge variant="secondary">FAQ</Badge>
+          <h2 className="text-3xl md:text-4xl font-bold">
+            Perguntas Frequentes
+          </h2>
+        </div>
+
+        <div className="max-w-3xl mx-auto space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Como funciona o período de teste?</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground">
+                O plano Demo é 100% gratuito por 7 dias. Você tem acesso a 5 buscas de leads e pode criar 1 campanha de teste. Não precisa cadastrar cartão de crédito.
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Posso cancelar a qualquer momento?</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground">
+                Sim! Todos os planos são sem fidelidade. Você pode cancelar quando quiser e continua tendo acesso até o fim do período pago.
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Como funciona a conexão com WhatsApp?</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground">
+                Nos planos Intermediário e Avançado, você conecta seu WhatsApp escaneando um QR Code. É rápido, seguro e não precisa de servidor próprio.
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">O Agente de IA está disponível?</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground">
+                O Agente de IA personalizado está em desenvolvimento e será lançado em breve exclusivamente no plano Avançado.
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Preciso de conhecimentos técnicos?</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground">
+                Não! A plataforma foi desenvolvida para ser simples e intuitiva. Em 5 minutos você já consegue fazer sua primeira busca e enviar suas primeiras mensagens.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </section>
+
+      {/* CTA Final */}
+      <section className="container py-20">
+        <div className="bg-gradient-to-br from-primary/10 to-primary/5 rounded-lg p-12">
+          <div className="text-center space-y-8 max-w-3xl mx-auto">
+            <h2 className="text-3xl md:text-4xl font-bold">
+              Pronto para captar mais clientes?
+            </h2>
+            <p className="text-xl text-muted-foreground">
+              Junte-se a centenas de profissionais que já estão escalando suas vendas com Client4you
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Link to="/signup">
+                <Button size="lg" className="text-lg h-12 px-8 gap-2">
+                  Começar Grátis por 7 Dias
+                  <ArrowRight className="h-5 w-5" />
+                </Button>
+              </Link>
+              <a href="#pricing">
+                <Button size="lg" variant="outline" className="text-lg h-12 px-8">
+                  Ver Planos e Preços
+                </Button>
+              </a>
+            </div>
           </div>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="border-t py-12">
+      <footer className="border-t py-12 bg-white">
         <div className="container">
           <div className="grid md:grid-cols-4 gap-8">
             <div className="space-y-4">
               <div className="flex items-center gap-2">
-                <div className="h-8 w-8 rounded bg-primary flex items-center justify-center text-white font-bold">
+                <div className="h-8 w-8 rounded bg-primary flex items-center justify-center text-white font-bold text-sm">
                   C4Y
                 </div>
                 <span className="font-bold">Client4you</span>
@@ -160,8 +453,8 @@ export default function LandingPage() {
             <div>
               <h3 className="font-semibold mb-4">Legal</h3>
               <ul className="space-y-2 text-sm text-muted-foreground">
-                <li><a href="/termos" className="hover:text-primary">Termos de Uso</a></li>
-                <li><a href="/privacidade" className="hover:text-primary">Privacidade</a></li>
+                <li><a href="#" className="hover:text-primary">Termos de Uso</a></li>
+                <li><a href="#" className="hover:text-primary">Privacidade</a></li>
               </ul>
             </div>
           </div>
