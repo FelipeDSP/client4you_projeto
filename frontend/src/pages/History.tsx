@@ -25,12 +25,18 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { LeadTable } from "@/components/LeadTable";
-import { Search, MapPin, Calendar, Hash, Trash2, Eye, Download } from "lucide-react";
+import { Search, MapPin, Calendar, Hash, Trash2, Eye, Download, History as HistoryIcon } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { SearchHistory, Lead } from "@/types";
 
 export default function History() {
+  const { setPageTitle } = usePageTitle();
+  
+  useEffect(() => {
+    setPageTitle("Histórico", HistoryIcon);
+  }, [setPageTitle]);
+
   const { searchHistory, getLeadsBySearchId, deleteSearchHistory, clearAllHistory } = useLeads();
   const { toast } = useToast();
   

@@ -3,15 +3,23 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Globe, MessageCircle, Smartphone, Loader2, QrCode, Power, LogOut, RefreshCw } from "lucide-react";
+import { Globe, MessageCircle, Smartphone, Loader2, QrCode, Power, LogOut, RefreshCw, Settings as SettingsIcon } from "lucide-react";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { usePageTitle } from "@/contexts/PageTitleContext";
 
 const api = {
   get: async (url: string) => (await fetch(`/api${url}`)).json(),
   post: async (url: string) => (await fetch(`/api${url}`, { method: 'POST' })).json()
 };
+
+export default function Settings() {
+  const { setPageTitle } = usePageTitle();
+  
+  useEffect(() => {
+    setPageTitle("Configurações", SettingsIcon);
+  }, [setPageTitle]);
 
 type WAStatus = "LOADING" | "DISCONNECTED" | "STARTING" | "SCANNING" | "CONNECTED";
 
