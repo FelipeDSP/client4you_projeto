@@ -50,7 +50,7 @@ export function LeadSearch({ onSearch, isSearching, disabled = false }: LeadSear
 
         <Button 
           type="submit" 
-          disabled={isSearching || !term || !location}
+          disabled={isSearching || !term || !location || disabled}
           className="md:w-32 font-medium"
         >
           {isSearching ? (
