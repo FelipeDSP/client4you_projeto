@@ -15,7 +15,7 @@ export interface Notification {
   read_at?: string;
 }
 
-const API_URL = import.meta.env.REACT_APP_BACKEND_URL;
+const API_URL = "";
 
 export function useNotifications() {
   const { user } = useAuth();
