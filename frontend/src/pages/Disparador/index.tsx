@@ -130,6 +130,11 @@ export default function Disparador() {
         </div>
       </div>
 
+      {/* Alert de configuração WAHA se não estiver conectado */}
+      {!hasWahaConfig && (
+        <ConfigurationAlert type="waha" />
+      )}
+
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-4">
         <Card className="bg-white shadow-sm border-none">
