@@ -122,26 +122,6 @@ export default function Disparador() {
         </div>
       </div>
 
-      {/* Warning if WAHA not configured */}
-      {!hasWahaConfig && (
-        <Card className="border-yellow-500/50 bg-yellow-500/10 border-none shadow-none">
-          <CardContent className="flex items-center justify-between py-4">
-            <div className="flex items-center gap-3">
-              <AlertCircle className="h-5 w-5 text-yellow-600" />
-              <p className="text-sm text-yellow-800">
-                Configure suas credenciais WAHA em <strong>Configurações</strong> antes de iniciar campanhas.
-              </p>
-            </div>
-            <Button variant="outline" size="sm" className="bg-white/50 border-yellow-600/20 hover:bg-white" asChild>
-              <Link to="/settings">
-                <Settings className="h-4 w-4 mr-2" />
-                Configurações
-              </Link>
-            </Button>
-          </CardContent>
-        </Card>
-      )}
-
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-4">
         <Card className="bg-white shadow-sm border-none">
