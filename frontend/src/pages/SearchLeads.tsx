@@ -32,10 +32,20 @@ export default function SearchLeads() {
   const [showQuotaModal, setShowQuotaModal] = useState(false);
   
   // Company Settings (SERP API)
-  const { settings, isLoading: isLoadingSettings, hasSerpapiKey } = useCompanySettings();
+  const { settings, isLoading: isLoadingSettings, hasSerpapiKey, refreshSettings } = useCompanySettings();
   const hasSerpApi = hasSerpapiKey;
   
   const { deleteLead, searchLeads, isSearching } = useLeads();
+
+  // Refresh settings when page gains focus (user returns from Settings)
+  useEffect(() => {
+    const handleFocus = () => {
+      refreshSettings();
+    };
+    
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [refreshSettings]);
 
   const handleSearch = async (term: string, location: string) => {
     // ✅ VERIFICAR QUOTA ANTES DE BUSCAR
