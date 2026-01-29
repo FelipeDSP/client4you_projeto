@@ -16,7 +16,6 @@ export function QuotaBar() {
   const getPlanColor = (planType: string) => {
     switch (planType) {
       case 'demo': return 'bg-gray-500';
-      case 'free': return 'bg-blue-500';
       case 'pro': return 'bg-primary';
       case 'enterprise': return 'bg-purple-500';
       default: return 'bg-gray-500';
@@ -26,14 +25,13 @@ export function QuotaBar() {
   const getPlanIcon = (planType: string) => {
     switch (planType) {
       case 'demo': return <Zap className="h-4 w-4" />;
-      case 'free': return <TrendingUp className="h-4 w-4" />;
       case 'pro': return <MessageCircle className="h-4 w-4" />;
       case 'enterprise': return <Crown className="h-4 w-4" />;
       default: return <Zap className="h-4 w-4" />;
     }
   };
 
-  const shouldShowUpgrade = quota.plan_type === 'demo' || quota.plan_type === 'free';
+  const shouldShowUpgrade = quota.plan_type === 'demo';
   const isNearLimit = !hasUnlimitedLeads && leadsPercentage >= 80;
 
   return (
