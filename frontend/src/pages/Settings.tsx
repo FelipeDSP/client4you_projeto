@@ -23,7 +23,6 @@ export default function Settings() {
 
   type WAStatus = "LOADING" | "DISCONNECTED" | "STARTING" | "SCANNING" | "CONNECTED";
 
-export default function Settings() {
   const { settings, saveSettings, hasSerpapiKey } = useCompanySettings();
   const { user } = useAuth();
   const { toast } = useToast();
