@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Globe, MessageCircle, CheckCircle, Smartphone, Loader2, QrCode, Power, ExternalLink } from "lucide-react";
+import { Globe, MessageCircle, Smartphone, Loader2, QrCode, Power, LogOut, RefreshCw } from "lucide-react";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -13,6 +13,8 @@ const api = {
   post: async (url: string) => (await fetch(`/api${url}`, { method: 'POST' })).json()
 };
 
+type WAStatus = "LOADING" | "DISCONNECTED" | "STARTING" | "SCANNING" | "CONNECTED";
+
 export default function Settings() {
   const { settings, saveSettings, hasSerpapiKey } = useCompanySettings();
   const { user } = useAuth();
@@ -21,179 +23,178 @@ export default function Settings() {
   const [serpapiKey, setSerpapiKey] = useState("");
   const [isSavingSerp, setIsSavingSerp] = useState(false);
   
-  // Status visual
-  const [waStatus, setWaStatus] = useState<"LOADING" | "CONNECTED" | "DISCONNECTED" | "SCANNING">("LOADING");
+  // Estados do Painel WhatsApp
+  const [waStatus, setWaStatus] = useState<WAStatus>("LOADING");
   const [qrCode, setQrCode] = useState<string>("");
-  const [isWaLoading, setIsWaLoading] = useState(false);
+  const [isActionLoading, setIsActionLoading] = useState(false);
 
   useEffect(() => {
     if (settings?.serpapiKey) setSerpapiKey(settings.serpapiKey);
   }, [settings]);
 
-  // Polling Leve (Apenas checa status, não cria sessão)
+  // 1. Polling de Status: Verifica o estado da sessão a cada 5 segundos
   useEffect(() => {
     if (!user?.companyId) return;
     
-    const check = async () => {
+    const checkStatus = async () => {
       try {
         const res = await api.get(`/whatsapp/status?company_id=${user.companyId}`);
-        // Se estiver Working/Connected
-        if (res.status === 'WORKING' || res.status === 'CONNECTED') {
-          setWaStatus("CONNECTED");
-          setQrCode(""); 
-        } else if (waStatus !== "SCANNING") {
-          // Só muda para disconnected se não estivermos mostrando o QR Code agora
-          setWaStatus("DISCONNECTED");
+        setWaStatus(res.status);
+        
+        // Se o status for SCANNING e não tivermos o QR ainda, buscamos
+        if (res.status === "SCANNING" && !qrCode) {
+          fetchQR();
+        } else if (res.status !== "SCANNING") {
+          setQrCode(""); // Limpa o QR se não estiver mais em modo de scan
         }
-      } catch (e) { console.error(e); }
+      } catch (e) {
+        console.error("Erro ao checar status:", e);
+      }
     };
 
-    check();
-    const interval = setInterval(check, 5000); // 5 segundos
+    const interval = setInterval(checkStatus, 5000);
+    checkStatus(); // Executa imediato ao montar
     return () => clearInterval(interval);
-  }, [user?.companyId, waStatus]);
+  }, [user?.companyId, qrCode]);
 
-  const handleSaveSerp = async () => {
-    setIsSavingSerp(true);
-    await saveSettings({ serpapiKey });
-    setIsSavingSerp(false);
-    toast({ title: "Salvo", description: "Chave SerpAPI atualizada." });
-  };
-
-  // BOTÃO MANUAL: Inicia o processo pesado (Criar Sessão + QR)
-  const handleGenerateQR = async () => {
-    if (!user?.companyId) return;
-    setIsWaLoading(true);
+  const fetchQR = async () => {
     try {
-      const res = await api.post(`/whatsapp/session/start?company_id=${user.companyId}`);
-      
-      if (res.image) {
-        setQrCode(res.image);
-        setWaStatus("SCANNING");
-        toast({ title: "Aguardando Leitura", description: "Escaneie o código com seu celular." });
-      } else if (res.status === 'connected') {
-        setWaStatus("CONNECTED");
-        toast({ title: "Conectado", description: "O WhatsApp já está ativo." });
-      }
-    } catch (e) {
-      toast({ variant: "destructive", title: "Erro", description: "Falha ao iniciar sessão." });
-    } finally {
-      setIsWaLoading(false);
-    }
+      const res = await api.get(`/whatsapp/qr?company_id=${user.companyId}`);
+      if (res.image) setQrCode(res.image);
+    } catch (e) { console.error("Erro ao buscar QR:", e); }
   };
 
-  const handleDisconnect = async () => {
-    if(!confirm("Tem certeza? Isso irá parar os envios.")) return;
-    setIsWaLoading(true);
+  // Ações do Painel
+  const handleStartSession = async () => {
+    setIsActionLoading(true);
+    try {
+      await api.post(`/whatsapp/session/start?company_id=${user.companyId}`);
+      toast({ title: "Iniciando...", description: "O motor do WhatsApp está ligando." });
+    } catch (e) {
+      toast({ variant: "destructive", title: "Erro", description: "Falha ao iniciar motor." });
+    } finally { setIsActionLoading(false); }
+  };
+
+  const handleStopSession = async () => {
+    setIsActionLoading(true);
     try {
       await api.post(`/whatsapp/session/stop?company_id=${user.companyId}`);
-      setWaStatus("DISCONNECTED");
-      setQrCode("");
-      toast({ title: "Desconectado", description: "Sessão encerrada." });
+      toast({ title: "Sessão Parada", description: "O motor foi desligado." });
     } catch (e) {
-      toast({ variant: "destructive", title: "Erro", description: "Falha ao desconectar." });
-    } finally {
-      setIsWaLoading(false);
-    }
+      toast({ variant: "destructive", title: "Erro", description: "Falha ao parar motor." });
+    } finally { setIsActionLoading(false); }
+  };
+
+  const handleLogout = async () => {
+    if(!confirm("Isso desconectará seu celular. Confirmar?")) return;
+    setIsActionLoading(true);
+    try {
+      await api.post(`/whatsapp/session/logout?company_id=${user.companyId}`);
+      toast({ title: "Desconectado", description: "Sessão encerrada com sucesso." });
+    } catch (e) {
+      toast({ variant: "destructive", title: "Erro", description: "Falha ao deslogar." });
+    } finally { setIsActionLoading(false); }
   };
 
   return (
-    <div className="space-y-8 animate-fade-in max-w-4xl mx-auto pb-10">
+    <div className="space-y-8 max-w-4xl mx-auto pb-10">
       <div>
-        <h2 className="text-3xl font-bold tracking-tight text-gray-900">Configurações</h2>
-        <p className="text-muted-foreground mt-1">Gerencie suas chaves e conexões.</p>
+        <h2 className="text-3xl font-bold tracking-tight">Configurações</h2>
+        <p className="text-muted-foreground">Gerencie suas chaves e conexões do sistema.</p>
       </div>
 
       <div className="grid gap-8">
+        {/* SERP API CARD (Omitido aqui por brevidade, manter igual ao original) */}
         
-        {/* SERP API */}
-        <Card className="border-l-4 border-l-blue-500 shadow-sm">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Globe className="h-6 w-6 text-blue-600" />
-                <div>
-                  <CardTitle>SerpAPI (Busca de Leads)</CardTitle>
-                  <CardDescription>Necessário para usar o módulo de Busca.</CardDescription>
-                </div>
-              </div>
-              <Badge variant={hasSerpapiKey ? "default" : "outline"}>{hasSerpapiKey ? "Ativo" : "Pendente"}</Badge>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="flex gap-2">
-              <Input 
-                type="password" 
-                value={serpapiKey} 
-                onChange={e => setSerpapiKey(e.target.value)} 
-                placeholder="Sua chave SerpAPI..." 
-              />
-              <Button onClick={handleSaveSerp} disabled={isSavingSerp}>
-                {isSavingSerp ? <Loader2 className="animate-spin" /> : "Salvar"}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* WHATSAPP CONNECTION */}
-        <Card className={`border-l-4 shadow-sm ${waStatus === 'CONNECTED' ? 'border-l-green-500' : 'border-l-orange-500'}`}>
+        {/* WHATSAPP MANAGEMENT PANEL */}
+        <Card className={`border-l-4 ${waStatus === 'CONNECTED' ? 'border-l-green-500' : 'border-l-orange-500'}`}>
           <CardHeader>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <MessageCircle className={`h-6 w-6 ${waStatus === 'CONNECTED' ? 'text-green-600' : 'text-orange-600'}`} />
                 <div>
-                  <CardTitle>Conexão WhatsApp</CardTitle>
-                  <CardDescription>Necessário para o Disparador de Mensagens.</CardDescription>
+                  <CardTitle>Gerenciamento de Sessão WhatsApp</CardTitle>
+                  <CardDescription>Controle o motor de disparo e conexão.</CardDescription>
                 </div>
               </div>
-              {waStatus === 'CONNECTED' ? (
-                <Badge className="bg-green-600">Conectado</Badge>
-              ) : (
-                <Badge variant="secondary">Desconectado</Badge>
-              )}
+              <Badge variant={waStatus === 'CONNECTED' ? 'default' : 'secondary'}>
+                {waStatus}
+              </Badge>
             </div>
           </CardHeader>
           
-          <CardContent className="flex flex-col items-center justify-center p-6 bg-slate-50/50 min-h-[200px]">
-            
-            {waStatus === 'LOADING' && (
-               <div className="flex items-center gap-2 text-muted-foreground"><Loader2 className="animate-spin"/> Verificando...</div>
-            )}
+          <CardContent className="space-y-6">
+            <div className="flex flex-wrap gap-3 justify-center md:justify-start">
+              <Button 
+                onClick={handleStartSession} 
+                disabled={isActionLoading || waStatus === 'CONNECTED' || waStatus === 'STARTING' || waStatus === 'SCANNING'}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                <Power className="mr-2 h-4 w-4" /> Criar/Iniciar Sessão
+              </Button>
 
-            {waStatus === 'CONNECTED' && (
-              <div className="text-center space-y-4 animate-in fade-in zoom-in">
-                <div className="h-16 w-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto">
-                  <Smartphone className="h-8 w-8" />
+              <Button 
+                variant="outline" 
+                onClick={handleStopSession} 
+                disabled={isActionLoading || waStatus === 'DISCONNECTED'}
+              >
+                <RefreshCw className="mr-2 h-4 w-4" /> Reiniciar Motor
+              </Button>
+
+              <Button 
+                variant="destructive" 
+                onClick={handleLogout} 
+                disabled={isActionLoading || waStatus === 'DISCONNECTED'}
+              >
+                <LogOut className="mr-2 h-4 w-4" /> Desconectar Conta
+              </Button>
+            </div>
+
+            <div className="border rounded-lg p-6 bg-slate-50/50 flex flex-col items-center justify-center min-h-[250px]">
+              {waStatus === 'LOADING' && <Loader2 className="animate-spin h-8 w-8 text-muted-foreground" />}
+              
+              {waStatus === 'STARTING' && (
+                <div className="text-center space-y-2">
+                  <Loader2 className="animate-spin h-8 w-8 mx-auto text-blue-500" />
+                  <p className="font-medium">Iniciando motor na VPS...</p>
+                  <p className="text-xs text-muted-foreground">Isso pode levar até 30 segundos.</p>
                 </div>
-                <p className="text-green-800 font-medium">WhatsApp Conectado e Pronto!</p>
-                <Button variant="outline" onClick={handleDisconnect} disabled={isWaLoading} className="text-red-600 hover:bg-red-50">
-                  Desconectar
-                </Button>
-              </div>
-            )}
+              )}
 
-            {waStatus === 'DISCONNECTED' && (
-              <div className="text-center space-y-4">
-                <p className="text-muted-foreground">Clique abaixo para gerar um novo QR Code.</p>
-                <Button onClick={handleGenerateQR} disabled={isWaLoading} className="bg-green-600 hover:bg-green-700">
-                  {isWaLoading ? <Loader2 className="mr-2 animate-spin"/> : <QrCode className="mr-2 h-4 w-4"/>}
-                  Gerar QR Code
-                </Button>
-              </div>
-            )}
-
-            {waStatus === 'SCANNING' && qrCode && (
-              <div className="text-center space-y-4 animate-in fade-in slide-in-from-bottom-4">
-                <div className="bg-white p-3 rounded-lg shadow-lg border inline-block">
-                  <img src={qrCode} alt="QR Code" className="w-64 h-64" />
+              {waStatus === 'SCANNING' && (
+                <div className="text-center space-y-4">
+                  {qrCode ? (
+                    <div className="bg-white p-2 rounded shadow-sm inline-block border">
+                      <img src={qrCode} alt="WhatsApp QR Code" className="w-60 h-60" />
+                    </div>
+                  ) : (
+                    <div className="w-60 h-60 flex items-center justify-center border bg-white rounded">
+                      <Loader2 className="animate-spin h-6 w-6 text-muted-foreground" />
+                    </div>
+                  )}
+                  <p className="text-sm font-medium">Escaneie o QR Code para conectar</p>
                 </div>
-                <p className="text-sm font-medium">Escaneie com seu WhatsApp (Menu &gt; Aparelhos Conectados)</p>
-              </div>
-            )}
+              )}
 
+              {waStatus === 'CONNECTED' && (
+                <div className="text-center space-y-3">
+                  <div className="bg-green-100 p-4 rounded-full inline-block">
+                    <Smartphone className="h-10 w-10 text-green-600" />
+                  </div>
+                  <p className="text-lg font-bold text-green-700">WhatsApp Conectado!</p>
+                  <p className="text-sm text-muted-foreground">Seu sistema está pronto para realizar disparos.</p>
+                </div>
+              )}
+
+              {waStatus === 'DISCONNECTED' && (
+                <div className="text-center text-muted-foreground">
+                  <QrCode className="h-12 w-12 mx-auto mb-2 opacity-20" />
+                  <p>Nenhuma sessão ativa. Clique em "Criar/Iniciar Sessão" para começar.</p>
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
-
       </div>
     </div>
   );

@@ -33,61 +33,91 @@ class WahaService:
             "X-Api-Key": api_key
         }
     
-    # --- MÉTODOS DE SESSÃO (NOVO SAAS) ---
+# --- MÉTODOS DE SESSÃO (SAAS ROBUSTO) ---
 
     async def start_session(self) -> Dict[str, Any]:
-        """Inicia uma nova sessão no WAHA (Cria o worker do navegador)"""
+        """Inicia (ou cria) a sessão no WAHA"""
         try:
             payload = {"name": self.session_name, "config": {"webhooks": []}}
             async with httpx.AsyncClient(timeout=30.0) as client:
+                # 1. Tenta criar a sessão no servidor
                 response = await client.post(
                     f"{self.waha_url}/api/sessions",
                     headers=self.headers,
                     json=payload
                 )
-                # 201 Created ou 409 Conflict (já existe) são sucessos para nós
-                if response.status_code in [200, 201, 409]:
-                    return {"success": True, "status": "session_started"}
-                return {"success": False, "error": f"WAHA Error {response.status_code}: {response.text}"}
+                
+                # Se 201 (Criado) ou 409 (Já existe), enviamos o comando START
+                if response.status_code in [201, 409]:
+                    await client.post(
+                        f"{self.waha_url}/api/sessions/{self.session_name}/start",
+                        headers=self.headers
+                    )
+                    return {"success": True, "status": "STARTING"}
+                
+                return {"success": False, "error": f"Erro WAHA: {response.status_code}"}
         except Exception as e:
-            logger.error(f"Erro start_session: {e}")
+            logger.error(f"Erro ao iniciar sessão: {e}")
             return {"success": False, "error": str(e)}
 
-    async def get_qr_code(self) -> Dict[str, Any]:
-        """Obtém a imagem do QR Code em Base64"""
+    async def stop_session(self) -> Dict[str, Any]:
+        """Para a sessão sem desconectar (apenas desliga o motor)"""
         try:
             async with httpx.AsyncClient(timeout=20.0) as client:
-                # Pede o QR code no formato imagem
-                response = await client.get(
-                    f"{self.waha_url}/api/sessions/{self.session_name}/auth/qr?format=image",
+                response = await client.post(
+                    f"{self.waha_url}/api/sessions/{self.session_name}/stop",
                     headers=self.headers
                 )
-                
-                if response.status_code == 200:
-                    # Converte os bytes da imagem para base64 para o frontend exibir
-                    b64_img = base64.b64encode(response.content).decode('utf-8')
-                    return {
-                        "success": True, 
-                        "image": f"data:image/png;base64,{b64_img}"
-                    }
-                elif response.status_code == 404:
-                     return {"success": False, "error": "Sessão não encontrada. Tente iniciar novamente."}
-                
-                return {"success": False, "error": "QR Code indisponível no momento."}
+                return {"success": response.status_code == 200}
         except Exception as e:
+            logger.error(f"Erro ao parar sessão: {e}")
             return {"success": False, "error": str(e)}
 
     async def logout_session(self) -> Dict[str, Any]:
-        """Desconecta a sessão do WhatsApp"""
+        """Desconecta totalmente (exige novo QR Code depois)"""
         try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                await client.post(
+            async with httpx.AsyncClient(timeout=20.0) as client:
+                response = await client.post(
                     f"{self.waha_url}/api/sessions/{self.session_name}/logout",
                     headers=self.headers
                 )
-            return {"success": True}
-        except:
-            return {"success": False}
+                return {"success": response.status_code == 200}
+        except Exception as e:
+            logger.error(f"Erro ao deslogar sessão: {e}")
+            return {"success": False, "error": str(e)}
+async def get_qr_code(self) -> Dict[str, Any]:
+    """Obtém a imagem do QR Code em Base64 com logs de diagnóstico"""
+    try:
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            # Solicita o QR Code explicitamente como imagem
+            response = await client.get(
+                f"{self.waha_url}/api/sessions/{self.session_name}/auth/qr?format=image",
+                headers=self.headers
+            )
+            
+            if response.status_code == 200:
+                # Converte os bytes brutos da imagem (confirmados pelo seu teste n8n) para Base64
+                b64_img = base64.b64encode(response.content).decode('utf-8')
+                return {
+                    "success": True, 
+                    "image": f"data:image/png;base64,{b64_img}"
+                }
+            
+            # Log de diagnóstico: ajuda a identificar se o WAHA ainda não gerou o arquivo
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"WAHA QR indisponível: Status {response.status_code} para sessão {self.session_name}")
+            
+            if response.status_code == 404:
+                return {"success": False, "error": "Sessão não encontrada ou motor ainda iniciando."}
+            
+            return {"success": False, "error": f"QR Code pendente (Status {response.status_code})"}
+            
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Erro ao buscar QR Code: {str(e)}")
+        return {"success": False, "error": str(e)}
 
     # --- MÉTODOS DE OPERAÇÃO (DISPARO) ---
 

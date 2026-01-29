@@ -132,64 +132,90 @@ async def root():
 
 @api_router.get("/whatsapp/status")
 async def get_whatsapp_status(company_id: str):
-    """Verifica se a empresa está conectada (usado pelo polling do frontend)"""
+    """Verifica o estado detalhado da sessão para o Painel de Gerenciamento"""
     if not company_id:
-        return {"connected": False, "error": "Company ID missing"}
+        return {"status": "DISCONNECTED", "connected": False, "error": "Company ID missing"}
 
     waha_url = os.getenv('WAHA_DEFAULT_URL')
     waha_key = os.getenv('WAHA_MASTER_KEY')
     
     if not waha_url:
-        logger.error("WAHA_DEFAULT_URL not set in .env")
-        return {"connected": False, "error": "Server config error"}
+        return {"status": "DISCONNECTED", "connected": False, "error": "Server config error"}
 
     session_name = await get_session_name_for_company(company_id)
     waha = WahaService(waha_url, waha_key, session_name)
     
-    return await waha.check_connection()
+    conn = await waha.check_connection()
+    
+    # Mapeamento para o Frontend saber exatamente o que exibir
+    # WORKING/CONNECTED -> Painel Ativo
+    # SCANNING -> Exibir QR Code
+    # STARTING -> Exibir Loader de "Iniciando motor..."
+    status_map = {
+        "STOPPED": "DISCONNECTED",
+        "STARTING": "STARTING",
+        "SCANNING": "SCANNING",
+        "WORKING": "CONNECTED",
+        "CONNECTED": "CONNECTED"
+    }
+    
+    waha_raw_status = conn.get("status", "DISCONNECTED")
+    
+    return {
+        "status": status_map.get(waha_raw_status, "DISCONNECTED"),
+        "connected": conn.get("connected", False),
+        "session_name": session_name,
+        "waha_raw_status": waha_raw_status
+    }
 
 
 @api_router.post("/whatsapp/session/start")
 async def start_whatsapp_session(company_id: str):
-    """
-    Ação Manual: Usuário clicou em 'Gerar QR Code'.
-    Cria a sessão no WAHA (se não existir) e retorna a imagem do QR.
-    """
+    """Cria e Inicia o motor da sessão (sem deslogar)"""
     waha_url = os.getenv('WAHA_DEFAULT_URL')
     waha_key = os.getenv('WAHA_MASTER_KEY')
     session_name = await get_session_name_for_company(company_id)
 
     waha = WahaService(waha_url, waha_key, session_name)
     
-    # 1. Garante que a sessão existe no WAHA
-    start_result = await waha.start_session()
-    if not start_result.get("success"):
-        raise HTTPException(status_code=500, detail=f"Erro ao iniciar motor WhatsApp: {start_result.get('error')}")
+    # Inicia o motor no WAHA
+    result = await waha.start_session()
+    if not result.get("success"):
+        raise HTTPException(status_code=500, detail=result.get("error"))
 
-    # 2. Obtém o QR Code
-    qr = await waha.get_qr_code()
-    
-    if not qr.get("success"):
-        # Se falhou, verificamos se já conectou nesse meio tempo
-        status = await waha.check_connection()
-        if status.get("status") in ["WORKING", "CONNECTED"]:
-             return {"status": "connected", "message": "Já conectado!"}
-        
-        raise HTTPException(status_code=400, detail="Aguarde o servidor gerar o QR Code (tente novamente em 5s).")
-
-    return qr
-
+    return {"status": "STARTING", "message": "Motor em inicialização..."}
 
 @api_router.post("/whatsapp/session/stop")
 async def stop_whatsapp_session(company_id: str):
-    """Desconecta a sessão do WhatsApp"""
+    """Apenas para o motor da sessão (mantém o login se houver)"""
     waha_url = os.getenv('WAHA_DEFAULT_URL')
     waha_key = os.getenv('WAHA_MASTER_KEY')
     session_name = await get_session_name_for_company(company_id)
 
     waha = WahaService(waha_url, waha_key, session_name)
-    await waha.logout_session()
-    return {"success": True}
+    success = await waha.stop_session()
+    return {"success": success}
+
+@api_router.post("/whatsapp/session/logout")
+async def logout_whatsapp_session(company_id: str):
+    """Desconecta o WhatsApp e exige novo QR Code"""
+    waha_url = os.getenv('WAHA_DEFAULT_URL')
+    waha_key = os.getenv('WAHA_MASTER_KEY')
+    session_name = await get_session_name_for_company(company_id)
+
+    waha = WahaService(waha_url, waha_key, session_name)
+    success = await waha.logout_session()
+    return {"success": success}
+
+@api_router.get("/whatsapp/qr")
+async def get_whatsapp_qr(company_id: str):
+    """Endpoint dedicado apenas para buscar o QR Code atual"""
+    waha_url = os.getenv('WAHA_DEFAULT_URL')
+    waha_key = os.getenv('WAHA_MASTER_KEY')
+    session_name = await get_session_name_for_company(company_id)
+
+    waha = WahaService(waha_url, waha_key, session_name)
+    return await waha.get_qr_code()
 
 
 # ========== Campaign Endpoints ==========
