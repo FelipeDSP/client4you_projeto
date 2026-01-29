@@ -7,6 +7,11 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 3000,
+    allowedHosts: [
+      ".preview.emergentagent.com",
+      "localhost",
+      "127.0.0.1",
+    ],
     // REMOVIDO O BLOCO HMR QUE CAUSAVA O ERRO LOCAL
     proxy: {
       "/api": {
