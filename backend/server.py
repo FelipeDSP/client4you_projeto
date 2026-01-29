@@ -149,14 +149,16 @@ async def get_whatsapp_status(company_id: str):
     
     # Mapeamento para o Frontend saber exatamente o que exibir
     # WORKING/CONNECTED -> Painel Ativo
-    # SCANNING -> Exibir QR Code
+    # SCAN_QR_CODE -> Exibir QR Code
     # STARTING -> Exibir Loader de "Iniciando motor..."
     status_map = {
         "STOPPED": "DISCONNECTED",
         "STARTING": "STARTING",
+        "SCAN_QR_CODE": "SCANNING",
         "SCANNING": "SCANNING",
         "WORKING": "CONNECTED",
-        "CONNECTED": "CONNECTED"
+        "CONNECTED": "CONNECTED",
+        "FAILED": "DISCONNECTED"
     }
     
     waha_raw_status = conn.get("status", "DISCONNECTED")
