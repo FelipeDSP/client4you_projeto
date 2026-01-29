@@ -92,10 +92,19 @@ export function useCampaigns() {
 
     try {
       const response = await fetch(`${BACKEND_URL}/api/campaigns?company_id=${user.companyId}`);
+      
+      if (!response.ok) {
+        console.error("Failed to fetch campaigns:", response.status, response.statusText);
+        setCampaigns([]);
+        setIsLoading(false);
+        return;
+      }
+      
       const data = await response.json();
       setCampaigns(data.campaigns || []);
     } catch (error) {
       console.error("Error fetching campaigns:", error);
+      setCampaigns([]);
     } finally {
       setIsLoading(false);
     }
