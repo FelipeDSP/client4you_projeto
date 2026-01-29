@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useSubscription } from "@/hooks/useSubscription";
+import { usePageTitle } from "@/contexts/PageTitleContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +13,12 @@ import { useToast } from "@/hooks/use-toast";
 import { Link } from "react-router-dom";
 
 export default function Profile() {
+  const { setPageTitle } = usePageTitle();
+  
+  useEffect(() => {
+    setPageTitle("Minha Conta", User);
+  }, [setPageTitle]);
+
   const { user } = useAuth();
   const { currentPlan, demoUsed } = useSubscription();
   const { toast } = useToast();

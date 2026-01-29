@@ -21,7 +21,7 @@ export default function Settings() {
     setPageTitle("Configurações", SettingsIcon);
   }, [setPageTitle]);
 
-type WAStatus = "LOADING" | "DISCONNECTED" | "STARTING" | "SCANNING" | "CONNECTED";
+  type WAStatus = "LOADING" | "DISCONNECTED" | "STARTING" | "SCANNING" | "CONNECTED";
 
 export default function Settings() {
   const { settings, saveSettings, hasSerpapiKey } = useCompanySettings();
