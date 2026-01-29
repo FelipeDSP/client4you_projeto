@@ -6,6 +6,7 @@ import { QuotaLimitModal } from "@/components/QuotaLimitModal";
 import { useCampaigns } from "@/hooks/useCampaigns";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { useQuotas } from "@/hooks/useQuotas";
+import { usePageTitle } from "@/contexts/PageTitleContext";
 import {
   MessageSquare,
   Send,
@@ -23,6 +24,12 @@ import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 
 export default function Disparador() {
+  const { setPageTitle } = usePageTitle();
+  
+  useEffect(() => {
+    setPageTitle("Disparador", Send);
+  }, [setPageTitle]);
+
   const { campaigns, isLoading, fetchCampaigns } = useCampaigns();
   const { settings, hasWahaConfig, isLoading: isLoadingSettings } = useCompanySettings();
   const { quota, canUseCampaigns } = useQuotas();

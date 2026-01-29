@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import * as XLSX from "xlsx";
 import { useLeads } from "@/hooks/useLeads";
 import { useToast } from "@/hooks/use-toast";
+import { usePageTitle } from "@/contexts/PageTitleContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

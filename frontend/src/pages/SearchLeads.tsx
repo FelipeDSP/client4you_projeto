@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { LeadSearch } from "@/components/LeadSearch";
 import { LeadFilters, LeadFilterState, defaultFilters, filterLeads } from "@/components/LeadFilters";
 import { LeadTable } from "@/components/LeadTable";
@@ -7,10 +7,17 @@ import { ExportButton } from "@/components/ExportButton";
 import { QuotaLimitModal } from "@/components/QuotaLimitModal";
 import { useLeads } from "@/hooks/useLeads";
 import { useQuotas } from "@/hooks/useQuotas";
+import { usePageTitle } from "@/contexts/PageTitleContext";
 import { Lead } from "@/types";
 import { Search, ArrowDown } from "lucide-react";
 
 export default function SearchLeads() {
+  const { setPageTitle } = usePageTitle();
+  
+  useEffect(() => {
+    setPageTitle("Buscar Leads", Search);
+  }, [setPageTitle]);
+
   // Estado LOCAL para mostrar APENAS o que foi buscado agora
   const [currentResults, setCurrentResults] = useState<Lead[]>([]);
   const [hasSearched, setHasSearched] = useState(false); // Para saber se já buscou alguma vez
