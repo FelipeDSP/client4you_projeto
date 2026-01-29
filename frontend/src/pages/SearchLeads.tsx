@@ -5,8 +5,10 @@ import { LeadTable } from "@/components/LeadTable";
 import { Card } from "@/components/ui/card";
 import { ExportButton } from "@/components/ExportButton";
 import { QuotaLimitModal } from "@/components/QuotaLimitModal";
+import { ConfigurationAlert } from "@/components/ConfigurationAlert";
 import { useLeads } from "@/hooks/useLeads";
 import { useQuotas } from "@/hooks/useQuotas";
+import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { usePageTitle } from "@/contexts/PageTitleContext";
 import { Lead } from "@/types";
 import { Search, ArrowDown } from "lucide-react";
@@ -20,7 +22,7 @@ export default function SearchLeads() {
 
   // Estado LOCAL para mostrar APENAS o que foi buscado agora
   const [currentResults, setCurrentResults] = useState<Lead[]>([]);
-  const [hasSearched, setHasSearched] = useState(false); // Para saber se já buscou alguma vez
+  const [hasSearched, setHasSearched] = useState(false);
   
   const [filters, setFilters] = useState<LeadFilterState>(defaultFilters);
   const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
@@ -29,15 +31,17 @@ export default function SearchLeads() {
   const { quota, checkQuota, incrementQuota } = useQuotas();
   const [showQuotaModal, setShowQuotaModal] = useState(false);
   
+  // Company Settings (SERP API)
+  const { settings, isLoading: isLoadingSettings } = useCompanySettings();
+  const hasSerpApi = settings?.serpApiKey && settings.serpApiKey.length > 0;
+  
   const { deleteLead, searchLeads, isSearching } = useLeads();
 
-  // Função Wrapper para capturar o resultado e colocar no estado local
   const handleSearch = async (term: string, location: string) => {
     // ✅ VERIFICAR QUOTA ANTES DE BUSCAR
     const quotaCheck = await checkQuota('lead_search');
     
     if (!quotaCheck.allowed) {
-      // Mostrar modal de limite atingido
       setShowQuotaModal(true);
       return;
     }
@@ -69,7 +73,6 @@ export default function SearchLeads() {
           </p>
         </div>
         
-        {/* Só mostra botão de exportar se tiver resultados na tela */}
         {currentResults.length > 0 && (
           <ExportButton 
             leads={filteredLeads} 
@@ -78,15 +81,20 @@ export default function SearchLeads() {
         )}
       </div>
 
+      {/* Alert de configuração SERP API */}
+      {!isLoadingSettings && !hasSerpApi && (
+        <ConfigurationAlert type="serp" />
+      )}
+
       {/* Área de Busca */}
       <Card className="p-6 bg-white shadow-sm border-none rounded-xl">
         <div className="space-y-6">
           <LeadSearch 
-            onSearch={handleSearch} // Usamos nosso handler local
-            isSearching={isSearching} 
+            onSearch={handleSearch}
+            isSearching={isSearching}
+            disabled={!hasSerpApi}
           />
           
-          {/* Só mostra filtros se já tiver feito uma busca com sucesso */}
           {currentResults.length > 0 && (
             <div className="animate-in fade-in slide-in-from-top-4 duration-500">
               <LeadFilters 
@@ -99,60 +107,40 @@ export default function SearchLeads() {
         </div>
       </Card>
 
-      {/* Área de Resultados (Condicional) */}
-      {!hasSearched && !isSearching ? (
-        // ESTADO 1: Nada pesquisado ainda (Empty State Bonito)
-        <div className="flex flex-col items-center justify-center py-12 text-center border-2 border-dashed border-gray-100 rounded-xl bg-gray-50/50">
-          <div className="bg-white p-4 rounded-full shadow-sm mb-4">
-            <Search className="h-8 w-8 text-primary/40" />
-          </div>
-          <h3 className="text-lg font-semibold text-gray-700">Pronto para buscar?</h3>
-          <p className="text-muted-foreground max-w-sm mt-2">
-            Digite um termo (ex: "Pizzarias") e uma localização acima para começar a mineração de leads.
-          </p>
-        </div>
-      ) : (
-        // ESTADO 2: Mostra Tabela (Vazia se carregando ou com dados)
-        <Card className="bg-white shadow-sm border-none rounded-xl overflow-hidden min-h-[200px] relative">
-          {isSearching && (
-            <div className="absolute inset-0 bg-white/80 z-10 flex flex-col items-center justify-center backdrop-blur-sm">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-4"></div>
-              <p className="text-sm font-medium text-primary animate-pulse">Minerando dados do Google Maps...</p>
-              <p className="text-xs text-muted-foreground mt-2">Isso pode levar alguns segundos</p>
+      {/* Tabela de Resultados */}
+      {hasSearched && currentResults.length > 0 && (
+        <Card className="p-6 bg-white shadow-sm border-none rounded-xl animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <ArrowDown className="h-5 w-5 text-primary" />
+              <h3 className="font-semibold text-lg">
+                {filteredLeads.length} {filteredLeads.length === 1 ? 'Lead Encontrado' : 'Leads Encontrados'}
+              </h3>
             </div>
-          )}
-
-          <div className="p-6 border-b border-gray-100 flex justify-between items-center">
-            <h3 className="font-semibold text-gray-800 flex items-center gap-2">
-              Resultados da Sessão
-              {hasSearched && !isSearching && (
-                <span className="text-xs font-normal text-muted-foreground bg-gray-100 px-2 py-1 rounded-full">
-                  {filteredLeads.length} encontrados agora
-                </span>
-              )}
-            </h3>
           </div>
           
-          <LeadTable 
-            leads={filteredLeads} 
-            onDelete={deleteLead} 
+          <LeadTable
+            leads={filteredLeads}
             selectedLeads={selectedLeads}
             onSelectionChange={setSelectedLeads}
+            onDelete={deleteLead}
           />
         </Card>
       )}
-      
-      {/* Modal de Limite de Quota */}
-      {quota && (
-        <QuotaLimitModal
-          open={showQuotaModal}
-          onClose={() => setShowQuotaModal(false)}
-          limitType="leads"
-          currentPlan={quota.plan_type}
-          used={quota.leads_used}
-          limit={quota.leads_limit}
-        />
+
+      {hasSearched && currentResults.length === 0 && !isSearching && (
+        <Card className="p-12 bg-white shadow-sm border-none rounded-xl text-center">
+          <p className="text-muted-foreground">
+            Nenhum lead encontrado para essa busca. Tente outros termos.
+          </p>
+        </Card>
       )}
+
+      {/* Modal de Limite */}
+      <QuotaLimitModal 
+        open={showQuotaModal} 
+        onOpenChange={setShowQuotaModal}
+      />
     </div>
   );
 }
