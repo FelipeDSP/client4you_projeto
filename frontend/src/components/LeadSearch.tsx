@@ -8,9 +8,10 @@ import { Card } from "@/components/ui/card";
 interface LeadSearchProps {
   onSearch: (term: string, location: string) => void;
   isSearching: boolean;
+  disabled?: boolean;
 }
 
-export function LeadSearch({ onSearch, isSearching }: LeadSearchProps) {
+export function LeadSearch({ onSearch, isSearching, disabled = false }: LeadSearchProps) {
   const [term, setTerm] = useState("");
   const [location, setLocation] = useState("");
 
