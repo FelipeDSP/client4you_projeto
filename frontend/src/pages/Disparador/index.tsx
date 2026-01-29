@@ -44,15 +44,10 @@ export default function Disparador() {
     session: settings.wahaSession || "default"
   } : undefined;
 
-  // Refresh settings when page gains focus (user returns from Settings)
+  // Refresh settings when component mounts (including navigation back)
   useEffect(() => {
-    const handleFocus = () => {
-      refreshSettings();
-    };
-    
-    window.addEventListener('focus', handleFocus);
-    return () => window.removeEventListener('focus', handleFocus);
-  }, [refreshSettings]);
+    refreshSettings();
+  }, []); // Empty dependency - runs on mount
 
   useEffect(() => {
     const hasRunning = campaigns.some((c) => c.status === "running");
