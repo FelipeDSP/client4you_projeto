@@ -113,14 +113,7 @@ export function QuotaBar() {
           </div>
         )}
 
-        {/* Reset Info */}
-        {quota.plan_type === 'free' && (
-          <p className="text-xs text-muted-foreground">
-            Reset: {new Date(quota.reset_date).toLocaleDateString('pt-BR')}
-          </p>
-        )}
-
-        {/* Expires Info */}
+        {/* Expires Info for Demo */}
         {quota.plan_expires_at && !isPlanExpired && (
           <p className="text-xs text-muted-foreground">
             Expira em: {new Date(quota.plan_expires_at).toLocaleDateString('pt-BR')}
