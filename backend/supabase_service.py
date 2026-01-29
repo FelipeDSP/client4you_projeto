@@ -14,10 +14,11 @@ logger = logging.getLogger(__name__)
 class SupabaseService:
     def __init__(self):
         self.url = os.environ.get('SUPABASE_URL')
-        self.key = os.environ.get('SUPABASE_KEY')
+        # Use service_role key for backend operations (has full access)
+        self.key = os.environ.get('SUPABASE_SERVICE_ROLE_KEY') or os.environ.get('SUPABASE_KEY')
         
         if not self.url or not self.key:
-            raise ValueError("SUPABASE_URL and SUPABASE_KEY must be set")
+            raise ValueError("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_KEY) must be set")
         
         self.client: Client = create_client(self.url, self.key)
     
