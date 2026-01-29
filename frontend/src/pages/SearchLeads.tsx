@@ -32,8 +32,8 @@ export default function SearchLeads() {
   const [showQuotaModal, setShowQuotaModal] = useState(false);
   
   // Company Settings (SERP API)
-  const { settings, isLoading: isLoadingSettings } = useCompanySettings();
-  const hasSerpApi = settings?.serpApiKey && settings.serpApiKey.length > 0;
+  const { settings, isLoading: isLoadingSettings, hasSerpapiKey } = useCompanySettings();
+  const hasSerpApi = hasSerpapiKey;
   
   const { deleteLead, searchLeads, isSearching } = useLeads();
 
