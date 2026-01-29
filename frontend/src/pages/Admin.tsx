@@ -99,6 +99,12 @@ const QUOTA_PLANS = [
 ];
 
 export default function Admin() {
+  const { setPageTitle } = usePageTitle();
+  
+  useEffect(() => {
+    setPageTitle("Administração", Crown);
+  }, [setPageTitle]);
+
   const {
     isAdmin,
     isLoading,
