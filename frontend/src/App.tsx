@@ -65,8 +65,11 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
 
 const AppRoutes = () => (
   <Routes>
+    {/* Landing Page Pública */}
+    <Route path="/" element={<LandingPage />} />
+    
     <Route
-      path="/"
+      path="/login"
       element={
         <PublicRoute>
           <Login />
@@ -82,6 +85,8 @@ const AppRoutes = () => (
         </PublicRoute>
       }
     />
+    
+    <Route path="/pricing" element={<Pricing />} />
     
     {/* Rotas Protegidas com Layout */}
     <Route
