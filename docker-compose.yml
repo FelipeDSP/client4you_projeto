@@ -1,12 +1,21 @@
+version: '3.8'
+
 services:
   backend:
     build: ./backend
     restart: always
     expose:
       - "8001"
+    ports:
+      - "8001:8001" # Importante para você acessar localmente se rodar via docker
     environment:
       - SUPABASE_URL=${SUPABASE_URL}
       - SUPABASE_KEY=${SUPABASE_KEY}
+      # O Backend conversa com o WAHA usando o nome do serviço 'waha' na rede interna
+      - WAHA_DEFAULT_URL=http://waha:3000
+      - WAHA_MASTER_KEY=segredo123
+    depends_on:
+      - waha
     healthcheck:
       test: ["CMD", "curl", "-f", "http://127.0.0.1:8001/api/"]
       interval: 10s
@@ -27,6 +36,8 @@ services:
         condition: service_healthy
     expose:
       - "80"
+    ports:
+      - "3000:80" # Mapeia a porta 80 do container para a 3000 do Codespace
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:80/"]
       interval: 30s
@@ -35,19 +46,33 @@ services:
       start_period: 20s
     networks:
       - app_network
-      - coolify  # <--- OBRIGATÓRIO: Conecta na rede do Porteiro
+      # Se der erro de rede 'coolify' não encontrada localmente, comente a linha abaixo
+      # - coolify 
     
     labels:
       - "traefik.enable=true"
-      # Troque pelo seu IP se mudar no futuro
       - "traefik.http.routers.frontend-custom.rule=Host(`72.60.10.10`)"
       - "traefik.http.routers.frontend-custom.entrypoints=http"
       - "traefik.http.services.frontend-custom.loadbalancer.server.port=80"
-      # Esta linha diz para o Traefik usar a rede 'coolify' para falar com o container
-      - "traefik.docker.network=coolify" # <--- OBRIGATÓRIO
+      - "traefik.docker.network=coolify"
+
+  # --- ADICIONADO: O Motor do WhatsApp ---
+  waha:
+    image: devlikeapro/waha
+    container_name: waha
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - WHATSAPP_DEFAULT_ENGINE=WEBJS
+      - WAHA_API_KEY=segredo123
+      - WAHA_PRINT_QR=False
+    networks:
+      - app_network
 
 networks:
   app_network:
     driver: bridge
-  coolify:       # <--- OBRIGATÓRIO: Declara que a rede existe
+  # Se estiver rodando local e der erro de rede, comente as linhas abaixo
+  coolify:
     external: true
