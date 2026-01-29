@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { 
   Users, 
@@ -9,7 +9,8 @@ import {
   MessageSquare, 
   CheckCircle2, 
   AlertCircle,
-  Clock
+  Clock,
+  LayoutDashboard
 } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -20,10 +21,18 @@ import { QuotaBar } from "@/components/QuotaBar";
 import { useLeads } from "@/hooks/useLeads";
 import { useCampaigns } from "@/hooks/useCampaigns";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
+import { usePageTitle } from "@/contexts/PageTitleContext";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 export default function Dashboard() {
+  const { setPageTitle } = usePageTitle();
+  
+  // Set page title
+  useEffect(() => {
+    setPageTitle("Dashboard", LayoutDashboard);
+  }, [setPageTitle]);
+
   // 1. Buscamos TODOS os dados do sistema
   const { leads, searchHistory, isLoading: isLoadingLeads } = useLeads();
   const { campaigns, isLoading: isLoadingCampaigns } = useCampaigns();
