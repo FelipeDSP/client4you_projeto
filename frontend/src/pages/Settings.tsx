@@ -96,6 +96,26 @@ export default function Settings() {
     } finally { setIsActionLoading(false); }
   };
 
+  // Handler para salvar chave SERP API
+  const handleSaveSerpapiKey = async () => {
+    if (!serpapiKey.trim()) {
+      toast({ variant: "destructive", title: "Erro", description: "Por favor, insira uma chave válida." });
+      return;
+    }
+
+    setIsSavingSerp(true);
+    try {
+      const success = await saveSettings({ serpapiKey: serpapiKey.trim() });
+      if (success) {
+        toast({ title: "Sucesso!", description: "Chave SERP API salva com sucesso." });
+      }
+    } catch (e) {
+      toast({ variant: "destructive", title: "Erro", description: "Falha ao salvar chave." });
+    } finally {
+      setIsSavingSerp(false);
+    }
+  };
+
   return (
     <div className="space-y-8 max-w-4xl mx-auto pb-10">
       <div>
