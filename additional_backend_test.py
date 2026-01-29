@@ -11,7 +11,7 @@ import io
 from datetime import datetime
 
 # Get backend URL from frontend .env
-BACKEND_URL = "https://admin-panel-debug-11.preview.emergentagent.com/api"
+BACKEND_URL = "https://user-session-waha.preview.emergentagent.com/api"
 USER_ID = "default"
 
 class AdditionalBackendTester:
