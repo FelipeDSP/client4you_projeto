@@ -124,7 +124,65 @@ export default function Settings() {
       </div>
 
       <div className="grid gap-8">
-        {/* SERP API CARD (Omitido aqui por brevidade, manter igual ao original) */}
+        {/* SERP API CARD */}
+        <Card className={`border-l-4 ${hasSerpapiKey ? 'border-l-green-500' : 'border-l-orange-500'}`}>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Globe className={`h-6 w-6 ${hasSerpapiKey ? 'text-green-600' : 'text-orange-600'}`} />
+                <div>
+                  <CardTitle>Chave SERP API</CardTitle>
+                  <CardDescription>Configure sua chave para buscar leads no Google.</CardDescription>
+                </div>
+              </div>
+              <Badge variant={hasSerpapiKey ? 'default' : 'secondary'}>
+                {hasSerpapiKey ? 'Configurado' : 'Não Configurado'}
+              </Badge>
+            </div>
+          </CardHeader>
+          
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <label htmlFor="serpapi-key" className="text-sm font-medium">
+                Chave da API
+              </label>
+              <Input
+                id="serpapi-key"
+                type="password"
+                placeholder="Insira sua chave SERP API"
+                value={serpapiKey}
+                onChange={(e) => setSerpapiKey(e.target.value)}
+                disabled={isSavingSerp}
+              />
+              <p className="text-xs text-muted-foreground">
+                Obtenha sua chave em:{" "}
+                <a 
+                  href="https://serpapi.com/manage-api-key" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:underline"
+                >
+                  serpapi.com/manage-api-key
+                </a>
+              </p>
+            </div>
+            
+            <Button 
+              onClick={handleSaveSerpapiKey} 
+              disabled={isSavingSerp || !serpapiKey.trim()}
+              className="w-full sm:w-auto"
+            >
+              {isSavingSerp ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Salvando...
+                </>
+              ) : (
+                'Salvar Chave'
+              )}
+            </Button>
+          </CardContent>
+        </Card>
         
         {/* WHATSAPP MANAGEMENT PANEL */}
         <Card className={`border-l-4 ${waStatus === 'CONNECTED' ? 'border-l-green-500' : 'border-l-orange-500'}`}>
