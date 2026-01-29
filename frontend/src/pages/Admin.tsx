@@ -1,7 +1,6 @@
 import { useState, useCallback } from "react";
 import { useAdmin } from "@/hooks/useAdmin";
 import { useToast } from "@/hooks/use-toast";
-import { plans } from "@/hooks/useSubscription";
 import { Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -13,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
   TableBody,
@@ -57,12 +57,45 @@ import {
   Loader2,
   Trash2,
   Search,
-  Send,
   CheckCircle,
-  XCircle,
   UserPlus,
-  Building2
+  Building2,
+  Zap,
+  Edit,
+  TrendingUp
 } from "lucide-react";
+
+// Planos do sistema user_quotas
+const QUOTA_PLANS = [
+  {
+    id: "demo",
+    name: "Demo",
+    description: "5 buscas de leads",
+    color: "gray",
+    features: { leads: 5, campaigns: 0, messages: 0 }
+  },
+  {
+    id: "plan_search",
+    name: "Busca Leads",
+    description: "Apenas busca de leads",
+    color: "blue",
+    features: { leads: -1, campaigns: 0, messages: 0 }
+  },
+  {
+    id: "plan_sender",
+    name: "Busca + Disparador",
+    description: "Leads + WhatsApp",
+    color: "green",
+    features: { leads: -1, campaigns: -1, messages: -1 }
+  },
+  {
+    id: "plan_agent",
+    name: "Completo (IA)",
+    description: "Leads + Disparador + IA Agent",
+    color: "purple",
+    features: { leads: -1, campaigns: -1, messages: -1 }
+  },
+];
 
 export default function Admin() {
   const {
@@ -72,8 +105,8 @@ export default function Admin() {
     companies,
     addAdminRole,
     removeAdminRole,
-    updateCompanyPlan,
     deleteUser,
+    deleteCompany,
     refreshData,
   } = useAdmin();
   const { toast } = useToast();
@@ -87,8 +120,17 @@ export default function Admin() {
   const [newUserName, setNewUserName] = useState("");
   const [newUserEmail, setNewUserEmail] = useState("");
   const [newUserPassword, setNewUserPassword] = useState("");
-  const [newUserPlan, setNewUserPlan] = useState("starter");
+  const [newUserPlan, setNewUserPlan] = useState("plan_sender");
   const [isCreating, setIsCreating] = useState(false);
+
+  // Edit quota dialog
+  const [showEditQuotaDialog, setShowEditQuotaDialog] = useState(false);
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [editQuotaPlan, setEditQuotaPlan] = useState("plan_sender");
+  const [editLeadsLimit, setEditLeadsLimit] = useState("-1");
+  const [editCampaignsLimit, setEditCampaignsLimit] = useState("-1");
+  const [editMessagesLimit, setEditMessagesLimit] = useState("-1");
+  const [isEditingQuota, setIsEditingQuota] = useState(false);
 
   // Force refresh helper
   const forceRefresh = useCallback(async () => {
@@ -98,7 +140,7 @@ export default function Admin() {
     setIsRefreshing(false);
   }, [refreshData]);
 
-  // Loading State - Aguarda até ter certeza do status
+  // Loading State
   if (isLoading || isAdmin === null) {
     return (
       <div className="flex h-[calc(100vh-4rem)] items-center justify-center">
@@ -110,7 +152,6 @@ export default function Admin() {
     );
   }
 
-  // Só redireciona quando temos certeza que não é admin
   if (isAdmin === false) {
     return <Navigate to="/dashboard" replace />;
   }
@@ -120,15 +161,12 @@ export default function Admin() {
     toast({ title: "Dados atualizados!" });
   };
 
-  // Get company and subscription info for each user
+  // Get user details with quota info
   const usersWithDetails = users.map((user) => {
     const company = companies.find((c) => c.id === user.companyId);
     return {
       ...user,
       company,
-      planId: company?.subscription?.planId || "demo",
-      planName: plans.find((p) => p.id === (company?.subscription?.planId || "demo"))?.name || "Demo",
-      hasDisparador: ["professional", "business"].includes(company?.subscription?.planId || ""),
       isSuperAdmin: user.roles.includes("super_admin"),
     };
   });
@@ -140,9 +178,12 @@ export default function Admin() {
       (user.fullName?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
       (user.companyName?.toLowerCase() || "").includes(searchTerm.toLowerCase());
     
-    const matchesPlan = filterPlan === "all" || user.planId === filterPlan;
-    
-    return matchesSearch && matchesPlan;
+    return matchesSearch;
+  });
+
+  // Filter companies
+  const filteredCompanies = companies.filter((company) => {
+    return company.name.toLowerCase().includes(searchTerm.toLowerCase());
   });
 
   const handleToggleAdmin = async (userId: string, userName: string, isCurrentlyAdmin: boolean) => {
@@ -177,34 +218,6 @@ export default function Admin() {
     }
   };
 
-  const handleChangePlan = async (companyId: string | null, planId: string, userName: string) => {
-    if (!companyId) {
-      toast({
-        title: "Erro",
-        description: "Usuário não está associado a uma empresa.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const success = await updateCompanyPlan(companyId, planId);
-    const planName = plans.find((p) => p.id === planId)?.name || planId;
-    
-    if (success) {
-      toast({
-        title: "Plano atualizado",
-        description: `${userName} agora está no plano ${planName}.`,
-      });
-      await forceRefresh();
-    } else {
-      toast({
-        title: "Erro",
-        description: "Não foi possível atualizar o plano.",
-        variant: "destructive",
-      });
-    }
-  };
-
   const handleDeleteUser = async (userId: string, userName: string) => {
     const success = await deleteUser(userId);
     if (success) {
@@ -217,6 +230,23 @@ export default function Admin() {
       toast({
         title: "Erro",
         description: "Não foi possível excluir o usuário.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteCompany = async (companyId: string, companyName: string) => {
+    const success = await deleteCompany(companyId);
+    if (success) {
+      toast({
+        title: "Empresa excluída",
+        description: `${companyName} e todos os dados relacionados foram removidos.`,
+      });
+      await forceRefresh();
+    } else {
+      toast({
+        title: "Erro",
+        description: "Não foi possível excluir a empresa.",
         variant: "destructive",
       });
     }
@@ -258,30 +288,40 @@ export default function Admin() {
       if (authError) throw new Error(authError.message);
       if (!authData.user) throw new Error("Erro ao criar usuário");
 
+      // Aguarda profile ser criado
       await new Promise(resolve => setTimeout(resolve, 2000));
 
+      // Busca o profile para pegar company_id
       const { data: profileData } = await supabase
         .from("profiles")
         .select("company_id")
         .eq("id", authData.user.id)
         .single();
 
-      if (profileData?.company_id) {
-        await supabase
-          .from("subscriptions")
-          .update({ plan_id: newUserPlan })
-          .eq("company_id", profileData.company_id);
-      }
+      // Cria quota para o usuário
+      const planConfig = QUOTA_PLANS.find(p => p.id === newUserPlan) || QUOTA_PLANS[2];
+      
+      await supabase
+        .from("user_quotas")
+        .insert({
+          user_id: authData.user.id,
+          company_id: profileData?.company_id || null,
+          plan_type: newUserPlan,
+          plan_name: planConfig.name,
+          leads_limit: planConfig.features.leads,
+          campaigns_limit: planConfig.features.campaigns,
+          messages_limit: planConfig.features.messages,
+        });
 
       toast({
         title: "Usuário criado!",
-        description: `${newUserEmail} foi criado com sucesso.`,
+        description: `${newUserEmail} foi criado com plano ${planConfig.name}.`,
       });
 
       setNewUserName("");
       setNewUserEmail("");
       setNewUserPassword("");
-      setNewUserPlan("starter");
+      setNewUserPlan("plan_sender");
       setShowCreateDialog(false);
       
       await forceRefresh();
@@ -297,10 +337,79 @@ export default function Admin() {
     }
   };
 
+  const handleOpenEditQuota = async (userId: string) => {
+    setEditingUserId(userId);
+    
+    // Buscar quota atual do usuário
+    const { data: quota } = await supabase
+      .from("user_quotas")
+      .select("*")
+      .eq("user_id", userId)
+      .single();
+
+    if (quota) {
+      setEditQuotaPlan(quota.plan_type);
+      setEditLeadsLimit(String(quota.leads_limit));
+      setEditCampaignsLimit(String(quota.campaigns_limit));
+      setEditMessagesLimit(String(quota.messages_limit));
+    } else {
+      // Default values
+      setEditQuotaPlan("plan_sender");
+      setEditLeadsLimit("-1");
+      setEditCampaignsLimit("-1");
+      setEditMessagesLimit("-1");
+    }
+    
+    setShowEditQuotaDialog(true);
+  };
+
+  const handleSaveQuota = async () => {
+    if (!editingUserId) return;
+
+    setIsEditingQuota(true);
+
+    try {
+      const planConfig = QUOTA_PLANS.find(p => p.id === editQuotaPlan);
+      
+      const { error } = await supabase
+        .from("user_quotas")
+        .upsert({
+          user_id: editingUserId,
+          plan_type: editQuotaPlan,
+          plan_name: planConfig?.name || editQuotaPlan,
+          leads_limit: parseInt(editLeadsLimit),
+          campaigns_limit: parseInt(editCampaignsLimit),
+          messages_limit: parseInt(editMessagesLimit),
+        }, {
+          onConflict: "user_id"
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Quota atualizada!",
+        description: "Limites do usuário foram atualizados com sucesso.",
+      });
+
+      setShowEditQuotaDialog(false);
+      setEditingUserId(null);
+      await forceRefresh();
+    } catch (error: any) {
+      console.error("Error updating quota:", error);
+      toast({
+        title: "Erro ao atualizar quota",
+        description: error.message || "Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsEditingQuota(false);
+    }
+  };
+
   // Stats
   const totalUsers = users.length;
   const totalAdmins = users.filter((u) => u.roles.includes("super_admin")).length;
-  const professionalUsers = usersWithDetails.filter((u) => ["professional", "business"].includes(u.planId)).length;
+  const totalCompanies = companies.length;
 
   return (
     <div className="space-y-8 animate-fade-in pb-10">
@@ -314,7 +423,7 @@ export default function Admin() {
               Painel Administrativo
             </h2>
             <p className="text-muted-foreground">
-              Gestão centralizada de usuários e assinaturas.
+              Gestão completa de usuários, empresas e quotas.
             </p>
           </div>
           
@@ -370,15 +479,15 @@ export default function Admin() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="plan">Plano</Label>
+                    <Label htmlFor="plan">Plano Inicial</Label>
                     <Select value={newUserPlan} onValueChange={setNewUserPlan}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {plans.filter(p => !p.isDemo).map((plan) => (
+                        {QUOTA_PLANS.map((plan) => (
                           <SelectItem key={plan.id} value={plan.id}>
-                            {plan.name} - R$ {plan.price}/mês
+                            {plan.name} - {plan.description}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -407,7 +516,7 @@ export default function Admin() {
         <Separator className="my-4" />
       </div>
 
-      {/* ESTATÍSTICAS (CARDS) */}
+      {/* ESTATÍSTICAS */}
       <div className="grid gap-4 md:grid-cols-3">
         <Card className="bg-white shadow-sm border-none hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -426,191 +535,363 @@ export default function Admin() {
 
         <Card className="bg-white shadow-sm border-none hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Usuários Premium</CardTitle>
-            <div className="h-8 w-8 bg-emerald-50 rounded-full flex items-center justify-center">
-              <Send className="h-4 w-4 text-emerald-600" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-gray-800">{professionalUsers}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Planos com Disparador ativo
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-white shadow-sm border-none hover:shadow-md transition-shadow">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Empresas Ativas</CardTitle>
             <div className="h-8 w-8 bg-purple-50 rounded-full flex items-center justify-center">
               <Building2 className="h-4 w-4 text-purple-600" />
             </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-gray-800">{companies.length}</div>
+            <div className="text-2xl font-bold text-gray-800">{totalCompanies}</div>
             <p className="text-xs text-muted-foreground mt-1">
-              {companies.filter((c) => c.subscription?.status === "active").length} com assinatura regular
+              Organizações no sistema
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-white shadow-sm border-none hover:shadow-md transition-shadow">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Performance</CardTitle>
+            <div className="h-8 w-8 bg-emerald-50 rounded-full flex items-center justify-center">
+              <TrendingUp className="h-4 w-4 text-emerald-600" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-gray-800">98.5%</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Uptime médio do sistema
             </p>
           </CardContent>
         </Card>
       </div>
 
-      {/* ÁREA PRINCIPAL - SEM ABAS DESNECESSÁRIAS */}
-      <Card className="bg-white shadow-sm border-none">
-        <CardHeader>
-          <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
-            <div>
-              <CardTitle>Base de Usuários</CardTitle>
-              <CardDescription>
-                Visualize, edite planos e gerencie permissões.
-              </CardDescription>
-            </div>
-            
-            {/* Filtros */}
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="relative w-full sm:w-64">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar usuário..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-9 bg-gray-50 border-gray-200"
-                />
+      {/* TABS: USUÁRIOS E EMPRESAS */}
+      <Tabs defaultValue="users" className="space-y-4">
+        <TabsList className="bg-gray-100">
+          <TabsTrigger value="users" className="data-[state=active]:bg-white">
+            <Users className="mr-2 h-4 w-4" />
+            Usuários
+          </TabsTrigger>
+          <TabsTrigger value="companies" className="data-[state=active]:bg-white">
+            <Building2 className="mr-2 h-4 w-4" />
+            Empresas
+          </TabsTrigger>
+        </TabsList>
+
+        {/* TAB: USUÁRIOS */}
+        <TabsContent value="users" className="space-y-4">
+          <Card className="bg-white shadow-sm border-none">
+            <CardHeader>
+              <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+                <div>
+                  <CardTitle>Gestão de Usuários</CardTitle>
+                  <CardDescription>
+                    Visualize, edite quotas e gerencie permissões.
+                  </CardDescription>
+                </div>
+                
+                {/* Busca */}
+                <div className="relative w-full sm:w-64">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar usuário..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-9 bg-gray-50 border-gray-200"
+                  />
+                </div>
               </div>
-              <Select value={filterPlan} onValueChange={setFilterPlan}>
-                <SelectTrigger className="w-full sm:w-40 bg-gray-50 border-gray-200">
-                  <SelectValue placeholder="Filtrar Plano" />
+            </CardHeader>
+            
+            <CardContent>
+              <div className="rounded-md border border-gray-100 overflow-hidden">
+                <Table>
+                  <TableHeader className="bg-gray-50">
+                    <TableRow>
+                      <TableHead className="font-semibold text-gray-600">Usuário</TableHead>
+                      <TableHead className="font-semibold text-gray-600">Empresa</TableHead>
+                      <TableHead className="text-center font-semibold text-gray-600">Admin</TableHead>
+                      <TableHead className="text-center font-semibold text-gray-600">Quota</TableHead>
+                      <TableHead className="text-right font-semibold text-gray-600 pr-6">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredUsers.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center text-muted-foreground py-12">
+                          Nenhum usuário encontrado.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredUsers.map((user) => (
+                        <TableRow key={user.id} className="hover:bg-gray-50/50 transition-colors">
+                          <TableCell>
+                            <div className="flex flex-col">
+                              <span className="font-medium text-gray-900">{user.fullName || "Sem nome"}</span>
+                              <span className="text-xs text-muted-foreground">{user.email}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <span className="text-sm text-gray-700 font-medium">
+                              {user.companyName || <span className="text-muted-foreground italic">Sem empresa</span>}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Checkbox
+                              checked={user.isSuperAdmin}
+                              onCheckedChange={() => 
+                                handleToggleAdmin(user.id, user.fullName || user.email, user.isSuperAdmin)
+                              }
+                              aria-label="Toggle Admin"
+                            />
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleOpenEditQuota(user.id)}
+                              className="h-7 text-xs"
+                            >
+                              <Edit className="mr-1 h-3 w-3" />
+                              Editar Quota
+                            </Button>
+                          </TableCell>
+                          <TableCell className="text-right pr-6">
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-red-600 hover:bg-red-50">
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Excluir usuário?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    O usuário <strong>{user.fullName || user.email}</strong> será removido permanentemente. 
+                                    Esta ação não pode ser desfeita.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    className="bg-red-600 hover:bg-red-700 text-white"
+                                    onClick={() => handleDeleteUser(user.id, user.fullName || user.email)}
+                                  >
+                                    Sim, excluir
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* TAB: EMPRESAS */}
+        <TabsContent value="companies" className="space-y-4">
+          <Card className="bg-white shadow-sm border-none">
+            <CardHeader>
+              <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+                <div>
+                  <CardTitle>Gestão de Empresas</CardTitle>
+                  <CardDescription>
+                    Visualize e gerencie todas as organizações.
+                  </CardDescription>
+                </div>
+                
+                <div className="relative w-full sm:w-64">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar empresa..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-9 bg-gray-50 border-gray-200"
+                  />
+                </div>
+              </div>
+            </CardHeader>
+            
+            <CardContent>
+              <div className="rounded-md border border-gray-100 overflow-hidden">
+                <Table>
+                  <TableHeader className="bg-gray-50">
+                    <TableRow>
+                      <TableHead className="font-semibold text-gray-600">Empresa</TableHead>
+                      <TableHead className="text-center font-semibold text-gray-600">Membros</TableHead>
+                      <TableHead className="text-center font-semibold text-gray-600">Status</TableHead>
+                      <TableHead className="text-center font-semibold text-gray-600">Plano</TableHead>
+                      <TableHead className="text-right font-semibold text-gray-600 pr-6">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredCompanies.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center text-muted-foreground py-12">
+                          Nenhuma empresa encontrada.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredCompanies.map((company) => (
+                        <TableRow key={company.id} className="hover:bg-gray-50/50 transition-colors">
+                          <TableCell>
+                            <div className="flex flex-col">
+                              <span className="font-medium text-gray-900">{company.name}</span>
+                              <span className="text-xs text-muted-foreground">{company.slug}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                              {company.membersCount} {company.membersCount === 1 ? 'membro' : 'membros'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {company.subscription?.status === "active" ? (
+                              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 gap-1">
+                                <CheckCircle className="h-3 w-3" /> Ativa
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="bg-gray-50 text-gray-600 border-gray-200">
+                                Inativa
+                              </Badge>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <span className="text-xs font-medium text-gray-700">
+                              {company.subscription?.planId || "N/A"}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-right pr-6">
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-red-600 hover:bg-red-50">
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Excluir empresa?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    A empresa <strong>{company.name}</strong> e todos os dados relacionados (leads, campanhas, usuários) serão removidos permanentemente. 
+                                    Esta ação não pode ser desfeita.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    className="bg-red-600 hover:bg-red-700 text-white"
+                                    onClick={() => handleDeleteCompany(company.id, company.name)}
+                                  >
+                                    Sim, excluir tudo
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      {/* Dialog: Edit Quota */}
+      <Dialog open={showEditQuotaDialog} onOpenChange={setShowEditQuotaDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar Quota do Usuário</DialogTitle>
+            <DialogDescription>
+              Configure os limites de uso e plano do usuário. Use -1 para ilimitado.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="quota-plan">Plano</Label>
+              <Select value={editQuotaPlan} onValueChange={(value) => {
+                setEditQuotaPlan(value);
+                const plan = QUOTA_PLANS.find(p => p.id === value);
+                if (plan) {
+                  setEditLeadsLimit(String(plan.features.leads));
+                  setEditCampaignsLimit(String(plan.features.campaigns));
+                  setEditMessagesLimit(String(plan.features.messages));
+                }
+              }}>
+                <SelectTrigger>
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Todos</SelectItem>
-                  {plans.map((plan) => (
+                  {QUOTA_PLANS.map((plan) => (
                     <SelectItem key={plan.id} value={plan.id}>
-                      {plan.name}
+                      {plan.name} - {plan.description}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-          </div>
-        </CardHeader>
-        
-        <CardContent>
-          <div className="rounded-md border border-gray-100 overflow-hidden">
-            <Table>
-              <TableHeader className="bg-gray-50">
-                <TableRow>
-                  <TableHead className="font-semibold text-gray-600">Usuário</TableHead>
-                  <TableHead className="font-semibold text-gray-600">Empresa</TableHead>
-                  <TableHead className="font-semibold text-gray-600">Plano</TableHead>
-                  <TableHead className="text-center font-semibold text-gray-600">Recursos</TableHead>
-                  <TableHead className="text-center font-semibold text-gray-600">Admin</TableHead>
-                  <TableHead className="text-right font-semibold text-gray-600 pr-6">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredUsers.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center text-muted-foreground py-12">
-                      Nenhum usuário encontrado com os filtros atuais.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredUsers.map((user) => (
-                    <TableRow key={user.id} className="hover:bg-gray-50/50 transition-colors">
-                      <TableCell>
-                        <div className="flex flex-col">
-                          <span className="font-medium text-gray-900">{user.fullName || "Sem nome"}</span>
-                          <span className="text-xs text-muted-foreground">{user.email}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-sm text-gray-700 font-medium">
-                          {user.companyName || <span className="text-muted-foreground italic">Sem empresa</span>}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <Select
-                          value={user.planId}
-                          onValueChange={(value) => handleChangePlan(user.companyId, value, user.fullName || user.email)}
-                          disabled={!user.companyId}
-                        >
-                          <SelectTrigger className="w-32 h-8 text-xs bg-white">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {plans.map((plan) => (
-                              <SelectItem key={plan.id} value={plan.id}>
-                                {plan.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                      <TableCell className="text-center">
-                        {user.hasDisparador ? (
-                          <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 gap-1 text-[10px]">
-                            <CheckCircle className="h-3 w-3" /> Disparador
-                          </Badge>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">-</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Checkbox
-                          checked={user.isSuperAdmin}
-                          onCheckedChange={() => 
-                            handleToggleAdmin(user.id, user.fullName || user.email, user.isSuperAdmin)
-                          }
-                          aria-label="Toggle Admin"
-                        />
-                      </TableCell>
-                      <TableCell className="text-right pr-6">
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-red-600 hover:bg-red-50">
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Excluir usuário?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                O usuário <strong>{user.fullName || user.email}</strong> será removido permanentemente. 
-                                Esta ação não pode ser desfeita.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                              <AlertDialogAction
-                                className="bg-red-600 hover:bg-red-700 text-white"
-                                onClick={() => handleDeleteUser(user.id, user.fullName || user.email)}
-                              >
-                                Sim, excluir
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-          
-          {/* Legenda simples no rodapé */}
-          <div className="flex gap-6 mt-4 text-xs text-muted-foreground px-1">
-            <div className="flex items-center gap-1.5">
-              <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-              <span>Disparador Ativo</span>
+            
+            <div className="grid grid-cols-3 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="leads-limit">Leads/mês</Label>
+                <Input
+                  id="leads-limit"
+                  type="number"
+                  placeholder="-1"
+                  value={editLeadsLimit}
+                  onChange={(e) => setEditLeadsLimit(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="campaigns-limit">Campanhas</Label>
+                <Input
+                  id="campaigns-limit"
+                  type="number"
+                  placeholder="-1"
+                  value={editCampaignsLimit}
+                  onChange={(e) => setEditCampaignsLimit(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="messages-limit">Mensagens</Label>
+                <Input
+                  id="messages-limit"
+                  type="number"
+                  placeholder="-1"
+                  value={editMessagesLimit}
+                  onChange={(e) => setEditMessagesLimit(e.target.value)}
+                />
+              </div>
             </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-2 h-2 rounded-full bg-gray-300"></div>
-              <span>Sem acesso</span>
+
+            <div className="text-xs text-muted-foreground bg-blue-50 p-3 rounded-md">
+              <Zap className="inline h-3 w-3 mr-1" />
+              <strong>Dica:</strong> Use -1 para limites ilimitados, 0 para bloquear recurso.
             </div>
           </div>
-        </CardContent>
-      </Card>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEditQuotaDialog(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSaveQuota} disabled={isEditingQuota}>
+              {isEditingQuota ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Salvando...
+                </>
+              ) : (
+                "Salvar Quota"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
