@@ -90,19 +90,23 @@ class WahaService:
         """Obtém a imagem do QR Code em Base64 com logs de diagnóstico"""
         try:
             async with httpx.AsyncClient(timeout=20.0) as client:
-                # Solicita o QR Code explicitamente como imagem
+                # WAHA usa /api/screenshot para capturar o QR Code
                 response = await client.get(
-                    f"{self.waha_url}/api/sessions/{self.session_name}/auth/qr?format=image",
+                    f"{self.waha_url}/api/screenshot?session={self.session_name}",
                     headers=self.headers
                 )
                 
                 if response.status_code == 200:
-                    # Converte os bytes brutos da imagem (confirmados pelo seu teste n8n) para Base64
-                    b64_img = base64.b64encode(response.content).decode('utf-8')
-                    return {
-                        "success": True, 
-                        "image": f"data:image/png;base64,{b64_img}"
-                    }
+                    # Verifica se é uma imagem PNG válida
+                    if response.content[:4] == b'\x89PNG':
+                        b64_img = base64.b64encode(response.content).decode('utf-8')
+                        return {
+                            "success": True, 
+                            "image": f"data:image/png;base64,{b64_img}"
+                        }
+                    else:
+                        logger.warning(f"Screenshot não retornou uma imagem PNG válida")
+                        return {"success": False, "error": "Screenshot inválido"}
                 
                 # Log de diagnóstico: ajuda a identificar se o WAHA ainda não gerou o arquivo
                 logger.warning(f"WAHA QR indisponível: Status {response.status_code} para sessão {self.session_name}")
