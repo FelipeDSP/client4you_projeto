@@ -85,7 +85,8 @@ class WahaService:
         except Exception as e:
             logger.error(f"Erro ao deslogar sessão: {e}")
             return {"success": False, "error": str(e)}
-async def get_qr_code(self) -> Dict[str, Any]:
+
+    async def get_qr_code(self) -> Dict[str, Any]:
     """Obtém a imagem do QR Code em Base64 com logs de diagnóstico"""
     try:
         async with httpx.AsyncClient(timeout=20.0) as client:
