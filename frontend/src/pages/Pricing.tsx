@@ -59,10 +59,10 @@ export default function Pricing() {
           </div>
         )}
 
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 max-w-6xl mx-auto">
+        <div className="grid gap-6 md:grid-cols-3 max-w-5xl mx-auto">
           {plans.map((plan) => {
             const isCurrentPlan = plan.id === currentPlan.id;
-            const isPopular = plan.id === "professional";
+            const isPopular = plan.id === "pro";
             const isDemo = plan.isDemo;
 
             return (
