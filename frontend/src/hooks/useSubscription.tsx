@@ -49,7 +49,7 @@ export const plans: SubscriptionPlan[] = [
     features: [
       { name: "Extrator de Leads", included: true, limit: "5 buscas únicas" },
       { name: "Exportar para Excel", included: true },
-      { name: "Disparador de Campanhas WhatsApp", included: false },
+      { name: "Disparador de Campanhas WhatsApp", included: true, limit: "1 campanha de teste" },
       { name: "Válido por 7 dias", included: true },
     ],
   },
