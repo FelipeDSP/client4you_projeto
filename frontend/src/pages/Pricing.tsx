@@ -43,7 +43,7 @@ export default function Pricing() {
           <h1 className="text-4xl font-bold">Planos e Preços</h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
             Escolha o plano ideal para suas necessidades.
-            Assine mensalmente e tenha acesso a todas as funcionalidades.
+            Todos os planos incluem suporte e atualizações.
           </p>
         </div>
 
