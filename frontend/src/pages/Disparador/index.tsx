@@ -3,7 +3,6 @@ import { CreateCampaignDialog } from "./CreateCampaignDialog";
 import { CampaignCard } from "./CampaignCard";
 import { MessageLogsDialog } from "./MessageLogsDialog";
 import { QuotaLimitModal } from "@/components/QuotaLimitModal";
-import { ConfigurationAlert } from "@/components/ConfigurationAlert";
 import { useCampaigns } from "@/hooks/useCampaigns";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { useQuotas } from "@/hooks/useQuotas";
