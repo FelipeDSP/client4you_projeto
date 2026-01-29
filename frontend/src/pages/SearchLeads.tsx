@@ -37,15 +37,10 @@ export default function SearchLeads() {
   
   const { deleteLead, searchLeads, isSearching } = useLeads();
 
-  // Refresh settings when page gains focus (user returns from Settings)
+  // Refresh settings when component mounts (including navigation back)
   useEffect(() => {
-    const handleFocus = () => {
-      refreshSettings();
-    };
-    
-    window.addEventListener('focus', handleFocus);
-    return () => window.removeEventListener('focus', handleFocus);
-  }, [refreshSettings]);
+    refreshSettings();
+  }, []); // Empty dependency - runs on mount
 
   const handleSearch = async (term: string, location: string) => {
     // ✅ VERIFICAR QUOTA ANTES DE BUSCAR
