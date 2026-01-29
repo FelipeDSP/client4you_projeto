@@ -2,10 +2,26 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Check, Star, Search, Send, Bot, ArrowRight, Zap, Users, TrendingUp, Shield } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import { plans } from "@/hooks/useSubscription";
+import { useAuth } from "@/hooks/useAuth";
+import { useEffect } from "react";
 
 export default function LandingPage() {
+  const { user, isLoading } = useAuth();
+  
+  // Redireciona usuários logados para o dashboard
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+  
+  if (user) {
+    return <Navigate to="/dashboard" replace />;
+  }
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
       {/* Header/Navbar */}
