@@ -17,6 +17,8 @@ import Profile from "./pages/Profile";
 import Settings from "./pages/Settings";
 import Admin from "./pages/Admin";
 import Disparador from "./pages/Disparador";
+import LandingPage from "./pages/LandingPage";
+import Pricing from "./pages/Pricing";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
