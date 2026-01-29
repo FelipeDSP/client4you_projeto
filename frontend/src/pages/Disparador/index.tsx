@@ -32,7 +32,7 @@ export default function Disparador() {
   }, [setPageTitle]);
 
   const { campaigns, isLoading, fetchCampaigns } = useCampaigns();
-  const { settings, hasWahaConfig, isLoading: isLoadingSettings } = useCompanySettings();
+  const { settings, hasWahaConfig, isLoading: isLoadingSettings, refreshSettings } = useCompanySettings();
   const { quota, canUseCampaigns } = useQuotas();
   const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null);
   const [autoRefresh, setAutoRefresh] = useState(true);
@@ -43,6 +43,16 @@ export default function Disparador() {
     apiKey: settings.wahaApiKey!,
     session: settings.wahaSession || "default"
   } : undefined;
+
+  // Refresh settings when page gains focus (user returns from Settings)
+  useEffect(() => {
+    const handleFocus = () => {
+      refreshSettings();
+    };
+    
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [refreshSettings]);
 
   useEffect(() => {
     const hasRunning = campaigns.some((c) => c.status === "running");
