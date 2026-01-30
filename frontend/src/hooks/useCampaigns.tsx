@@ -286,13 +286,14 @@ export function useCampaigns() {
 
   const pauseCampaign = async (campaignId: string): Promise<boolean> => {
     try {
-      const response = await fetch(
+      const response = await makeAuthenticatedRequest(
         `${BACKEND_URL}/api/campaigns/${campaignId}/pause`,
         { method: "POST" }
       );
 
       if (!response.ok) {
-        throw new Error("Erro ao pausar campanha");
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.detail || "Erro ao pausar campanha");
       }
 
       await fetchCampaigns();
@@ -301,10 +302,10 @@ export function useCampaigns() {
         description: "O disparo foi pausado.",
       });
       return true;
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "Erro",
-        description: "Não foi possível pausar a campanha.",
+        description: error.message || "Não foi possível pausar a campanha.",
         variant: "destructive",
       });
       return false;
@@ -313,13 +314,14 @@ export function useCampaigns() {
 
   const cancelCampaign = async (campaignId: string): Promise<boolean> => {
     try {
-      const response = await fetch(
+      const response = await makeAuthenticatedRequest(
         `${BACKEND_URL}/api/campaigns/${campaignId}/cancel`,
         { method: "POST" }
       );
 
       if (!response.ok) {
-        throw new Error("Erro ao cancelar campanha");
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.detail || "Erro ao cancelar campanha");
       }
 
       await fetchCampaigns();
@@ -328,10 +330,10 @@ export function useCampaigns() {
         description: "A campanha foi cancelada.",
       });
       return true;
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "Erro",
-        description: "Não foi possível cancelar a campanha.",
+        description: error.message || "Não foi possível cancelar a campanha.",
         variant: "destructive",
       });
       return false;
@@ -340,13 +342,14 @@ export function useCampaigns() {
 
   const resetCampaign = async (campaignId: string): Promise<boolean> => {
     try {
-      const response = await fetch(
+      const response = await makeAuthenticatedRequest(
         `${BACKEND_URL}/api/campaigns/${campaignId}/reset`,
         { method: "POST" }
       );
 
       if (!response.ok) {
-        throw new Error("Erro ao resetar campanha");
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.detail || "Erro ao resetar campanha");
       }
 
       await fetchCampaigns();
@@ -355,10 +358,10 @@ export function useCampaigns() {
         description: "Todos os contatos foram marcados como pendentes.",
       });
       return true;
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "Erro",
-        description: "Não foi possível resetar a campanha.",
+        description: error.message || "Não foi possível resetar a campanha.",
         variant: "destructive",
       });
       return false;
@@ -367,13 +370,14 @@ export function useCampaigns() {
 
   const deleteCampaign = async (campaignId: string): Promise<boolean> => {
     try {
-      const response = await fetch(
+      const response = await makeAuthenticatedRequest(
         `${BACKEND_URL}/api/campaigns/${campaignId}`,
         { method: "DELETE" }
       );
 
       if (!response.ok) {
-        throw new Error("Erro ao excluir campanha");
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.detail || "Erro ao excluir campanha");
       }
 
       await fetchCampaigns();
@@ -382,10 +386,10 @@ export function useCampaigns() {
         description: "A campanha foi excluída com sucesso.",
       });
       return true;
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "Erro",
-        description: "Não foi possível excluir a campanha.",
+        description: error.message || "Não foi possível excluir a campanha.",
         variant: "destructive",
       });
       return false;
