@@ -207,6 +207,12 @@ class WahaService:
             }
             
             if image_url:
+                # VALIDAR URL PARA PREVENIR SSRF
+                is_valid, error_msg = validate_media_url(image_url)
+                if not is_valid:
+                    logger.warning(f"Invalid/blocked image URL: {image_url} - {error_msg}")
+                    return {"success": False, "error": f"URL inválida: {error_msg}"}
+                
                 payload["file"] = {"url": image_url}
             elif image_base64:
                 payload["file"] = {"data": image_base64}
