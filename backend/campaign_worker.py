@@ -314,15 +314,36 @@ async def process_campaign(
     
     except asyncio.CancelledError:
         logger.info(f"Campaign {campaign_id} worker cancelled")
-        raise
+        raise  # Re-raise to be handled in finally
     except Exception as e:
-        logger.error(f"Error in campaign worker {campaign_id}: {e}")
+        logger.error(f"Error in campaign worker {campaign_id}: {e}", exc_info=True)
         # Mark campaign as paused due to error
-        await db.update_campaign(campaign_id, {"status": "paused"})
+        try:
+            tz = campaign_tz or ZoneInfo("America/Sao_Paulo")
+            await db.update_campaign(campaign_id, {
+                "status": "paused",
+                "error_message": sanitize_error_message(str(e))
+            })
+            
+            # Create notification for user
+            campaign = await db.get_campaign(campaign_id)
+            if campaign:
+                await db.create_notification(
+                    user_id=campaign.get("user_id"),
+                    company_id=campaign.get("company_id"),
+                    notification_type="campaign_error",
+                    title="❌ Erro na Campanha",
+                    message=f"A campanha '{campaign.get('name')}' foi pausada devido a um erro: {sanitize_error_message(str(e))}",
+                    link="/disparador"
+                )
+        except Exception as notification_error:
+            logger.error(f"Failed to create error notification: {notification_error}")
     finally:
-        # Remove from running campaigns
-        if campaign_id in running_campaigns:
-            del running_campaigns[campaign_id]
+        # Always remove from tracking, even in case of error
+        async with _campaigns_lock:
+            if campaign_id in running_campaigns:
+                del running_campaigns[campaign_id]
+                logger.info(f"Campaign {campaign_id} removed from running campaigns")
 
 
 async def start_campaign_worker(
