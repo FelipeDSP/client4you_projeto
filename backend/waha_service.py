@@ -285,18 +285,26 @@ class WahaService:
 
 
 def replace_variables(template: str, data: Dict[str, Any]) -> str:
-    """Replace variables in message template with actual values"""
+    """
+    Replace variables in message template with sanitized values.
+    Previne command injection e XSS.
+    """
     result = template
     
-    # Replace {variable} patterns
+    # Replace {variable} patterns com valores sanitizados
     for key, value in data.items():
+        # SANITIZAR VALOR ANTES DE SUBSTITUIR
+        safe_value = sanitize_template_value(value)
+        
         placeholder = "{" + key + "}"
-        result = result.replace(placeholder, str(value) if value else "")
+        result = result.replace(placeholder, safe_value)
     
     # Also support {Nome}, {nome}, {NOME} variations
     for key, value in data.items():
+        safe_value = sanitize_template_value(value)
+        
         for variant in [key.lower(), key.upper(), key.capitalize()]:
             placeholder = "{" + variant + "}"
-            result = result.replace(placeholder, str(value) if value else "")
+            result = result.replace(placeholder, safe_value)
     
     return result
