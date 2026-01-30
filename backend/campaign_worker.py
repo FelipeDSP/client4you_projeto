@@ -198,7 +198,18 @@ async def process_campaign(
                 logger.info(f"Campaign {campaign_id} completed - all contacts processed")
                 break
             
-            # Prepare message with variables
+            # Prepare message with variables (campaign_data still needed for message)
+            # Re-fetch only message fields (lightweight)
+            message_result = await db.client.table('campaigns')\
+                .select('message_text, message_type, media_url, media_filename, sent_count, error_count')\
+                .eq('id', campaign_id)\
+                .single()\
+                .execute()
+            
+            if not message_result.data:
+                logger.error(f"Campaign {campaign_id} message data not found")
+                break
+            
             extra_data = contact_data.get("extra_data", {})
             message_data = {
                 "nome": contact_data.get("name", ""),
@@ -211,11 +222,11 @@ async def process_campaign(
                 **(extra_data if isinstance(extra_data, dict) else {})
             }
             
-            message_text = campaign_data.get("message_text", "")
+            message_text = message_result.data.get("message_text", "")
             final_message = replace_variables(message_text, message_data)
             
             # Send message based on type
-            message_type = campaign_data.get("message_type", "text")
+            message_type = message_result.data.get("message_type", "text")
             result: Dict[str, Any]
             
             if message_type == "text":
@@ -227,14 +238,14 @@ async def process_campaign(
                 result = await waha_service.send_image_message(
                     contact_data["phone"],
                     final_message,
-                    image_url=campaign_data.get("media_url")
+                    image_url=message_result.data.get("media_url")
                 )
             elif message_type == "document":
                 result = await waha_service.send_document_message(
                     contact_data["phone"],
                     final_message,
-                    document_url=campaign_data.get("media_url"),
-                    filename=campaign_data.get("media_filename") or "document"
+                    document_url=message_result.data.get("media_url"),
+                    filename=message_result.data.get("media_filename") or "document"
                 )
             else:
                 result = {"success": False, "error": "Unknown message type"}
@@ -246,8 +257,8 @@ async def process_campaign(
                 error_msg = None
                 
                 # Update campaign counters
-                sent_count = (campaign_data.get("sent_count") or 0) + 1
-                pending_count = max((campaign_data.get("pending_count") or 0) - 1, 0)
+                sent_count = (message_result.data.get("sent_count") or 0) + 1
+                pending_count = max(pending_count - 1, 0)
                 await db.update_campaign(campaign_id, {
                     "sent_count": sent_count,
                     "pending_count": pending_count
