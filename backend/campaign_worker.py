@@ -1,8 +1,9 @@
 import asyncio
 import logging
 import random
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 from typing import Optional, Dict, Any
+from zoneinfo import ZoneInfo
 
 from models import (
     CampaignStatus, ContactStatus, MessageType, CampaignSettings
@@ -12,8 +13,13 @@ from supabase_service import SupabaseService
 
 logger = logging.getLogger(__name__)
 
-# Global dict to track running campaigns
+# Global dict to track running campaigns with thread-safe access
+_campaigns_lock = asyncio.Lock()
 running_campaigns: Dict[str, asyncio.Task] = {}
+
+# Constants
+WAIT_CHECK_INTERVAL = 60  # seconds
+MAX_WAIT_CYCLES = 1440  # 24 hours (1440 minutes)
 
 
 def is_within_working_hours(settings: dict) -> bool:
