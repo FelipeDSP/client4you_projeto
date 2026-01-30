@@ -64,8 +64,8 @@ export function useNotifications() {
 
     try {
       console.log('Fetching notifications for user:', user.id);
-      const response = await fetch(
-        `${API_URL}/api/notifications?user_id=${user.id}&unread_only=${unreadOnly}&limit=20`
+      const response = await makeAuthenticatedRequest(
+        `${API_URL}/api/notifications?unread_only=${unreadOnly}&limit=20`
       );
       
       if (response.ok) {
@@ -94,8 +94,8 @@ export function useNotifications() {
 
     try {
       console.log('Fetching unread count for user:', user.id);
-      const response = await fetch(
-        `${API_URL}/api/notifications/unread-count?user_id=${user.id}`
+      const response = await makeAuthenticatedRequest(
+        `${API_URL}/api/notifications/unread-count`
       );
       
       if (response.ok) {
