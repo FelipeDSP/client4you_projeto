@@ -214,13 +214,16 @@ export function useCampaigns() {
       const formData = new FormData();
       formData.append("file", file);
 
-      const response = await fetch(`${BACKEND_URL}/api/campaigns/${campaignId}/upload`, {
-        method: "POST",
-        body: formData,
-      });
+      const response = await makeAuthenticatedRequest(
+        `${BACKEND_URL}/api/campaigns/${campaignId}/upload`,
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
 
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json().catch(() => ({}));
         throw new Error(error.detail || "Erro ao fazer upload");
       }
 
