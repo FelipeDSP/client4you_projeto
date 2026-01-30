@@ -127,7 +127,7 @@ export default function Admin() {
   const [newUserName, setNewUserName] = useState("");
   const [newUserEmail, setNewUserEmail] = useState("");
   const [newUserPassword, setNewUserPassword] = useState("");
-  const [newUserPlan, setNewUserPlan] = useState("plan_sender");
+  const [newUserPlan, setNewUserPlan] = useState("intermediario");
   const [isCreating, setIsCreating] = useState(false);
 
   // Edit quota dialog
