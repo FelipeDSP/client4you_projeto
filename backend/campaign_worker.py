@@ -98,41 +98,92 @@ async def process_campaign(
     """Process a campaign - send messages to all pending contacts"""
     logger.info(f"Starting campaign worker for campaign {campaign_id}")
     
+    wait_cycles = 0
+    campaign_tz = None
+    
     try:
+        # Fetch campaign data once at start
+        campaign_data = await db.get_campaign(campaign_id)
+        if not campaign_data:
+            logger.error(f"Campaign {campaign_id} not found")
+            return
+        
+        # Get timezone for this campaign
+        campaign_tz = get_campaign_timezone(campaign_data)
+        logger.info(f"Campaign {campaign_id} using timezone: {campaign_tz}")
+        
+        # Cache settings that don't change
+        settings = {
+            "working_days": campaign_data.get("working_days", [0, 1, 2, 3, 4]),
+            "start_time": campaign_data.get("start_time"),
+            "end_time": campaign_data.get("end_time"),
+            "daily_limit": campaign_data.get("daily_limit"),
+            "interval_min": campaign_data.get("interval_min", 30),
+            "interval_max": campaign_data.get("interval_max", 60)
+        }
+        
         while True:
-            # Refresh campaign data
-            campaign_data = await db.get_campaign(campaign_id)
-            if not campaign_data:
-                logger.error(f"Campaign {campaign_id} not found")
+            # Check campaign status (lightweight query)
+            status_result = await db.client.table('campaigns')\
+                .select('status, pending_count')\
+                .eq('id', campaign_id)\
+                .single()\
+                .execute()
+            
+            if not status_result.data:
+                logger.error(f"Campaign {campaign_id} not found - stopping worker")
                 break
             
             # Check if campaign should continue
-            if campaign_data.get("status") != "running":
-                logger.info(f"Campaign {campaign_id} is no longer running (status: {campaign_data.get('status')})")
+            if status_result.data.get("status") != "running":
+                logger.info(f"Campaign {campaign_id} is no longer running (status: {status_result.data.get('status')})")
                 break
             
-            # Build settings dict
-            settings = {
-                "working_days": campaign_data.get("working_days", [0, 1, 2, 3, 4]),
-                "start_time": campaign_data.get("start_time"),
-                "end_time": campaign_data.get("end_time"),
-                "daily_limit": campaign_data.get("daily_limit"),
-                "interval_min": campaign_data.get("interval_min", 30),
-                "interval_max": campaign_data.get("interval_max", 60)
-            }
+            pending_count = status_result.data.get("pending_count", 0)
             
             # Check working hours
-            if not is_within_working_hours(settings):
-                logger.info(f"Campaign {campaign_id} outside working hours, waiting...")
-                await asyncio.sleep(60)  # Check again in 1 minute
+            if not is_within_working_hours(settings, campaign_tz):
+                wait_cycles += 1
+                
+                # Timeout after 24h waiting
+                if wait_cycles >= MAX_WAIT_CYCLES:
+                    logger.warning(f"Campaign {campaign_id} waited 24h outside working hours - pausing")
+                    await db.update_campaign(campaign_id, {"status": "paused"})
+                    break
+                
+                logger.info(f"Campaign {campaign_id} outside working hours, waiting... ({wait_cycles}/{MAX_WAIT_CYCLES})")
+                await asyncio.sleep(WAIT_CHECK_INTERVAL)
                 continue
+            
+            # Reset wait cycles when inside working hours
+            wait_cycles = 0
             
             # Check daily limit
             if settings.get("daily_limit"):
                 daily_count = await db.count_messages_sent_today(campaign_id)
                 if daily_count >= settings["daily_limit"]:
-                    logger.info(f"Campaign {campaign_id} reached daily limit ({daily_count}/{settings['daily_limit']})")
-                    await asyncio.sleep(60)  # Check again in 1 minute
+                    logger.info(f"Campaign {campaign_id} reached daily limit - waiting for next day")
+                    
+                    # Calculate time until midnight
+                    now = datetime.now(campaign_tz)
+                    tomorrow = now.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
+                    seconds_until_tomorrow = (tomorrow - now).total_seconds()
+                    
+                    # Wait in chunks, checking status periodically
+                    chunks = int(seconds_until_tomorrow / WAIT_CHECK_INTERVAL)
+                    for _ in range(max(chunks, 1)):
+                        await asyncio.sleep(WAIT_CHECK_INTERVAL)
+                        
+                        # Re-check status
+                        status_check = await db.client.table('campaigns')\
+                            .select('status')\
+                            .eq('id', campaign_id)\
+                            .single()\
+                            .execute()
+                        
+                        if not status_check.data or status_check.data.get("status") != "running":
+                            logger.info(f"Campaign {campaign_id} status changed during daily limit wait")
+                            return
                     continue
             
             # Get next pending contact
@@ -142,9 +193,9 @@ async def process_campaign(
                 # No more pending contacts - campaign completed
                 await db.update_campaign(campaign_id, {
                     "status": "completed",
-                    "completed_at": datetime.utcnow().isoformat()
+                    "completed_at": datetime.now(campaign_tz).isoformat()
                 })
-                logger.info(f"Campaign {campaign_id} completed - no more pending contacts")
+                logger.info(f"Campaign {campaign_id} completed - all contacts processed")
                 
                 # Create notification for campaign completion
                 try:
