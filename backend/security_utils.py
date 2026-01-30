@@ -60,9 +60,10 @@ async def get_authenticated_user(request: Request) -> dict:
             
             logger.info(f"Token decoded, user_id: {user_id}")
             
-            # Buscar company_id e role do perfil usando service_role key
+            # Buscar company_id do perfil usando service_role key
+            # Nota: coluna 'role' pode não existir, então não buscamos
             profile = supabase.table('profiles')\
-                .select('company_id, role, email')\
+                .select('company_id, email, full_name')\
                 .eq('id', user_id)\
                 .single()\
                 .execute()
@@ -71,12 +72,15 @@ async def get_authenticated_user(request: Request) -> dict:
                 logger.error(f"Profile not found for user_id: {user_id}")
                 raise HTTPException(status_code=403, detail="Perfil de usuário não encontrado")
             
-            logger.info(f"Profile found: company_id={profile.data.get('company_id')}, role={profile.data.get('role')}")
+            # Definir role padrão como 'user' (pode ser estendido no futuro)
+            role = "user"  # Default role
+            
+            logger.info(f"Profile found: company_id={profile.data.get('company_id')}, role={role}")
             
             return {
                 "user_id": user_id,
                 "company_id": profile.data.get("company_id"),
-                "role": profile.data.get("role", "user"),
+                "role": role,
                 "email": profile.data.get("email") or decoded.get("email")
             }
         
