@@ -133,11 +133,11 @@ export function useQuotas() {
     if (!user?.id) return false;
 
     try {
+      // Backend espera action e amount como query parameters
       const response = await makeAuthenticatedRequest(
-        `${API_URL}/api/quotas/increment`,
+        `${API_URL}/api/quotas/increment?action=${action}&amount=${amount}`,
         {
-          method: 'POST',
-          body: JSON.stringify({ action, amount })
+          method: 'POST'
         }
       );
       
