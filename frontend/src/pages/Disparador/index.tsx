@@ -30,7 +30,7 @@ export default function Disparador() {
     setPageTitle("Disparador", Send);
   }, [setPageTitle]);
 
-  const { campaigns, isLoading, fetchCampaigns } = useCampaigns();
+  const { campaigns, isLoading, error, fetchCampaigns } = useCampaigns();
   const { settings, hasWahaConfig, isLoading: isLoadingSettings, refreshSettings } = useCompanySettings();
   const { quota, canUseCampaigns } = useQuotas();
   const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null);
