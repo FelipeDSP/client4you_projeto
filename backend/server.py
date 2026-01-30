@@ -239,41 +239,61 @@ async def get_whatsapp_qr(company_id: str):
 
 # ========== Campaign Endpoints ==========
 @api_router.post("/campaigns")
-async def create_campaign(campaign: CampaignCreate, company_id: str = None, user_id: str = None):
-    """Create a new campaign"""
-    if not company_id:
-        raise HTTPException(status_code=400, detail="company_id é obrigatório")
+@limiter.limit("50/hour")  # Rate limit: 50 criações por hora
+async def create_campaign(
+    request: Request,
+    campaign: CampaignCreate,
+    auth_user: dict = Depends(get_authenticated_user)
+):
+    """Create a new campaign - com autenticação e validação de quota"""
+    try:
+        db = get_db()
+        
+        # VALIDAR QUOTA E PLANO (requer Pro ou Enterprise)
+        await validate_quota_for_action(
+            user_id=auth_user["user_id"],
+            action="create_campaign",
+            required_plan=["Pro", "Enterprise"],
+            db=db
+        )
+        
+        # USA company_id e user_id DO TOKEN (não do cliente)
+        campaign_data = {
+            "id": str(uuid.uuid4()),
+            "company_id": auth_user["company_id"],
+            "user_id": auth_user["user_id"],
+            "name": campaign.name,
+            "status": "draft",
+            "message_type": campaign.message.type.value,
+            "message_text": campaign.message.text,
+            "media_url": campaign.message.media_url,
+            "media_filename": campaign.message.media_filename,
+            "interval_min": campaign.settings.interval_min,
+            "interval_max": campaign.settings.interval_max,
+            "start_time": campaign.settings.start_time,
+            "end_time": campaign.settings.end_time,
+            "daily_limit": campaign.settings.daily_limit,
+            "working_days": campaign.settings.working_days,
+            "total_contacts": 0,
+            "sent_count": 0,
+            "error_count": 0,
+            "pending_count": 0
+        }
+        
+        result = await db.create_campaign(campaign_data)
+        
+        if not result:
+            raise HTTPException(status_code=500, detail="Erro ao criar campanha")
+        
+        # Incrementar contador de quota
+        await db.increment_quota(auth_user["user_id"], "create_campaign")
+        
+        return campaign_to_response(result)
     
-    db = get_db()
-    
-    campaign_data = {
-        "id": str(uuid.uuid4()),
-        "company_id": company_id,
-        "user_id": user_id,
-        "name": campaign.name,
-        "status": "draft",
-        "message_type": campaign.message.type.value,
-        "message_text": campaign.message.text,
-        "media_url": campaign.message.media_url,
-        "media_filename": campaign.message.media_filename,
-        "interval_min": campaign.settings.interval_min,
-        "interval_max": campaign.settings.interval_max,
-        "start_time": campaign.settings.start_time,
-        "end_time": campaign.settings.end_time,
-        "daily_limit": campaign.settings.daily_limit,
-        "working_days": campaign.settings.working_days,
-        "total_contacts": 0,
-        "sent_count": 0,
-        "error_count": 0,
-        "pending_count": 0
-    }
-    
-    result = await db.create_campaign(campaign_data)
-    
-    if not result:
-        raise HTTPException(status_code=500, detail="Erro ao criar campanha")
-    
-    return campaign_to_response(result)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise handle_error(e, "Erro ao criar campanha")
 
 
 @api_router.get("/campaigns")
