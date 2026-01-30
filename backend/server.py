@@ -446,113 +446,134 @@ async def delete_campaign(
 
 # ========== Upload & Contacts ==========
 @api_router.post("/campaigns/{campaign_id}/upload")
+@limiter.limit("10/hour")  # Rate limit: 10 uploads por hora
 async def upload_contacts(
+    request: Request,
     campaign_id: str,
     file: UploadFile = File(...),
     phone_column: str = Form(default="Telefone"),
-    name_column: str = Form(default="Nome")
+    name_column: str = Form(default="Nome"),
+    auth_user: dict = Depends(get_authenticated_user)
 ):
-    """Upload contacts from Excel/CSV file"""
-    db = get_db()
-    campaign_data = await db.get_campaign(campaign_id)
-    
-    if not campaign_data:
-        raise HTTPException(status_code=404, detail="Campanha não encontrada")
-    
-    # Read file
-    content = await file.read()
-    
+    """Upload contacts from Excel/CSV file - com validação de segurança"""
     try:
-        # Try to read as Excel first, then CSV
-        if file.filename.endswith('.xlsx') or file.filename.endswith('.xls'):
-            df = pd.read_excel(io.BytesIO(content))
-        else:
-            # Try different encodings for CSV
-            try:
-                df = pd.read_csv(io.BytesIO(content), encoding='utf-8')
-            except UnicodeDecodeError:
-                df = pd.read_csv(io.BytesIO(content), encoding='latin-1')
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Erro ao ler arquivo: {str(e)}")
-    
-    # Normalize column names (remove spaces, lowercase)
-    df.columns = df.columns.str.strip()
-    
-    # Find matching columns (case-insensitive)
-    phone_col = None
-    name_col = None
-    
-    for col in df.columns:
-        col_lower = col.lower()
-        if phone_column.lower() in col_lower or col_lower in ['telefone', 'phone', 'tel', 'celular', 'whatsapp']:
-            phone_col = col
-        if name_column.lower() in col_lower or col_lower in ['nome', 'name', 'empresa', 'company']:
-            name_col = col
-    
-    if not phone_col:
-        raise HTTPException(
-            status_code=400, 
-            detail=f"Coluna de telefone não encontrada. Colunas disponíveis: {list(df.columns)}"
+        db = get_db()
+        
+        # VALIDAR OWNERSHIP
+        campaign_data = await validate_campaign_ownership(
+            campaign_id,
+            auth_user["company_id"],
+            db
         )
-    
-    # Delete existing contacts for this campaign
-    await db.delete_contacts_by_campaign(campaign_id)
-    
-    # Process contacts
-    contacts = []
-    skipped = 0
-    
-    for _, row in df.iterrows():
-        phone = str(row[phone_col]).strip() if pd.notna(row[phone_col]) else ""
         
-        # Skip empty phones
-        if not phone or phone == "nan":
-            skipped += 1
-            continue
+        # Read file
+        content = await file.read()
         
-        name = str(row[name_col]).strip() if name_col and pd.notna(row.get(name_col)) else "Sem nome"
+        # VALIDAR ARQUIVO (tamanho, tipo, etc)
+        is_valid, error_msg = validate_file_upload(content, file.filename)
+        if not is_valid:
+            raise HTTPException(status_code=400, detail=error_msg)
         
-        # Build extra data from other columns
-        extra_data = {}
+        try:
+            # Try to read as Excel first, then CSV
+            if file.filename.endswith('.xlsx') or file.filename.endswith('.xls'):
+                # Usar openpyxl com data_only=True para prevenir execução de fórmulas
+                df = pd.read_excel(io.BytesIO(content), engine='openpyxl')
+            else:
+                # Try different encodings for CSV
+                try:
+                    df = pd.read_csv(io.BytesIO(content), encoding='utf-8')
+                except UnicodeDecodeError:
+                    df = pd.read_csv(io.BytesIO(content), encoding='latin-1')
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Erro ao ler arquivo: formato inválido")
+        
+        # Normalize column names (remove spaces, lowercase)
+        df.columns = df.columns.str.strip()
+        
+        # Find matching columns (case-insensitive)
+        phone_col = None
+        name_col = None
+        
         for col in df.columns:
-            if col not in [phone_col, name_col]:
-                value = row[col]
-                if pd.notna(value):
-                    extra_data[col] = str(value)
+            col_lower = col.lower()
+            if phone_column.lower() in col_lower or col_lower in ['telefone', 'phone', 'tel', 'celular', 'whatsapp']:
+                phone_col = col
+            if name_column.lower() in col_lower or col_lower in ['nome', 'name', 'empresa', 'company']:
+                name_col = col
         
-        contact = {
-            "id": str(uuid.uuid4()),
-            "campaign_id": campaign_id,
-            "name": name,
-            "phone": phone,
-            "email": extra_data.get("Email") or extra_data.get("email"),
-            "category": extra_data.get("Categoria") or extra_data.get("categoria") or extra_data.get("Category"),
-            "extra_data": extra_data,
-            "status": "pending"
+        if not phone_col:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Coluna de telefone não encontrada. Colunas disponíveis: {list(df.columns)}"
+            )
+        
+        # Delete existing contacts for this campaign
+        await db.delete_contacts_by_campaign(campaign_id)
+        
+        # Process contacts
+        contacts = []
+        skipped = 0
+        
+        for _, row in df.iterrows():
+            phone = str(row[phone_col]).strip() if pd.notna(row[phone_col]) else ""
+            
+            # Skip empty phones
+            if not phone or phone == "nan":
+                skipped += 1
+                continue
+            
+            # SANITIZAR NOME (previne CSV injection)
+            raw_name = str(row[name_col]).strip() if name_col and pd.notna(row.get(name_col)) else "Sem nome"
+            name = sanitize_csv_value(raw_name)
+            
+            # Build extra data from other columns com sanitização
+            extra_data = {}
+            for col in df.columns:
+                if col not in [phone_col, name_col]:
+                    value = row[col]
+                    if pd.notna(value):
+                        # SANITIZAR CADA VALOR
+                        extra_data[col] = sanitize_csv_value(value)
+            
+            contact = {
+                "id": str(uuid.uuid4()),
+                "campaign_id": campaign_id,
+                "name": name,
+                "phone": phone,
+                "email": extra_data.get("Email") or extra_data.get("email"),
+                "category": extra_data.get("Categoria") or extra_data.get("categoria") or extra_data.get("Category"),
+                "extra_data": extra_data,
+                "status": "pending"
+            }
+            contacts.append(contact)
+        
+        # Insert contacts
+        if contacts:
+            await db.create_contacts(contacts)
+        
+        # Update campaign counts
+        await db.update_campaign(campaign_id, {
+            "total_contacts": len(contacts),
+            "pending_count": len(contacts),
+            "sent_count": 0,
+            "error_count": 0,
+            "status": "ready"
+        })
+        
+        return {
+            "success": True,
+            "total_imported": len(contacts),
+            "skipped": skipped,
+            "columns_found": list(df.columns),
+            "phone_column_used": phone_col,
+            "name_column_used": name_col
         }
-        contacts.append(contact)
     
-    # Insert contacts
-    if contacts:
-        await db.create_contacts(contacts)
-    
-    # Update campaign counts
-    await db.update_campaign(campaign_id, {
-        "total_contacts": len(contacts),
-        "pending_count": len(contacts),
-        "sent_count": 0,
-        "error_count": 0,
-        "status": "ready"
-    })
-    
-    return {
-        "success": True,
-        "total_imported": len(contacts),
-        "skipped": skipped,
-        "columns_found": list(df.columns),
-        "phone_column_used": phone_col,
-        "name_column_used": name_col
-    }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise handle_error(e, "Erro ao processar arquivo de contatos")
 
 
 @api_router.get("/campaigns/{campaign_id}/contacts")
