@@ -265,11 +265,15 @@ async def process_campaign(
                 })
             else:
                 new_status = "error"
-                error_msg = result.get("error", "Unknown error")
+                # Sanitize error message before saving
+                raw_error = result.get("error", "Unknown error")
+                error_msg = sanitize_error_message(raw_error)
+                
+                logger.warning(f"Failed to send message to {contact_data['phone']}: {raw_error}")
                 
                 # Update campaign counters
-                error_count = (campaign_data.get("error_count") or 0) + 1
-                pending_count = max((campaign_data.get("pending_count") or 0) - 1, 0)
+                error_count = (message_result.data.get("error_count") or 0) + 1
+                pending_count = max(pending_count - 1, 0)
                 await db.update_campaign(campaign_id, {
                     "error_count": error_count,
                     "pending_count": pending_count
