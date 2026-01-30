@@ -50,6 +50,11 @@ app = FastAPI(title="Lead Dispatcher API")
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
 
+# Configure rate limiter
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
