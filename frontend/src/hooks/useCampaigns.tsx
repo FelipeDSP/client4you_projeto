@@ -10,26 +10,36 @@ async function makeAuthenticatedRequest(
   url: string,
   options: RequestInit = {}
 ): Promise<Response> {
-  const { data: { session } } = await supabase.auth.getSession();
-  
-  if (!session?.access_token) {
-    throw new Error("Sessão expirada. Faça login novamente.");
+  try {
+    const { data: { session }, error } = await supabase.auth.getSession();
+    
+    if (error) {
+      console.error("Error getting session:", error);
+      throw new Error("Erro ao obter sessão. Tente fazer login novamente.");
+    }
+    
+    if (!session?.access_token) {
+      throw new Error("Sessão expirada. Faça login novamente.");
+    }
+    
+    const headers: HeadersInit = {
+      ...options.headers,
+      "Authorization": `Bearer ${session.access_token}`
+    };
+    
+    // Only add Content-Type for non-FormData requests
+    if (!(options.body instanceof FormData)) {
+      headers["Content-Type"] = "application/json";
+    }
+    
+    return fetch(url, {
+      ...options,
+      headers
+    });
+  } catch (error: any) {
+    console.error("makeAuthenticatedRequest error:", error);
+    throw error;
   }
-  
-  const headers: HeadersInit = {
-    ...options.headers,
-    "Authorization": `Bearer ${session.access_token}`
-  };
-  
-  // Only add Content-Type for non-FormData requests
-  if (!(options.body instanceof FormData)) {
-    headers["Content-Type"] = "application/json";
-  }
-  
-  return fetch(url, {
-    ...options,
-    headers
-  });
 }
 
 export type CampaignStatus = "draft" | "ready" | "running" | "paused" | "completed" | "cancelled";
