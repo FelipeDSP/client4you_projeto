@@ -321,7 +321,6 @@ async def process_campaign(
         logger.error(f"Error in campaign worker {campaign_id}: {e}", exc_info=True)
         # Mark campaign as paused due to error
         try:
-            tz = campaign_tz or ZoneInfo("America/Sao_Paulo")
             await db.update_campaign(campaign_id, {
                 "status": "paused",
                 "error_message": sanitize_error_message(str(e))
