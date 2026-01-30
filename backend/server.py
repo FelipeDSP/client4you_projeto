@@ -812,35 +812,54 @@ async def reset_campaign(
 @api_router.get("/campaigns/{campaign_id}/logs")
 async def get_message_logs(
     campaign_id: str,
+    auth_user: dict = Depends(get_authenticated_user),
     status: Optional[str] = None,
     limit: int = 100,
     skip: int = 0
 ):
-    """Get message logs for a campaign"""
-    db = get_db()
+    """Get message logs for a campaign - com validação de ownership"""
+    try:
+        db = get_db()
+        
+        # VALIDAR OWNERSHIP (previne IDOR)
+        await validate_campaign_ownership(
+            campaign_id,
+            auth_user["company_id"],
+            db
+        )
+        
+        logs_data = await db.get_message_logs(campaign_id, status, limit, skip)
+        total = await db.count_message_logs(campaign_id, status)
+        
+        return {
+            "logs": logs_data,
+            "total": total,
+            "limit": limit,
+            "skip": skip
+        }
     
-    logs_data = await db.get_message_logs(campaign_id, status, limit, skip)
-    total = await db.count_message_logs(campaign_id, status)
-    
-    return {
-        "logs": logs_data,
-        "total": total,
-        "limit": limit,
-        "skip": skip
-    }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise handle_error(e, "Erro ao buscar logs de mensagens")
 
 
 # ========== Dashboard Stats ==========
 @api_router.get("/dashboard/stats")
-async def get_dashboard_stats(company_id: str = None):
-    """Get dashboard statistics"""
-    if not company_id:
-        raise HTTPException(status_code=400, detail="company_id é obrigatório")
+async def get_dashboard_stats(auth_user: dict = Depends(get_authenticated_user)):
+    """Get dashboard statistics - apenas da empresa do usuário"""
+    try:
+        db = get_db()
+        
+        # USA company_id DO TOKEN
+        stats = await db.get_dashboard_stats(auth_user["company_id"])
+        
+        return stats
     
-    db = get_db()
-    stats = await db.get_dashboard_stats(company_id)
-    
-    return stats
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise handle_error(e, "Erro ao buscar estatísticas")
 
 
 # ========== Notifications Endpoints ==========
