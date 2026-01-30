@@ -703,73 +703,109 @@ async def start_campaign(
 
 
 @api_router.post("/campaigns/{campaign_id}/pause")
-async def pause_campaign(campaign_id: str):
-    """Pause campaign"""
-    db = get_db()
-    campaign_data = await db.get_campaign(campaign_id)
+async def pause_campaign(
+    campaign_id: str,
+    auth_user: dict = Depends(get_authenticated_user)
+):
+    """Pause campaign - com validação de ownership"""
+    try:
+        db = get_db()
+        
+        # VALIDAR OWNERSHIP
+        campaign_data = await validate_campaign_ownership(
+            campaign_id,
+            auth_user["company_id"],
+            db
+        )
+        
+        # Stop worker
+        await stop_campaign_worker(campaign_id)
+        
+        # Update status
+        await db.update_campaign(campaign_id, {"status": "paused"})
+        
+        return {"success": True, "message": "Campanha pausada"}
     
-    if not campaign_data:
-        raise HTTPException(status_code=404, detail="Campanha não encontrada")
-    
-    # Stop worker
-    await stop_campaign_worker(campaign_id)
-    
-    # Update status
-    await db.update_campaign(campaign_id, {"status": "paused"})
-    
-    return {"success": True, "message": "Campanha pausada"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise handle_error(e, "Erro ao pausar campanha")
 
 
 @api_router.post("/campaigns/{campaign_id}/cancel")
-async def cancel_campaign(campaign_id: str):
-    """Cancel campaign"""
-    db = get_db()
-    campaign_data = await db.get_campaign(campaign_id)
+async def cancel_campaign(
+    campaign_id: str,
+    auth_user: dict = Depends(get_authenticated_user)
+):
+    """Cancel campaign - com validação de ownership"""
+    try:
+        db = get_db()
+        
+        # VALIDAR OWNERSHIP
+        campaign_data = await validate_campaign_ownership(
+            campaign_id,
+            auth_user["company_id"],
+            db
+        )
+        
+        # Stop worker
+        await stop_campaign_worker(campaign_id)
+        
+        # Update status
+        await db.update_campaign(campaign_id, {"status": "cancelled"})
+        
+        return {"success": True, "message": "Campanha cancelada"}
     
-    if not campaign_data:
-        raise HTTPException(status_code=404, detail="Campanha não encontrada")
-    
-    # Stop worker
-    await stop_campaign_worker(campaign_id)
-    
-    # Update status
-    await db.update_campaign(campaign_id, {"status": "cancelled"})
-    
-    return {"success": True, "message": "Campanha cancelada"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise handle_error(e, "Erro ao cancelar campanha")
 
 
 @api_router.post("/campaigns/{campaign_id}/reset")
-async def reset_campaign(campaign_id: str):
-    """Reset campaign - mark all contacts as pending again"""
-    db = get_db()
-    campaign_data = await db.get_campaign(campaign_id)
+async def reset_campaign(
+    campaign_id: str,
+    auth_user: dict = Depends(get_authenticated_user)
+):
+    """Reset campaign - com validação de ownership"""
+    try:
+        db = get_db()
+        
+        # VALIDAR OWNERSHIP
+        campaign_data = await validate_campaign_ownership(
+            campaign_id,
+            auth_user["company_id"],
+            db
+        )
+        
+        # Stop worker if running
+        await stop_campaign_worker(campaign_id)
+        
+        # Reset all contacts to pending
+        await db.reset_contacts_status(campaign_id)
+        
+        # Update campaign counts
+        total = await db.count_contacts(campaign_id)
+        
+        await db.update_campaign(campaign_id, {
+            "status": "ready",
+            "total_contacts": total,
+            "pending_count": total,
+            "sent_count": 0,
+            "error_count": 0,
+            "started_at": None,
+            "completed_at": None
+        })
+        
+        # Clear message logs
+        await db.delete_message_logs_by_campaign(campaign_id)
+        
+        return {"success": True, "message": "Campanha resetada"}
     
-    if not campaign_data:
-        raise HTTPException(status_code=404, detail="Campanha não encontrada")
-    
-    # Stop worker if running
-    await stop_campaign_worker(campaign_id)
-    
-    # Reset all contacts to pending
-    await db.reset_contacts_status(campaign_id)
-    
-    # Update campaign counts
-    total = await db.count_contacts(campaign_id)
-    
-    await db.update_campaign(campaign_id, {
-        "status": "ready",
-        "total_contacts": total,
-        "pending_count": total,
-        "sent_count": 0,
-        "error_count": 0,
-        "started_at": None,
-        "completed_at": None
-    })
-    
-    # Clear message logs
-    await db.delete_message_logs_by_campaign(campaign_id)
-    
-    return {"success": True, "message": "Campanha resetada"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise handle_error(e, "Erro ao resetar campanha")
 
 
 # ========== Message Logs ==========
