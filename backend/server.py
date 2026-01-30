@@ -1,7 +1,10 @@
-from fastapi import FastAPI, APIRouter, HTTPException, UploadFile, File, Form, BackgroundTasks
+from fastapi import FastAPI, APIRouter, HTTPException, UploadFile, File, Form, BackgroundTasks, Request, Depends
 from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 import os
 import logging
 from pathlib import Path
@@ -19,6 +22,15 @@ from waha_service import WahaService
 from supabase_service import get_supabase_service, SupabaseService
 from campaign_worker import (
     start_campaign_worker, stop_campaign_worker, is_campaign_running
+)
+from security_utils import (
+    get_authenticated_user,
+    require_role,
+    validate_file_upload,
+    sanitize_csv_value,
+    handle_error,
+    validate_campaign_ownership,
+    validate_quota_for_action
 )
 
 # --- CORREÇÃO DO LOAD DOTENV ---
