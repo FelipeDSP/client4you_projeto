@@ -31,9 +31,12 @@ export function QuotaLimitModal({
   
   const getMessage = () => {
     if (limitType === 'leads') {
+      const isUnlimited = limit === -1;
       return {
-        title: "Limite de Buscas Atingido! 🚀",
-        description: `Você usou todas as ${limit} buscas de leads disponíveis no ${currentPlan === 'demo' ? 'Plano Demo' : 'Plano Free'}.`,
+        title: isUnlimited ? "Buscas Ilimitadas! 🚀" : "Limite de Buscas Atingido! 🚀",
+        description: isUnlimited 
+          ? `Você tem buscas ilimitadas de leads no ${currentPlan === 'pro' ? 'Plano Pro' : currentPlan === 'enterprise' ? 'Plano Enterprise' : 'seu plano'}.`
+          : `Você usou todas as ${limit} buscas de leads disponíveis no ${currentPlan === 'demo' ? 'Plano Demo' : 'Plano Free'}.`,
         cta: "Ver Planos e Fazer Upgrade"
       };
     } else {
