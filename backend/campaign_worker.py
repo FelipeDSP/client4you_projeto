@@ -263,6 +263,7 @@ async def process_campaign(
                     "sent_count": sent_count,
                     "pending_count": pending_count
                 })
+                logger.info(f"Message sent to {contact_data['phone']} successfully")
             else:
                 new_status = "error"
                 # Sanitize error message before saving
