@@ -196,24 +196,6 @@ async def process_campaign(
                     "completed_at": datetime.now(campaign_tz).isoformat()
                 })
                 logger.info(f"Campaign {campaign_id} completed - all contacts processed")
-                
-                # Create notification for campaign completion
-                try:
-                    campaign = await db.get_campaign(campaign_id)
-                    if campaign:
-                        await db.create_notification(
-                            user_id=campaign.get("user_id"),
-                            company_id=campaign.get("company_id"),
-                            notification_type="campaign_completed",
-                            title="Campanha Concluída! 🎉",
-                            message=f"A campanha '{campaign.get('name')}' foi concluída com sucesso. {campaign.get('sent_count', 0)} mensagens enviadas.",
-                            link=f"/disparador",
-                            metadata={"campaign_id": campaign_id, "sent_count": campaign.get('sent_count', 0)}
-                        )
-                        logger.info(f"Notification created for completed campaign {campaign_id}")
-                except Exception as e:
-                    logger.error(f"Error creating completion notification: {e}")
-                
                 break
             
             # Prepare message with variables
