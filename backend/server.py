@@ -357,39 +357,52 @@ async def get_campaign(
 
 
 @api_router.put("/campaigns/{campaign_id}")
-async def update_campaign(campaign_id: str, update: CampaignUpdate):
-    """Update campaign"""
-    db = get_db()
-    campaign_data = await db.get_campaign(campaign_id)
+async def update_campaign(
+    campaign_id: str,
+    update: CampaignUpdate,
+    auth_user: dict = Depends(get_authenticated_user)
+):
+    """Update campaign - com validação de ownership"""
+    try:
+        db = get_db()
+        
+        # VALIDAR OWNERSHIP (previne IDOR)
+        campaign_data = await validate_campaign_ownership(
+            campaign_id,
+            auth_user["company_id"],
+            db
+        )
+        
+        update_dict = {}
+        
+        if update.name is not None:
+            update_dict["name"] = update.name
+        
+        if update.message is not None:
+            update_dict["message_type"] = update.message.type.value
+            update_dict["message_text"] = update.message.text
+            update_dict["media_url"] = update.message.media_url
+            update_dict["media_filename"] = update.message.media_filename
+        
+        if update.settings is not None:
+            update_dict["interval_min"] = update.settings.interval_min
+            update_dict["interval_max"] = update.settings.interval_max
+            update_dict["start_time"] = update.settings.start_time
+            update_dict["end_time"] = update.settings.end_time
+            update_dict["daily_limit"] = update.settings.daily_limit
+            update_dict["working_days"] = update.settings.working_days
+        
+        if update_dict:
+            updated = await db.update_campaign(campaign_id, update_dict)
+            if updated:
+                return campaign_to_response(updated)
+        
+        return campaign_to_response(campaign_data)
     
-    if not campaign_data:
-        raise HTTPException(status_code=404, detail="Campanha não encontrada")
-    
-    update_dict = {}
-    
-    if update.name is not None:
-        update_dict["name"] = update.name
-    
-    if update.message is not None:
-        update_dict["message_type"] = update.message.type.value
-        update_dict["message_text"] = update.message.text
-        update_dict["media_url"] = update.message.media_url
-        update_dict["media_filename"] = update.message.media_filename
-    
-    if update.settings is not None:
-        update_dict["interval_min"] = update.settings.interval_min
-        update_dict["interval_max"] = update.settings.interval_max
-        update_dict["start_time"] = update.settings.start_time
-        update_dict["end_time"] = update.settings.end_time
-        update_dict["daily_limit"] = update.settings.daily_limit
-        update_dict["working_days"] = update.settings.working_days
-    
-    if update_dict:
-        updated = await db.update_campaign(campaign_id, update_dict)
-        if updated:
-            return campaign_to_response(updated)
-    
-    return campaign_to_response(campaign_data)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise handle_error(e, "Erro ao atualizar campanha")
 
 
 @api_router.delete("/campaigns/{campaign_id}")
