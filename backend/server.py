@@ -406,26 +406,42 @@ async def update_campaign(
 
 
 @api_router.delete("/campaigns/{campaign_id}")
-async def delete_campaign(campaign_id: str):
-    """Delete campaign and all associated data"""
-    db = get_db()
+async def delete_campaign(
+    campaign_id: str,
+    auth_user: dict = Depends(get_authenticated_user)
+):
+    """Delete campaign - com validação de ownership"""
+    try:
+        db = get_db()
+        
+        # VALIDAR OWNERSHIP (previne IDOR)
+        await validate_campaign_ownership(
+            campaign_id,
+            auth_user["company_id"],
+            db
+        )
+        
+        # Stop worker if running
+        await stop_campaign_worker(campaign_id)
+        
+        # Delete contacts
+        await db.delete_contacts_by_campaign(campaign_id)
+        
+        # Delete message logs
+        await db.delete_message_logs_by_campaign(campaign_id)
+        
+        # Delete campaign
+        result = await db.delete_campaign(campaign_id)
+        
+        if not result:
+            raise HTTPException(status_code=404, detail="Campanha não encontrada")
+        
+        return {"success": True, "message": "Campanha excluída com sucesso"}
     
-    # Stop worker if running
-    await stop_campaign_worker(campaign_id)
-    
-    # Delete contacts
-    await db.delete_contacts_by_campaign(campaign_id)
-    
-    # Delete message logs
-    await db.delete_message_logs_by_campaign(campaign_id)
-    
-    # Delete campaign
-    result = await db.delete_campaign(campaign_id)
-    
-    if not result:
-        raise HTTPException(status_code=404, detail="Campanha não encontrada")
-    
-    return {"success": True, "message": "Campanha excluída com sucesso"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise handle_error(e, "Erro ao deletar campanha")
 
 
 # ========== Upload & Contacts ==========
