@@ -71,28 +71,28 @@ const QUOTA_PLANS = [
   {
     id: "demo",
     name: "Demo",
-    description: "5 buscas de leads",
+    description: "5 buscas / 1 campanha teste",
     color: "gray",
-    features: { leads: 5, campaigns: 0, messages: 0 }
+    features: { leads: 5, campaigns: 1, messages: 0 }
   },
   {
-    id: "plan_search",
-    name: "Busca Leads",
-    description: "Apenas busca de leads",
+    id: "basico",
+    name: "Básico",
+    description: "Apenas busca de leads ilimitada",
     color: "blue",
     features: { leads: -1, campaigns: 0, messages: 0 }
   },
   {
-    id: "plan_sender",
-    name: "Busca + Disparador",
-    description: "Leads + WhatsApp",
+    id: "intermediario",
+    name: "Intermediário",
+    description: "Leads + WhatsApp ilimitados",
     color: "green",
     features: { leads: -1, campaigns: -1, messages: -1 }
   },
   {
-    id: "plan_agent",
-    name: "Completo (IA)",
-    description: "Leads + Disparador + IA Agent",
+    id: "avancado",
+    name: "Avançado",
+    description: "Completo + IA (em breve)",
     color: "purple",
     features: { leads: -1, campaigns: -1, messages: -1 }
   },
