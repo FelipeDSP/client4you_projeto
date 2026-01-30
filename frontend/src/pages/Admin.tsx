@@ -361,7 +361,7 @@ export default function Admin() {
       setEditMessagesLimit(String(quota.messages_limit));
     } else {
       // Default values
-      setEditQuotaPlan("plan_sender");
+      setEditQuotaPlan("intermediario");
       setEditLeadsLimit("-1");
       setEditCampaignsLimit("-1");
       setEditMessagesLimit("-1");
