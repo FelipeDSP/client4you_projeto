@@ -351,39 +351,64 @@ async def start_campaign_worker(
     db: SupabaseService,
     campaign_id: str,
     waha_service: WahaService
-) -> bool:
-    """Start a campaign worker task"""
-    if campaign_id in running_campaigns:
-        logger.warning(f"Campaign {campaign_id} worker already running")
-        return False
+) -> tuple[bool, Optional[str]]:
+    """
+    Start a campaign worker task - thread-safe with atomic check
     
-    task = asyncio.create_task(
-        process_campaign(db, campaign_id, waha_service)
-    )
-    running_campaigns[campaign_id] = task
+    Returns:
+        (success, error_message)
+    """
+    async with _campaigns_lock:
+        # Check and start are atomic
+        if campaign_id in running_campaigns:
+            # Check if task is still alive
+            task = running_campaigns[campaign_id]
+            if not task.done():
+                return False, "Campanha já está em execução"
+            else:
+                # Task died but wasn't cleaned - remove it
+                del running_campaigns[campaign_id]
+                logger.warning(f"Cleaned up dead task for campaign {campaign_id}")
+        
+        # Start new task
+        task = asyncio.create_task(
+            process_campaign(db, campaign_id, waha_service)
+        )
+        running_campaigns[campaign_id] = task
+        logger.info(f"Started worker for campaign {campaign_id}")
     
-    return True
+    return True, None
 
 
 async def stop_campaign_worker(campaign_id: str) -> bool:
-    """Stop a campaign worker task"""
-    if campaign_id not in running_campaigns:
-        return False
+    """Stop a campaign worker task - thread-safe"""
+    task = None
     
-    task = running_campaigns[campaign_id]
-    task.cancel()
+    async with _campaigns_lock:
+        if campaign_id not in running_campaigns:
+            return False
+        
+        task = running_campaigns[campaign_id]
+        task.cancel()
     
+    # Wait for task to finish outside the lock
     try:
         await task
     except asyncio.CancelledError:
         pass
+    except Exception as e:
+        logger.error(f"Error while stopping campaign {campaign_id}: {e}")
     
-    if campaign_id in running_campaigns:
-        del running_campaigns[campaign_id]
+    # Remove from tracking
+    async with _campaigns_lock:
+        if campaign_id in running_campaigns:
+            del running_campaigns[campaign_id]
+            logger.info(f"Stopped worker for campaign {campaign_id}")
     
     return True
 
 
 def is_campaign_running(campaign_id: str) -> bool:
     """Check if a campaign worker is running"""
-    return campaign_id in running_campaigns
+    # Simple check without lock (read-only is atomic in Python)
+    return campaign_id in running_campaigns and not running_campaigns[campaign_id].done()
