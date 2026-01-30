@@ -579,22 +579,36 @@ async def upload_contacts(
 @api_router.get("/campaigns/{campaign_id}/contacts")
 async def get_campaign_contacts(
     campaign_id: str,
+    auth_user: dict = Depends(get_authenticated_user),
     status: Optional[str] = None,
     limit: int = 100,
     skip: int = 0
 ):
-    """Get contacts for a campaign"""
-    db = get_db()
+    """Get contacts for a campaign - com validação de ownership"""
+    try:
+        db = get_db()
+        
+        # VALIDAR OWNERSHIP (previne IDOR)
+        await validate_campaign_ownership(
+            campaign_id,
+            auth_user["company_id"],
+            db
+        )
+        
+        contacts_data = await db.get_contacts_by_campaign(campaign_id, status, limit, skip)
+        total = await db.count_contacts(campaign_id, status)
+        
+        return {
+            "contacts": contacts_data,
+            "total": total,
+            "limit": limit,
+            "skip": skip
+        }
     
-    contacts_data = await db.get_contacts_by_campaign(campaign_id, status, limit, skip)
-    total = await db.count_contacts(campaign_id, status)
-    
-    return {
-        "contacts": contacts_data,
-        "total": total,
-        "limit": limit,
-        "skip": skip
-    }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise handle_error(e, "Erro ao buscar contatos")
 
 
 # ========== Campaign Control (UPDATED FOR SAAS) ==========
