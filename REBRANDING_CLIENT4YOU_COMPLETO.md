@@ -202,7 +202,7 @@
 ### **2. Testar a Landing Page**
 
 ```
-1. Abra: https://cybersec-audit-2.preview.emergentagent.com
+1. Abra: https://repo-analyzer-163.preview.emergentagent.com
 2. Verificar:
    ✓ Logo e nome "Client4you" aparecem
    ✓ Hero section carrega
