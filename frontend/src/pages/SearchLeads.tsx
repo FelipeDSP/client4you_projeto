@@ -144,7 +144,11 @@ export default function SearchLeads() {
       {/* Modal de Limite */}
       <QuotaLimitModal 
         open={showQuotaModal} 
-        onOpenChange={setShowQuotaModal}
+        onClose={() => setShowQuotaModal(false)}
+        limitType="leads"
+        currentPlan={quota?.plan_type || 'demo'}
+        used={quota?.leads_used || 0}
+        limit={quota?.leads_limit || 0}
       />
     </div>
   );
