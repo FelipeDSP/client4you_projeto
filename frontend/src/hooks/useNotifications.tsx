@@ -112,7 +112,7 @@ export function useNotifications() {
 
   const markAsRead = useCallback(async (notificationId: string) => {
     try {
-      const response = await fetch(
+      const response = await makeAuthenticatedRequest(
         `${API_URL}/api/notifications/${notificationId}/read`,
         { method: "PUT" }
       );
@@ -133,8 +133,8 @@ export function useNotifications() {
     if (!user?.id) return;
 
     try {
-      const response = await fetch(
-        `${API_URL}/api/notifications/mark-all-read?user_id=${user.id}`,
+      const response = await makeAuthenticatedRequest(
+        `${API_URL}/api/notifications/mark-all-read`,
         { method: "PUT" }
       );
       
