@@ -179,6 +179,18 @@ export default function Disparador() {
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
+      ) : error ? (
+        <Card className="bg-white shadow-sm border-none">
+          <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+            <AlertCircle className="h-12 w-12 text-destructive mb-4" />
+            <h3 className="text-lg font-semibold text-gray-800 mb-2">Erro ao carregar campanhas</h3>
+            <p className="text-muted-foreground mb-4 max-w-md">{error}</p>
+            <Button onClick={() => fetchCampaigns()} variant="outline">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Tentar Novamente
+            </Button>
+          </CardContent>
+        </Card>
       ) : campaigns.length === 0 ? (
         <Card className="bg-white shadow-sm border-none">
           <CardContent className="flex flex-col items-center justify-center py-12 text-center">
