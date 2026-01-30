@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "./useAuth";
+import { supabase } from "@/integrations/supabase/client";
 
 export interface Notification {
   id: string;
@@ -15,7 +16,38 @@ export interface Notification {
   read_at?: string;
 }
 
-const API_URL = "";
+const API_URL = import.meta.env.VITE_BACKEND_URL || "";
+
+// Helper function for authenticated requests
+async function makeAuthenticatedRequest(
+  url: string,
+  options: RequestInit = {}
+): Promise<Response> {
+  try {
+    const { data: { session }, error } = await supabase.auth.getSession();
+    
+    if (error) {
+      console.error("Error getting session:", error);
+      throw new Error("Erro ao obter sessão");
+    }
+    
+    if (!session?.access_token) {
+      throw new Error("Sessão expirada");
+    }
+    
+    return fetch(url, {
+      ...options,
+      headers: {
+        ...options.headers,
+        "Authorization": `Bearer ${session.access_token}`,
+        "Content-Type": "application/json"
+      }
+    });
+  } catch (error: any) {
+    console.error("makeAuthenticatedRequest error:", error);
+    throw error;
+  }
+}
 
 export function useNotifications() {
   const { user } = useAuth();
