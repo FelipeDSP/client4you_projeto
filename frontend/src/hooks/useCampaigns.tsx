@@ -108,6 +108,7 @@ export interface MessageLog {
 export function useCampaigns() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -115,28 +116,47 @@ export function useCampaigns() {
     if (!user?.companyId) {
       setCampaigns([]);
       setIsLoading(false);
+      setError(null);
       return;
     }
 
+    setIsLoading(true);
+    setError(null);
+
     try {
-      const response = await fetch(`${BACKEND_URL}/api/campaigns?company_id=${user.companyId}`);
+      const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/campaigns`);
       
       if (!response.ok) {
-        console.error("Failed to fetch campaigns:", response.status, response.statusText);
-        setCampaigns([]);
-        setIsLoading(false);
-        return;
+        if (response.status === 401) {
+          throw new Error("Sessão expirada. Faça login novamente.");
+        }
+        if (response.status === 403) {
+          throw new Error("Você não tem permissão para acessar as campanhas.");
+        }
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || `Erro ${response.status}: ${response.statusText}`);
       }
       
       const data = await response.json();
       setCampaigns(data.campaigns || []);
-    } catch (error) {
+      setError(null);
+    } catch (error: any) {
       console.error("Error fetching campaigns:", error);
+      const errorMsg = error.message || "Erro ao carregar campanhas";
+      setError(errorMsg);
       setCampaigns([]);
+      
+      if (error.message?.includes("Sessão expirada")) {
+        toast({
+          title: "Sessão expirada",
+          description: "Por favor, faça login novamente.",
+          variant: "destructive"
+        });
+      }
     } finally {
       setIsLoading(false);
     }
-  }, [user?.companyId]);
+  }, [user?.companyId, toast]);
 
   useEffect(() => {
     fetchCampaigns();
