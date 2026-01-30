@@ -864,91 +864,141 @@ async def get_dashboard_stats(auth_user: dict = Depends(get_authenticated_user))
 
 # ========== Notifications Endpoints ==========
 @api_router.get("/notifications")
-async def get_notifications(user_id: str, limit: int = 50, unread_only: bool = False):
-    """Get user notifications"""
-    if not user_id:
-        raise HTTPException(status_code=400, detail="user_id é obrigatório")
+async def get_notifications(
+    auth_user: dict = Depends(get_authenticated_user),
+    limit: int = 50,
+    unread_only: bool = False
+):
+    """Get user notifications - apenas do usuário autenticado"""
+    try:
+        db = get_db()
+        
+        # USA user_id DO TOKEN
+        notifications = await db.get_notifications(auth_user["user_id"], limit, unread_only)
+        
+        return {"notifications": notifications}
     
-    db = get_db()
-    notifications = await db.get_notifications(user_id, limit, unread_only)
-    
-    return {"notifications": notifications}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise handle_error(e, "Erro ao buscar notificações")
 
 
 @api_router.get("/notifications/unread-count")
-async def get_unread_count(user_id: str):
-    """Get unread notification count"""
-    if not user_id:
-        raise HTTPException(status_code=400, detail="user_id é obrigatório")
+async def get_unread_count(auth_user: dict = Depends(get_authenticated_user)):
+    """Get unread notification count - do usuário autenticado"""
+    try:
+        db = get_db()
+        
+        # USA user_id DO TOKEN
+        count = await db.get_unread_notification_count(auth_user["user_id"])
+        
+        return {"unread_count": count}
     
-    db = get_db()
-    count = await db.get_unread_notification_count(user_id)
-    
-    return {"unread_count": count}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise handle_error(e, "Erro ao buscar contagem de notificações")
 
 
 @api_router.put("/notifications/{notification_id}/read")
-async def mark_notification_read(notification_id: str):
+async def mark_notification_read(
+    notification_id: str,
+    auth_user: dict = Depends(get_authenticated_user)
+):
     """Mark notification as read"""
-    db = get_db()
-    success = await db.mark_notification_read(notification_id)
+    try:
+        db = get_db()
+        success = await db.mark_notification_read(notification_id)
+        
+        if not success:
+            raise HTTPException(status_code=404, detail="Notificação não encontrada")
+        
+        return {"success": True}
     
-    if not success:
-        raise HTTPException(status_code=404, detail="Notificação não encontrada")
-    
-    return {"success": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise handle_error(e, "Erro ao marcar notificação como lida")
 
 
 @api_router.put("/notifications/mark-all-read")
-async def mark_all_read(user_id: str):
-    """Mark all notifications as read"""
-    if not user_id:
-        raise HTTPException(status_code=400, detail="user_id é obrigatório")
+async def mark_all_read(auth_user: dict = Depends(get_authenticated_user)):
+    """Mark all notifications as read - do usuário autenticado"""
+    try:
+        db = get_db()
+        
+        # USA user_id DO TOKEN
+        success = await db.mark_all_notifications_read(auth_user["user_id"])
+        
+        return {"success": success}
     
-    db = get_db()
-    success = await db.mark_all_notifications_read(user_id)
-    
-    return {"success": success}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise handle_error(e, "Erro ao marcar todas as notificações como lidas")
 
 
 # ========== Quotas Endpoints ==========
 @api_router.get("/quotas/me")
-async def get_my_quota(user_id: str):
+async def get_my_quota(auth_user: dict = Depends(get_authenticated_user)):
     """Get current user quota"""
-    if not user_id:
-        raise HTTPException(status_code=400, detail="user_id é obrigatório")
+    try:
+        db = get_db()
+        
+        # USA user_id DO TOKEN
+        quota = await db.get_user_quota(auth_user["user_id"])
+        
+        if not quota:
+            raise HTTPException(status_code=404, detail="Quota não encontrada")
+        
+        return quota
     
-    db = get_db()
-    quota = await db.get_user_quota(user_id)
-    
-    if not quota:
-        raise HTTPException(status_code=404, detail="Quota não encontrada")
-    
-    return quota
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise handle_error(e, "Erro ao buscar quota")
 
 
 @api_router.post("/quotas/check")
-async def check_quota_endpoint(user_id: str, action: str):
+async def check_quota_endpoint(
+    action: str,
+    auth_user: dict = Depends(get_authenticated_user)
+):
     """Check if user can perform action"""
-    if not user_id or not action:
-        raise HTTPException(status_code=400, detail="user_id e action são obrigatórios")
+    try:
+        db = get_db()
+        
+        # USA user_id DO TOKEN
+        result = await db.check_quota(auth_user["user_id"], action)
+        
+        return result
     
-    db = get_db()
-    result = await db.check_quota(user_id, action)
-    
-    return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise handle_error(e, "Erro ao verificar quota")
 
 
 @api_router.post("/quotas/increment")
-async def increment_quota_endpoint(user_id: str, action: str, amount: int = 1):
+async def increment_quota_endpoint(
+    action: str,
+    amount: int = 1,
+    auth_user: dict = Depends(get_authenticated_user)
+):
     """Increment quota usage"""
-    if not user_id or not action:
-        raise HTTPException(status_code=400, detail="user_id e action são obrigatórios")
+    try:
+        db = get_db()
+        
+        # USA user_id DO TOKEN
+        success = await db.increment_quota(auth_user["user_id"], action, amount)
+        
+        return {"success": success}
     
-    db = get_db()
-    success = await db.increment_quota(user_id, action, amount)
-    
-    return {"success": success}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise handle_error(e, "Erro ao incrementar quota")
 
 
 # Include the router in the main app
