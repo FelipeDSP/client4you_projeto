@@ -401,9 +401,14 @@ export function useCampaigns() {
     limit: number = 100
   ): Promise<MessageLog[]> => {
     try {
-      const response = await fetch(
+      const response = await makeAuthenticatedRequest(
         `${BACKEND_URL}/api/campaigns/${campaignId}/logs?limit=${limit}`
       );
+      
+      if (!response.ok) {
+        throw new Error("Erro ao buscar logs");
+      }
+      
       const data = await response.json();
       return data.logs || [];
     } catch (error) {
@@ -415,6 +420,7 @@ export function useCampaigns() {
   return {
     campaigns,
     isLoading,
+    error,
     fetchCampaigns,
     createCampaign,
     uploadContacts,
