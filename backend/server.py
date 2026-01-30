@@ -643,10 +643,6 @@ async def start_campaign(
             db=db
         )
         
-        # Check if already running
-        if is_campaign_running(campaign_id):
-            raise HTTPException(status_code=400, detail="Campanha já está em execução")
-        
         # Check if has contacts
         if campaign_data.get("total_contacts", 0) == 0:
             raise HTTPException(status_code=400, detail="Campanha não tem contatos. Faça upload primeiro.")
@@ -682,14 +678,18 @@ async def start_campaign(
                 detail="WhatsApp desconectado. Vá em Configurações e clique em 'Gerar QR Code'."
             )
         
-        # Update campaign status
+        # Update campaign status BEFORE starting worker
         await db.update_campaign(campaign_id, {
             "status": "running",
             "started_at": datetime.utcnow().isoformat()
         })
         
-        # Start worker in background using the configured WAHA service
-        await start_campaign_worker(db, campaign_id, waha)
+        # Start worker with atomic check (thread-safe)
+        success, error = await start_campaign_worker(db, campaign_id, waha)
+        if not success:
+            # Revert status if failed to start
+            await db.update_campaign(campaign_id, {"status": "ready"})
+            raise HTTPException(status_code=400, detail=error or "Campanha já em execução")
         
         # Incrementar quota
         await db.increment_quota(auth_user["user_id"], "start_campaign")
