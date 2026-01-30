@@ -297,22 +297,33 @@ async def create_campaign(
 
 
 @api_router.get("/campaigns")
-async def list_campaigns(company_id: str = None, limit: int = 50, skip: int = 0):
-    """List all campaigns for a company"""
-    if not company_id:
-        raise HTTPException(status_code=400, detail="company_id é obrigatório")
+async def list_campaigns(
+    request: Request,
+    auth_user: dict = Depends(get_authenticated_user),
+    limit: int = 50,
+    skip: int = 0
+):
+    """List all campaigns - apenas da empresa do usuário autenticado"""
+    try:
+        db = get_db()
+        
+        # USA company_id DO TOKEN (não do query param)
+        company_id = auth_user["company_id"]
+        campaigns_data = await db.get_campaigns_by_company(company_id, limit, skip)
+        
+        campaigns_with_stats = []
+        for c in campaigns_data:
+            campaign_dict = campaign_to_response(c)
+            campaign_dict["stats"] = calculate_campaign_stats(c).dict()
+            campaign_dict["is_worker_running"] = is_campaign_running(c["id"])
+            campaigns_with_stats.append(campaign_dict)
+        
+        return {"campaigns": campaigns_with_stats}
     
-    db = get_db()
-    campaigns_data = await db.get_campaigns_by_company(company_id, limit, skip)
-    
-    campaigns_with_stats = []
-    for c in campaigns_data:
-        campaign_dict = campaign_to_response(c)
-        campaign_dict["stats"] = calculate_campaign_stats(c).dict()
-        campaign_dict["is_worker_running"] = is_campaign_running(c["id"])
-        campaigns_with_stats.append(campaign_dict)
-    
-    return {"campaigns": campaigns_with_stats}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise handle_error(e, "Erro ao listar campanhas")
 
 
 @api_router.get("/campaigns/{campaign_id}")
