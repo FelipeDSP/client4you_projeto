@@ -36,20 +36,30 @@ async function makeAuthenticatedRequest(
   url: string,
   options: RequestInit = {}
 ): Promise<Response> {
-  const { data: { session } } = await supabase.auth.getSession();
-  
-  if (!session?.access_token) {
-    throw new Error("Sessão expirada. Faça login novamente.");
-  }
-  
-  return fetch(url, {
-    ...options,
-    headers: {
-      ...options.headers,
-      "Authorization": `Bearer ${session.access_token}`,
-      "Content-Type": "application/json"
+  try {
+    const { data: { session }, error } = await supabase.auth.getSession();
+    
+    if (error) {
+      console.error("Error getting session:", error);
+      throw new Error("Erro ao obter sessão. Tente fazer login novamente.");
     }
-  });
+    
+    if (!session?.access_token) {
+      throw new Error("Sessão expirada. Faça login novamente.");
+    }
+    
+    return fetch(url, {
+      ...options,
+      headers: {
+        ...options.headers,
+        "Authorization": `Bearer ${session.access_token}`,
+        "Content-Type": "application/json"
+      }
+    });
+  } catch (error: any) {
+    console.error("makeAuthenticatedRequest error:", error);
+    throw error;
+  }
 }
 
 export function useQuotas() {
