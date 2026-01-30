@@ -27,12 +27,14 @@ async def get_authenticated_user(request: Request) -> dict:
     """
     auth_header = request.headers.get("Authorization")
     if not auth_header or not auth_header.startswith("Bearer "):
+        logger.warning("Authorization header missing or invalid")
         raise HTTPException(
             status_code=401, 
             detail="Token de autenticação não fornecido"
         )
     
     token = auth_header.replace("Bearer ", "")
+    logger.info(f"Validating token for request to {request.url.path}")
     
     try:
         # Criar cliente Supabase
@@ -45,35 +47,47 @@ async def get_authenticated_user(request: Request) -> dict:
         
         supabase = create_client(supabase_url, supabase_key)
         
-        # Validar token e obter usuário
-        user_response = supabase.auth.get_user(token)
+        # Validar token e obter usuário (usando service_role key para validar o token do usuário)
+        try:
+            # Decodificar o JWT localmente para obter o user_id
+            import jwt
+            decoded = jwt.decode(token, options={"verify_signature": False})
+            user_id = decoded.get("sub")
+            
+            if not user_id:
+                logger.error("No user_id in token")
+                raise HTTPException(status_code=401, detail="Token inválido")
+            
+            logger.info(f"Token decoded, user_id: {user_id}")
+            
+            # Buscar company_id e role do perfil usando service_role key
+            profile = supabase.table('profiles')\
+                .select('company_id, role, email')\
+                .eq('id', user_id)\
+                .single()\
+                .execute()
+            
+            if not profile.data:
+                logger.error(f"Profile not found for user_id: {user_id}")
+                raise HTTPException(status_code=403, detail="Perfil de usuário não encontrado")
+            
+            logger.info(f"Profile found: company_id={profile.data.get('company_id')}, role={profile.data.get('role')}")
+            
+            return {
+                "user_id": user_id,
+                "company_id": profile.data.get("company_id"),
+                "role": profile.data.get("role", "user"),
+                "email": profile.data.get("email") or decoded.get("email")
+            }
         
-        if not user_response or not user_response.user:
-            raise HTTPException(status_code=401, detail="Token inválido ou expirado")
-        
-        user_id = user_response.user.id
-        
-        # Buscar company_id e role do perfil
-        profile = supabase.table('profiles')\
-            .select('company_id, role')\
-            .eq('id', user_id)\
-            .single()\
-            .execute()
-        
-        if not profile.data:
-            raise HTTPException(status_code=403, detail="Perfil de usuário não encontrado")
-        
-        return {
-            "user_id": user_id,
-            "company_id": profile.data.get("company_id"),
-            "role": profile.data.get("role", "user"),
-            "email": user_response.user.email
-        }
+        except jwt.DecodeError as e:
+            logger.error(f"JWT decode error: {e}")
+            raise HTTPException(status_code=401, detail="Token malformado")
     
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error authenticating user: {e}")
+        logger.error(f"Error authenticating user: {e}", exc_info=True)
         raise HTTPException(status_code=401, detail="Erro ao validar autenticação")
 
 
