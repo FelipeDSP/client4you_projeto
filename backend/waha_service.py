@@ -3,6 +3,7 @@ import logging
 import base64
 from typing import Optional, Dict, Any
 import re
+from security_utils import validate_media_url, sanitize_template_value
 
 logger = logging.getLogger(__name__)
 
