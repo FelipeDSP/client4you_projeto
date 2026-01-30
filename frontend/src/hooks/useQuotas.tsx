@@ -66,9 +66,7 @@ export function useQuotas() {
 
     try {
       console.log('Fetching quota for user:', user.id);
-      const response = await fetch(
-        `${API_URL}/api/quotas/me?user_id=${user.id}`
-      );
+      const response = await makeAuthenticatedRequest(`${API_URL}/api/quotas/me`);
       
       if (response.ok) {
         const data = await response.json();
@@ -80,9 +78,13 @@ export function useQuotas() {
         console.error('Error fetching quota:', response.status, errorText);
         setError(`Erro ${response.status}`);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error fetching quota:", error);
-      setError('Erro de conexão');
+      if (error.message?.includes("Sessão expirada")) {
+        setError('Sessão expirada');
+      } else {
+        setError('Erro de conexão');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -94,9 +96,12 @@ export function useQuotas() {
     }
 
     try {
-      const response = await fetch(
-        `${API_URL}/api/quotas/check?user_id=${user.id}&action=${action}`,
-        { method: 'POST' }
+      const response = await makeAuthenticatedRequest(
+        `${API_URL}/api/quotas/check`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ action })
+        }
       );
       
       if (response.ok) {
@@ -116,9 +121,12 @@ export function useQuotas() {
     if (!user?.id) return false;
 
     try {
-      const response = await fetch(
-        `${API_URL}/api/quotas/increment?user_id=${user.id}&action=${action}&amount=${amount}`,
-        { method: 'POST' }
+      const response = await makeAuthenticatedRequest(
+        `${API_URL}/api/quotas/increment`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ action, amount })
+        }
       );
       
       if (response.ok) {
