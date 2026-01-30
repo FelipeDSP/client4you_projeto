@@ -65,7 +65,9 @@ export function QuotaLimitModal({
           <div className="rounded-lg bg-muted p-4 text-center">
             <p className="text-sm text-muted-foreground mb-1">Uso Atual</p>
             <p className="text-3xl font-bold">
-              {used} <span className="text-lg text-muted-foreground">/ {limit}</span>
+              {used} <span className="text-lg text-muted-foreground">
+                / {limit === -1 ? '∞ Ilimitado' : limit}
+              </span>
             </p>
           </div>
 
