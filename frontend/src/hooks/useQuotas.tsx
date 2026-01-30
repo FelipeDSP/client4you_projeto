@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "./useAuth";
+import { supabase } from "@/integrations/supabase/client";
 
 export interface UserQuota {
   id: string;
@@ -28,7 +29,28 @@ export interface QuotaCheckResult {
   plan_type?: string;
 }
 
-const API_URL = "";
+const API_URL = import.meta.env.VITE_BACKEND_URL || "";
+
+// Helper function for authenticated requests
+async function makeAuthenticatedRequest(
+  url: string,
+  options: RequestInit = {}
+): Promise<Response> {
+  const { data: { session } } = await supabase.auth.getSession();
+  
+  if (!session?.access_token) {
+    throw new Error("Sessão expirada. Faça login novamente.");
+  }
+  
+  return fetch(url, {
+    ...options,
+    headers: {
+      ...options.headers,
+      "Authorization": `Bearer ${session.access_token}`,
+      "Content-Type": "application/json"
+    }
+  });
+}
 
 export function useQuotas() {
   const { user } = useAuth();
