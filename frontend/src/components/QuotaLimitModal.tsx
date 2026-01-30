@@ -96,7 +96,7 @@ export function QuotaLimitModal({
         </div>
 
         <DialogFooter className="flex-col gap-2">
-          <Link to="/plans" className="w-full">
+          <Link to="/pricing" className="w-full">
             <Button className="w-full" size="lg">
               {message.cta}
             </Button>
