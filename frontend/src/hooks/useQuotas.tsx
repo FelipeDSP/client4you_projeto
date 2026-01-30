@@ -106,11 +106,11 @@ export function useQuotas() {
     }
 
     try {
+      // Backend espera action como query parameter
       const response = await makeAuthenticatedRequest(
-        `${API_URL}/api/quotas/check`,
+        `${API_URL}/api/quotas/check?action=${action}`,
         {
-          method: 'POST',
-          body: JSON.stringify({ action })
+          method: 'POST'
         }
       );
       
@@ -119,7 +119,9 @@ export function useQuotas() {
         console.log('Quota check result:', result);
         return result;
       } else {
-        return { allowed: false, reason: 'Erro ao verificar quota' };
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Quota check failed:', errorData);
+        return { allowed: false, reason: errorData.detail || 'Erro ao verificar quota' };
       }
     } catch (error) {
       console.error("Error checking quota:", error);
