@@ -613,73 +613,93 @@ async def get_campaign_contacts(
 
 # ========== Campaign Control (UPDATED FOR SAAS) ==========
 @api_router.post("/campaigns/{campaign_id}/start")
+@limiter.limit("30/hour")  # Rate limit: 30 starts por hora
 async def start_campaign(
+    request: Request,
     campaign_id: str, 
-    background_tasks: BackgroundTasks, 
-    company_id: str = None,
+    background_tasks: BackgroundTasks,
+    auth_user: dict = Depends(get_authenticated_user),
     # Parameters now optional to support backward compatibility + new env vars
     waha_url: Optional[str] = None,
     waha_api_key: Optional[str] = None,
     waha_session: Optional[str] = "default"
 ):
-    """Start campaign message dispatch"""
-    db = get_db()
-    campaign_data = await db.get_campaign(campaign_id)
-    
-    if not campaign_data:
-        raise HTTPException(status_code=404, detail="Campanha não encontrada")
-    
-    # Check if already running
-    if is_campaign_running(campaign_id):
-        raise HTTPException(status_code=400, detail="Campanha já está em execução")
-    
-    # Check if has contacts
-    if campaign_data.get("total_contacts", 0) == 0:
-        raise HTTPException(status_code=400, detail="Campanha não tem contatos. Faça upload primeiro.")
-    
-    # --- CONFIGURAÇÃO INTELIGENTE (SaaS) ---
-    # 1. Prioridade: Variáveis de Ambiente (Global) > Parâmetros da Requisição (Fallback)
-    final_waha_url = os.getenv('WAHA_DEFAULT_URL') or waha_url
-    final_waha_key = os.getenv('WAHA_MASTER_KEY') or waha_api_key
-    
-    if not final_waha_url or not final_waha_key:
-        raise HTTPException(
-            status_code=500, 
-            detail="Erro de configuração: WAHA_DEFAULT_URL não configurada no servidor."
+    """Start campaign message dispatch - com validação de ownership e quota"""
+    try:
+        db = get_db()
+        
+        # VALIDAR OWNERSHIP
+        campaign_data = await validate_campaign_ownership(
+            campaign_id,
+            auth_user["company_id"],
+            db
         )
-    
-    # 2. Determina a Sessão Automaticamente
-    # Se company_id não vier no body, pega da campanha
-    target_company_id = company_id or campaign_data.get("company_id")
-    if not target_company_id:
-         raise HTTPException(status_code=400, detail="ID da empresa não identificado.")
-
-    # Se o frontend mandou um session específico (legado), usa. Senão, calcula.
-    if waha_session and waha_session != "default":
-        final_session = waha_session
-    else:
-        final_session = await get_session_name_for_company(target_company_id)
-
-    # 3. Cria serviço e Verifica Conexão
-    waha = WahaService(final_waha_url, final_waha_key, final_session)
-    
-    connection = await waha.check_connection()
-    if not connection.get("connected"):
-        raise HTTPException(
-            status_code=400, 
-            detail="WhatsApp desconectado. Vá em Configurações e clique em 'Gerar QR Code'."
+        
+        # VALIDAR QUOTA (requer Pro ou Enterprise)
+        await validate_quota_for_action(
+            user_id=auth_user["user_id"],
+            action="start_campaign",
+            required_plan=["Pro", "Enterprise"],
+            db=db
         )
+        
+        # Check if already running
+        if is_campaign_running(campaign_id):
+            raise HTTPException(status_code=400, detail="Campanha já está em execução")
+        
+        # Check if has contacts
+        if campaign_data.get("total_contacts", 0) == 0:
+            raise HTTPException(status_code=400, detail="Campanha não tem contatos. Faça upload primeiro.")
+        
+        # --- CONFIGURAÇÃO INTELIGENTE (SaaS) ---
+        # 1. Prioridade: Variáveis de Ambiente (Global) > Parâmetros da Requisição (Fallback)
+        final_waha_url = os.getenv('WAHA_DEFAULT_URL') or waha_url
+        final_waha_key = os.getenv('WAHA_MASTER_KEY') or waha_api_key
+        
+        if not final_waha_url or not final_waha_key:
+            raise HTTPException(
+                status_code=500, 
+                detail="Erro de configuração: WAHA_DEFAULT_URL não configurada no servidor."
+            )
+        
+        # 2. Determina a Sessão Automaticamente
+        # Usa company_id DO TOKEN, não do body
+        target_company_id = auth_user["company_id"]
+
+        # Se o frontend mandou um session específico (legado), usa. Senão, calcula.
+        if waha_session and waha_session != "default":
+            final_session = waha_session
+        else:
+            final_session = await get_session_name_for_company(target_company_id)
+
+        # 3. Cria serviço e Verifica Conexão
+        waha = WahaService(final_waha_url, final_waha_key, final_session)
+        
+        connection = await waha.check_connection()
+        if not connection.get("connected"):
+            raise HTTPException(
+                status_code=400, 
+                detail="WhatsApp desconectado. Vá em Configurações e clique em 'Gerar QR Code'."
+            )
+        
+        # Update campaign status
+        await db.update_campaign(campaign_id, {
+            "status": "running",
+            "started_at": datetime.utcnow().isoformat()
+        })
+        
+        # Start worker in background using the configured WAHA service
+        await start_campaign_worker(db, campaign_id, waha)
+        
+        # Incrementar quota
+        await db.increment_quota(auth_user["user_id"], "start_campaign")
+        
+        return {"success": True, "message": "Campanha iniciada com sucesso"}
     
-    # Update campaign status
-    await db.update_campaign(campaign_id, {
-        "status": "running",
-        "started_at": datetime.utcnow().isoformat()
-    })
-    
-    # Start worker in background using the configured WAHA service
-    await start_campaign_worker(db, campaign_id, waha)
-    
-    return {"success": True, "message": "Campanha iniciada com sucesso"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise handle_error(e, "Erro ao iniciar campanha")
 
 
 @api_router.post("/campaigns/{campaign_id}/pause")
