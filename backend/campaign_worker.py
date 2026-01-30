@@ -22,9 +22,19 @@ WAIT_CHECK_INTERVAL = 60  # seconds
 MAX_WAIT_CYCLES = 1440  # 24 hours (1440 minutes)
 
 
-def is_within_working_hours(settings: dict) -> bool:
-    """Check if current time is within working hours"""
-    now = datetime.now()
+def get_campaign_timezone(campaign_data: dict) -> ZoneInfo:
+    """Get timezone for campaign (default to Brazil/São Paulo)"""
+    tz_name = campaign_data.get("timezone", "America/Sao_Paulo")
+    try:
+        return ZoneInfo(tz_name)
+    except Exception:
+        logger.warning(f"Invalid timezone {tz_name}, using America/Sao_Paulo")
+        return ZoneInfo("America/Sao_Paulo")
+
+
+def is_within_working_hours(settings: dict, campaign_tz: ZoneInfo) -> bool:
+    """Check if current time is within working hours - timezone aware"""
+    now = datetime.now(campaign_tz)
     
     # Check working days (0 = Monday, 6 = Sunday)
     working_days = settings.get("working_days", [0, 1, 2, 3, 4])
@@ -42,10 +52,13 @@ def is_within_working_hours(settings: dict) -> bool:
             current_time = now.time()
             
             if start <= end:
+                # Normal hours (e.g., 09:00 to 18:00)
                 return start <= current_time <= end
-            else:  # Crosses midnight
+            else:
+                # Crosses midnight (e.g., 22:00 to 02:00)
                 return current_time >= start or current_time <= end
-        except ValueError:
+        except ValueError as e:
+            logger.warning(f"Invalid time format: {e}")
             return True
     
     return True
