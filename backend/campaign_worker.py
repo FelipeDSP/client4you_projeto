@@ -32,6 +32,32 @@ def get_campaign_timezone(campaign_data: dict) -> ZoneInfo:
         return ZoneInfo("America/Sao_Paulo")
 
 
+def sanitize_error_message(error_msg: str, max_length: int = 200) -> str:
+    """
+    Sanitize error message before saving to database.
+    Remove sensitive information and limit size.
+    """
+    if not error_msg:
+        return "Erro desconhecido"
+    
+    import re
+    
+    # Remove possible API keys (long alphanumeric sequences)
+    error_msg = re.sub(r'\b[A-Za-z0-9_-]{30,}\b', '[REDACTED]', error_msg)
+    
+    # Remove IPs
+    error_msg = re.sub(r'\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b', '[IP]', error_msg)
+    
+    # Remove full URLs (keep only domain)
+    error_msg = re.sub(r'https?://[^\s]+', '[URL]', error_msg)
+    
+    # Limit size
+    if len(error_msg) > max_length:
+        error_msg = error_msg[:max_length] + "..."
+    
+    return error_msg
+
+
 def is_within_working_hours(settings: dict, campaign_tz: ZoneInfo) -> bool:
     """Check if current time is within working hours - timezone aware"""
     now = datetime.now(campaign_tz)
