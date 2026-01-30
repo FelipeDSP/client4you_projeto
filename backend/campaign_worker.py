@@ -299,7 +299,7 @@ async def process_campaign(
                 await asyncio.sleep(interval)
             else:
                 # No more contacts, will complete in next iteration
-                logger.info(f"Last message sent, campaign will complete in next iteration")
+                logger.info("Last message sent, campaign will complete in next iteration")
     
     except asyncio.CancelledError:
         logger.info(f"Campaign {campaign_id} worker cancelled")
