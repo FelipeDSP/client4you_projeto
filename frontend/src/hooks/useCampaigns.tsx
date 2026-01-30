@@ -177,17 +177,16 @@ export function useCampaigns() {
     }
 
     try {
-      const response = await fetch(
-        `${BACKEND_URL}/api/campaigns?company_id=${user.companyId}&user_id=${user.id}`, 
+      const response = await makeAuthenticatedRequest(
+        `${BACKEND_URL}/api/campaigns`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ name, message, settings }),
         }
       );
 
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json().catch(() => ({}));
         throw new Error(error.detail || "Erro ao criar campanha");
       }
 
