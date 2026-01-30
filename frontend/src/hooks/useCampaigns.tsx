@@ -253,23 +253,18 @@ export function useCampaigns() {
     try {
       const params = new URLSearchParams();
       
-      if (user?.companyId) {
-        params.append("company_id", user.companyId);
-      }
-      
       if (wahaConfig) {
         params.append("waha_url", wahaConfig.url);
         params.append("waha_api_key", wahaConfig.apiKey);
         params.append("waha_session", wahaConfig.session);
       }
       
-      const response = await fetch(
-        `${BACKEND_URL}/api/campaigns/${campaignId}/start?${params.toString()}`,
-        { method: "POST" }
-      );
+      const url = `${BACKEND_URL}/api/campaigns/${campaignId}/start${params.toString() ? `?${params.toString()}` : ''}`;
+      
+      const response = await makeAuthenticatedRequest(url, { method: "POST" });
 
       if (!response.ok) {
-        const error = await response.json();
+        const error = await response.json().catch(() => ({}));
         throw new Error(error.detail || "Erro ao iniciar campanha");
       }
 
