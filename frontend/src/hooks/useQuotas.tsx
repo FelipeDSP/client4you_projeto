@@ -106,6 +106,34 @@ export function useQuotas() {
     }
 
     try {
+      // Verificar localmente se é ilimitado ANTES de chamar API
+      if (quota) {
+        let limit = 0;
+        let used = 0;
+        
+        if (action === 'lead_search') {
+          limit = quota.leads_limit;
+          used = quota.leads_used;
+        } else if (action === 'campaign_send') {
+          limit = quota.campaigns_limit;
+          used = quota.campaigns_used;
+        } else if (action === 'message_send') {
+          limit = quota.messages_limit;
+          used = quota.messages_sent;
+        }
+        
+        // -1 = Ilimitado
+        if (limit === -1) {
+          console.log(`Quota check: ${action} is UNLIMITED`);
+          return { 
+            allowed: true, 
+            unlimited: true,
+            used,
+            limit: -1
+          };
+        }
+      }
+      
       // Backend espera action como query parameter
       const response = await makeAuthenticatedRequest(
         `${API_URL}/api/quotas/check?action=${action}`,
@@ -117,6 +145,12 @@ export function useQuotas() {
       if (response.ok) {
         const result = await response.json();
         console.log('Quota check result:', result);
+        
+        // Se backend retornar limit -1, também tratar como ilimitado
+        if (result.limit === -1) {
+          return { ...result, allowed: true, unlimited: true };
+        }
+        
         return result;
       } else {
         const errorData = await response.json().catch(() => ({}));
@@ -127,7 +161,7 @@ export function useQuotas() {
       console.error("Error checking quota:", error);
       return { allowed: false, reason: 'Erro de conexão' };
     }
-  }, [user?.id]);
+  }, [user?.id, quota]);
 
   const incrementQuota = useCallback(async (action: 'lead_search' | 'campaign_send' | 'message_send', amount: number = 1): Promise<boolean> => {
     if (!user?.id) return false;
