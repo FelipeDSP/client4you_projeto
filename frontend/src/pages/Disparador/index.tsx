@@ -97,7 +97,7 @@ export default function Disparador() {
                 <span className="font-bold">{quota.plan_name}</span>
               </div>
             </div>
-            <Link to="/plans">
+            <Link to="/pricing">
               <Button size="lg" className="gap-2">
                 <Crown className="h-4 w-4" />
                 Ver Planos e Fazer Upgrade
