@@ -327,21 +327,33 @@ async def list_campaigns(
 
 
 @api_router.get("/campaigns/{campaign_id}")
-async def get_campaign(campaign_id: str):
-    """Get campaign details"""
-    db = get_db()
-    campaign_data = await db.get_campaign(campaign_id)
+async def get_campaign(
+    campaign_id: str,
+    auth_user: dict = Depends(get_authenticated_user)
+):
+    """Get campaign details - com validação de ownership"""
+    try:
+        db = get_db()
+        
+        # VALIDAR OWNERSHIP (previne IDOR)
+        campaign_data = await validate_campaign_ownership(
+            campaign_id, 
+            auth_user["company_id"],
+            db
+        )
+        
+        stats = calculate_campaign_stats(campaign_data)
+        
+        return {
+            "campaign": campaign_to_response(campaign_data),
+            "stats": stats,
+            "is_worker_running": is_campaign_running(campaign_id)
+        }
     
-    if not campaign_data:
-        raise HTTPException(status_code=404, detail="Campanha não encontrada")
-    
-    stats = calculate_campaign_stats(campaign_data)
-    
-    return {
-        "campaign": campaign_to_response(campaign_data),
-        "stats": stats,
-        "is_worker_running": is_campaign_running(campaign_id)
-    }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise handle_error(e, "Erro ao buscar campanha")
 
 
 @api_router.put("/campaigns/{campaign_id}")
