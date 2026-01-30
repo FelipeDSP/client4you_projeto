@@ -30,3 +30,5 @@ typer>=0.9.0
 httpx>=0.27.0
 openpyxl>=3.1.0
 deprecation>=2.1.0
+slowapi>=0.1.9
+python-magic>=0.4.27
