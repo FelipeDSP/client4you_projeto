@@ -170,7 +170,11 @@ export function useQuotas() {
 
   useEffect(() => {
     if (user?.id) {
+      console.log("[useQuotas] User logged in, fetching quota...", user.id);
       fetchQuota();
+    } else {
+      console.log("[useQuotas] No user, skipping quota fetch");
+      setIsLoading(false);
     }
   }, [user?.id, fetchQuota]);
 
