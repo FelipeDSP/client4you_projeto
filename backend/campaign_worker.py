@@ -240,7 +240,7 @@ async def process_campaign(
                 result = {"success": False, "error": "Unknown message type"}
             
             # Update contact status
-            now = datetime.utcnow().isoformat()
+            now = datetime.now(campaign_tz).isoformat()
             if result.get("success"):
                 new_status = "sent"
                 error_msg = None
