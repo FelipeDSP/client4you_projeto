@@ -15,7 +15,8 @@ from supabase_service import SupabaseService
 
 logger = logging.getLogger(__name__)
 
-webhook_router = APIRouter()
+# Usar prefixo /api para garantir roteamento correto no Kubernetes
+webhook_router = APIRouter(prefix="/api")
 
 # Não instanciar db aqui - será criado dentro das funções
 # db = SupabaseService()  # REMOVIDO
