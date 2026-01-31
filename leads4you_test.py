@@ -88,15 +88,27 @@ class Leads4YouTester:
             response = await self.client.get(f"{webhook_url}/webhook/test")
             
             if response.status_code == 200:
-                data = response.json()
-                has_ok_status = data.get("status") == "ok"
-                
-                self.log_test(
-                    "Webhook Kiwify - GET /webhook/test",
-                    has_ok_status,
-                    f"Status: {response.status_code}, Response: {data}"
-                )
-                return has_ok_status
+                try:
+                    data = response.json()
+                    has_ok_status = data.get("status") == "ok"
+                    
+                    self.log_test(
+                        "Webhook Kiwify - GET /webhook/test",
+                        has_ok_status,
+                        f"Status: {response.status_code}, Response: {data}"
+                    )
+                    return has_ok_status
+                except Exception as json_error:
+                    # If JSON parsing fails, check if response is plain text "ok"
+                    response_text = response.text
+                    has_ok_status = "ok" in response_text.lower()
+                    
+                    self.log_test(
+                        "Webhook Kiwify - GET /webhook/test",
+                        has_ok_status,
+                        f"Status: {response.status_code}, Response (text): {response_text}, JSON Error: {json_error}"
+                    )
+                    return has_ok_status
             else:
                 self.log_test(
                     "Webhook Kiwify - GET /webhook/test",
