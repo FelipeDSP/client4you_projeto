@@ -20,10 +20,10 @@ export function QuotaLimitModal({
   onClose
 }: QuotaLimitModalProps) {
   
-  // URLs do Kiwify - SUBSTITUA PELOS SEUS LINKS REAIS
-  const KIWIFY_BASICO_URL = "https://pay.kiwify.com.br/SEU_LINK_BASICO";
-  const KIWIFY_INTERMEDIARIO_URL = "https://pay.kiwify.com.br/SEU_LINK_INTERMEDIARIO";
-  const KIWIFY_AVANCADO_URL = "https://pay.kiwify.com.br/SEU_LINK_AVANCADO";
+  // URLs do Kiwify - Links de pagamento
+  const KIWIFY_BASICO_URL = "https://pay.kiwify.com.br/FzhyShi";
+  const KIWIFY_INTERMEDIARIO_URL = "https://pay.kiwify.com.br/YllDqCN";
+  const KIWIFY_AVANCADO_URL = "https://pay.kiwify.com.br/TnUQI5f";
 
   const handleUpgrade = (planUrl: string) => {
     window.open(planUrl, '_blank');
