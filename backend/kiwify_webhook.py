@@ -68,6 +68,7 @@ def verify_kiwify_signature(payload: bytes, signature: str) -> bool:
 async def get_user_by_email(email: str) -> Optional[Dict]:
     """Busca usuário pelo email"""
     try:
+        db = SupabaseService()  # Criar instância aqui
         result = await db.client.from_('profiles').select('*').eq('email', email).maybeSingle().execute()
         return result.data
     except Exception as e:
