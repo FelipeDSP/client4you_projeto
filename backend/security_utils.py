@@ -386,8 +386,11 @@ async def validate_quota_for_action(
     
     # Verificar plano se necessário
     if required_plan:
-        user_plan = quota.get("plan_name", "Free")
-        if user_plan not in required_plan:
+        # Compatível com plan_type OU plan_name (campos diferentes nas migrations)
+        user_plan = quota.get("plan_type", quota.get("plan_name", quota.get("plan", "demo")))
+        # Normalizar para comparação (Pro, Enterprise, Demo)
+        user_plan_normalized = user_plan.capitalize() if user_plan else "Demo"
+        if user_plan_normalized not in required_plan:
             raise HTTPException(
                 status_code=403,
                 detail=f"Esta funcionalidade está disponível apenas para os planos: {', '.join(required_plan)}. "
