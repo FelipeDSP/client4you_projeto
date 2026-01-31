@@ -70,19 +70,57 @@ export function useSearchSession() {
       // Obter token de autenticação
       const { data: { session: authSession } } = await supabase.auth.getSession();
 
-      // Chamar Edge Function
-      const { data, error: invokeError } = await supabase.functions.invoke('search-leads-v2', {
-        body: {
-          action: 'create',
-          query,
-          location,
-          search_type: searchType,
-          company_id: user.companyId
-        },
-        headers: authSession?.access_token 
-          ? { Authorization: `Bearer ${authSession.access_token}` }
-          : undefined,
-      });
+      // Chamar Edge Function (fallback para search-leads se search-leads-v2 não existir)
+      let data, invokeError;
+      
+      try {
+        // Tenta usar a nova função primeiro
+        const response = await supabase.functions.invoke('search-leads-v2', {
+          body: {
+            action: 'create',
+            query,
+            location,
+            search_type: searchType,
+            company_id: user.companyId
+          },
+          headers: authSession?.access_token 
+            ? { Authorization: `Bearer ${authSession.access_token}` }
+            : undefined,
+        });
+        data = response.data;
+        invokeError = response.error;
+      } catch (err) {
+        console.warn('[useSearchSession] search-leads-v2 not found, falling back to search-leads');
+        
+        // Fallback: usar função antiga
+        const response = await supabase.functions.invoke('search-leads', {
+          body: {
+            query,
+            location,
+            companyId: user.companyId,
+            searchId: 'temp-' + Date.now() // ID temporário
+          },
+          headers: authSession?.access_token 
+            ? { Authorization: `Bearer ${authSession.access_token}` }
+            : undefined,
+        });
+        
+        // Adaptar resposta da função antiga para novo formato
+        if (response.data && response.data.success) {
+          data = {
+            session_id: 'legacy-' + Date.now(),
+            results: [],
+            new_count: response.data.count || 0,
+            duplicate_count: 0,
+            current_page: 1,
+            has_more: false,
+            total_new: response.data.count || 0,
+            total_duplicates: 0
+          };
+        } else {
+          invokeError = response.error;
+        }
+      }
 
       if (invokeError) {
         console.error("Error invoking search-leads-v2:", invokeError);
