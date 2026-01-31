@@ -25,11 +25,18 @@ webhook_router = APIRouter(prefix="/api")
 KIWIFY_WEBHOOK_SECRET = os.environ.get('KIWIFY_WEBHOOK_SECRET', '')
 
 # Mapeamento de produtos Kiwify para planos
-# IMPORTANTE: Substitua pelos IDs reais dos produtos criados no Kiwify
-PRODUCT_PLAN_MAP = {
-    'PRODUCT_ID_BASICO': 'basico',           # Substitua pelo ID real do Plano Básico
-    'PRODUCT_ID_INTERMEDIARIO': 'intermediario',  # Substitua pelo ID real do Plano Intermediário
-    'PRODUCT_ID_AVANCADO': 'avancado'        # Substitua pelo ID real do Plano Avançado
+# ID do produto principal: 4a99e8f0-fee2-11f0-8736-21de1acd3b14
+# O Kiwify envia o nome do plano no campo product_name
+PRODUCT_ID = '4a99e8f0-fee2-11f0-8736-21de1acd3b14'
+
+# Mapeamento por nome do plano (como aparece no Kiwify)
+PLAN_NAME_MAP = {
+    'básico': 'basico',
+    'basico': 'basico',
+    'intermediário': 'intermediario',
+    'intermediario': 'intermediario',
+    'avançado': 'avancado',
+    'avancado': 'avancado',
 }
 
 # Configurações de limites por plano
