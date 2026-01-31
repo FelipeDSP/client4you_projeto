@@ -161,7 +161,7 @@ export default function SearchLeads() {
 
           {session && (
             <div className="flex items-center gap-4 pt-4 border-t">
-              <div className="flex-1 flex items-center gap-3">
+              <div className="flex-1 flex items-center gap-3 flex-wrap">
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-gray-600">Resultados:</span>
                   <Badge variant="default" className="bg-green-500">
@@ -173,10 +173,16 @@ export default function SearchLeads() {
                 </div>
                 
                 {session.current_page > 0 && (
-                  <Badge variant="outline">
-                    Página {session.current_page}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline">
+                      📄 Página {session.current_page} • {results.length} leads carregados
+                    </Badge>
+                  </div>
                 )}
+                
+                <div className="text-xs text-gray-500">
+                  💡 Dica: Use "Carregar Mais" para buscar leads adicionais desta região
+                </div>
               </div>
 
               <div className="flex gap-2">
