@@ -92,14 +92,14 @@ class Leads4YouTester:
                 has_ok_status = data.get("status") == "ok"
                 
                 self.log_test(
-                    "Webhook Kiwify - GET /api/webhook/test",
+                    "Webhook Kiwify - GET /webhook/test",
                     has_ok_status,
                     f"Status: {response.status_code}, Response: {data}"
                 )
                 return has_ok_status
             else:
                 self.log_test(
-                    "Webhook Kiwify - GET /api/webhook/test",
+                    "Webhook Kiwify - GET /webhook/test",
                     False,
                     f"Status: {response.status_code}",
                     response.text
@@ -108,7 +108,7 @@ class Leads4YouTester:
                 
         except Exception as e:
             self.log_test(
-                "Webhook Kiwify - GET /api/webhook/test",
+                "Webhook Kiwify - GET /webhook/test",
                 False,
                 f"Exception: {str(e)}"
             )
