@@ -155,7 +155,7 @@ async def log_webhook_event(event_type: str, payload: Dict[str, Any], status: st
     try:
         db = SupabaseService()  # Criar instância aqui
         
-        await db.client.from_('webhook_logs').insert({
+        db.client.table('webhook_logs').insert({
             'event_type': event_type,
             'payload': payload,
             'status': status,
