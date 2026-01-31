@@ -117,7 +117,7 @@ const AppRoutes = () => (
       element={
         <ProtectedRoute>
           <MainLayout>
-            <HistoryV2 />
+            <History />
           </MainLayout>
         </ProtectedRoute>
       }
@@ -127,7 +127,7 @@ const AppRoutes = () => (
       element={
         <ProtectedRoute>
           <MainLayout>
-            <HistoryV2 />
+            <History />
           </MainLayout>
         </ProtectedRoute>
       }
