@@ -250,11 +250,11 @@ async def create_campaign(
     try:
         db = get_db()
         
-        # VALIDAR QUOTA E PLANO (requer Pro ou Enterprise)
+        # VALIDAR QUOTA E PLANO (requer Intermediário ou Avançado para campanhas)
         await validate_quota_for_action(
             user_id=auth_user["user_id"],
             action="create_campaign",
-            required_plan=["Pro", "Enterprise"],
+            required_plan=["intermediario", "avancado"],
             db=db
         )
         
