@@ -162,7 +162,7 @@ class Leads4YouTester:
         print()
         print("Testing endpoints:")
         print("1. GET /api/ - Health check (version and mode)")
-        print("2. GET /api/webhook/test - Kiwify webhook test")
+        print("2. GET /webhook/test - Kiwify webhook test")
         print("3. GET /api/whatsapp/status?company_id=test123 - WhatsApp status")
         print()
         
