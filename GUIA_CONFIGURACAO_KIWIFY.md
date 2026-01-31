@@ -75,7 +75,7 @@ Para cada produto:
 1. No painel Kiwify, vá em **Configurações** → **Webhooks**
 2. Clique em **"+ Adicionar webhook"**
 3. Configure:
-   - **URL do webhook:** `https://SEU_DOMINIO.com/api/webhook/kiwify`
+   - **URL do webhook:** `https://seu-dominio.com/api/webhook/kiwify`
    - **Eventos a receber:**
      - ✅ `order.paid` (Pedido aprovado)
      - ✅ `order.refunded` (Pedido reembolsado)
