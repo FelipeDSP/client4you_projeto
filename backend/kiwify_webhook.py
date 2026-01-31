@@ -229,7 +229,7 @@ async def kiwify_webhook(
         payload_dict = await request.json()
         payload = KiwifyWebhookPayload(**payload_dict)
         
-        logger.info(f"📩 Webhook recebido: {payload.event_type} - {payload.customer_email}")
+        logger.info(f"📩 Webhook recebido: {payload.event_type} - {payload.customer_email} - Produto: {payload.product_name}")
         
         # Buscar usuário pelo email
         user = await get_user_by_email(payload.customer_email)
@@ -249,21 +249,38 @@ async def kiwify_webhook(
         # Processar evento
         if payload.event_type == 'order.paid':
             # PAGAMENTO APROVADO - UPGRADE
-            plan = PRODUCT_PLAN_MAP.get(payload.product_id, 'Pro')
+            # Identificar plano pelo nome do produto (Básico, Intermediário, Avançado)
+            product_name_lower = payload.product_name.lower().strip()
+            plan_key = PLAN_NAME_MAP.get(product_name_lower)
+            
+            if not plan_key:
+                # Tentar encontrar pelo nome parcial
+                for name, key in PLAN_NAME_MAP.items():
+                    if name in product_name_lower:
+                        plan_key = key
+                        break
+            
+            if not plan_key:
+                logger.warning(f"⚠️ Plano não identificado: {payload.product_name}")
+                plan_key = 'basico'  # Fallback para básico
+            
+            logger.info(f"✅ Plano identificado: {plan_key} (produto: {payload.product_name})")
             
             await upgrade_user_to_plan(
                 user_id=user_id,
-                plan=plan,
+                plan=plan_key,
                 subscription_id=payload.subscription_id or payload.order_id,
                 order_id=payload.order_id
             )
             
             await log_webhook_event(payload.event_type, payload_dict, 'success')
             
+            plan_config = PLAN_LIMITS.get(plan_key, {})
             return {
                 "status": "success",
-                "message": f"User upgraded to {plan}",
-                "user_id": user_id
+                "message": f"User upgraded to {plan_config.get('name', plan_key)}",
+                "user_id": user_id,
+                "plan": plan_key
             }
         
         elif payload.event_type == 'order.refunded':
