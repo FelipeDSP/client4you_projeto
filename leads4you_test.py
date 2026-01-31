@@ -99,16 +99,24 @@ class Leads4YouTester:
                     )
                     return has_ok_status
                 except Exception as json_error:
-                    # If JSON parsing fails, check if response is plain text "ok"
+                    # If JSON parsing fails, check if response is HTML (routing issue)
                     response_text = response.text
-                    has_ok_status = "ok" in response_text.lower()
-                    
-                    self.log_test(
-                        "Webhook Kiwify - GET /webhook/test",
-                        has_ok_status,
-                        f"Status: {response.status_code}, Response (text): {response_text}, JSON Error: {json_error}"
-                    )
-                    return has_ok_status
+                    if "<!doctype html>" in response_text.lower():
+                        self.log_test(
+                            "Webhook Kiwify - GET /webhook/test",
+                            False,
+                            f"Status: {response.status_code} - ROUTING ISSUE: Request routed to frontend instead of backend. Webhook routes not configured in ingress/proxy.",
+                            "Infrastructure issue: /webhook/* paths need to be routed to backend in Kubernetes ingress"
+                        )
+                        return False
+                    else:
+                        has_ok_status = "ok" in response_text.lower()
+                        self.log_test(
+                            "Webhook Kiwify - GET /webhook/test",
+                            has_ok_status,
+                            f"Status: {response.status_code}, Response (text): {response_text}, JSON Error: {json_error}"
+                        )
+                        return has_ok_status
             else:
                 self.log_test(
                     "Webhook Kiwify - GET /webhook/test",
