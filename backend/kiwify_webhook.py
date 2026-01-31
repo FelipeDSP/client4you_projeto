@@ -146,6 +146,8 @@ async def log_webhook_event(event_type: str, payload: Dict[str, Any], status: st
     Registra evento de webhook para auditoria
     """
     try:
+        db = SupabaseService()  # Criar instância aqui
+        
         await db.client.from_('webhook_logs').insert({
             'event_type': event_type,
             'payload': payload,
