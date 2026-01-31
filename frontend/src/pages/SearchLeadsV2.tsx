@@ -57,7 +57,7 @@ export default function SearchLeads() {
     // Resetar busca anterior
     resetSearch();
     
-    // Iniciar nova busca
+    // Iniciar nova busca (página 0)
     const response = await startSearch(term, location, 'serp');
     
     if (response) {
@@ -67,7 +67,9 @@ export default function SearchLeads() {
       if (response.new_count === 0 && response.duplicate_count === 0) {
         toast.info("Nenhum resultado encontrado para esta busca");
       } else {
-        toast.success(`Encontrados ${response.new_count} novos leads e ${response.duplicate_count} já existentes`);
+        toast.success(
+          `Página 1: ${response.new_count} novos leads, ${response.duplicate_count} já capturados`
+        );
       }
     } else if (error) {
       toast.error(error);
