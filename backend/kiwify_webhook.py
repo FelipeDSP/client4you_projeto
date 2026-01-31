@@ -25,9 +25,44 @@ webhook_router = APIRouter(prefix="/api")
 KIWIFY_WEBHOOK_SECRET = os.environ.get('KIWIFY_WEBHOOK_SECRET', '')
 
 # Mapeamento de produtos Kiwify para planos
+# IMPORTANTE: Substitua pelos IDs reais dos produtos criados no Kiwify
 PRODUCT_PLAN_MAP = {
-    'PRODUCT_ID_PRO': 'Pro',           # Substitua pelo ID real do produto Pro
-    'PRODUCT_ID_ENTERPRISE': 'Enterprise'  # Substitua pelo ID real do produto Enterprise
+    'PRODUCT_ID_BASICO': 'basico',           # Substitua pelo ID real do Plano Básico
+    'PRODUCT_ID_INTERMEDIARIO': 'intermediario',  # Substitua pelo ID real do Plano Intermediário
+    'PRODUCT_ID_AVANCADO': 'avancado'        # Substitua pelo ID real do Plano Avançado
+}
+
+# Configurações de limites por plano
+PLAN_LIMITS = {
+    'demo': {
+        'name': 'Plano Demo',
+        'leads_limit': 5,
+        'campaigns_limit': 1,
+        'messages_limit': 50,
+        'expires_days': 7
+    },
+    'basico': {
+        'name': 'Plano Básico',
+        'leads_limit': -1,  # Ilimitado
+        'campaigns_limit': 0,  # Sem disparador
+        'messages_limit': 0,
+        'expires_days': None  # Não expira
+    },
+    'intermediario': {
+        'name': 'Plano Intermediário',
+        'leads_limit': -1,
+        'campaigns_limit': -1,  # Ilimitado
+        'messages_limit': -1,
+        'expires_days': None
+    },
+    'avancado': {
+        'name': 'Plano Avançado',
+        'leads_limit': -1,
+        'campaigns_limit': -1,
+        'messages_limit': -1,
+        'whatsapp_instances': 5,  # Múltiplas instâncias
+        'expires_days': None
+    }
 }
 
 class KiwifyWebhookPayload(BaseModel):
