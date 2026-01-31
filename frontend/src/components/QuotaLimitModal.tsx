@@ -23,7 +23,7 @@ export function QuotaLimitModal({
   // URLs do Kiwify - Links de pagamento
   const KIWIFY_BASICO_URL = "https://pay.kiwify.com.br/FzhyShi";
   const KIWIFY_INTERMEDIARIO_URL = "https://pay.kiwify.com.br/YllDqCN";
-  const KIWIFY_AVANCADO_URL = "https://pay.kiwify.com.br/TnUQI5f";
+  const KIWIFY_AVANCADO_URL = "https://pay.kiwify.com.br/TnUQI3f";
 
   const handleUpgrade = (planUrl: string) => {
     window.open(planUrl, '_blank');
