@@ -37,19 +37,14 @@ const items = [
     icon: Search,
   },
   {
-    title: "Biblioteca",
-    url: "/leads",
-    icon: Library,
+    title: "Histórico & Biblioteca",
+    url: "/history",
+    icon: History,
   },
   {
     title: "Disparador",
     url: "/disparador",
     icon: MessageSquare,
-  },
-  {
-    title: "Histórico",
-    url: "/history",
-    icon: History,
   },
   {
     title: "Perfil",
