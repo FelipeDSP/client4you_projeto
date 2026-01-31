@@ -97,12 +97,16 @@ async def upgrade_user_to_plan(user_id: str, plan: str, subscription_id: str, or
             lead_limit = 5
             campaigns_limit = 0
         
-        # Atualizar quota
-        await db.client.from_('user_quotas').update({
-            'plan': plan,
-            'lead_search_limit': lead_limit,
+        # Atualizar quota - usando campos corretos da tabela
+        # plan_type: demo, free, pro, enterprise (lowercase)
+        # plan_name: Nome amigável (Ex: "Plano Pro")
+        db.client.table('user_quotas').update({
+            'plan_type': plan.lower(),
+            'plan_name': f'Plano {plan}',
+            'leads_limit': lead_limit,
             'campaigns_limit': campaigns_limit,
-            'valid_until': valid_until,
+            'messages_limit': -1 if plan in ['Pro', 'Enterprise'] else 0,
+            'plan_expires_at': valid_until,
             'subscription_id': subscription_id,
             'order_id': order_id,
             'subscription_status': 'active',
@@ -123,11 +127,14 @@ async def downgrade_user_to_demo(user_id: str, reason: str):
     try:
         db = SupabaseService()  # Criar instância aqui
         
-        await db.client.from_('user_quotas').update({
-            'plan': 'Demo',
-            'lead_search_limit': 5,
+        # Usar campos corretos da tabela
+        db.client.table('user_quotas').update({
+            'plan_type': 'demo',
+            'plan_name': 'Plano Demo',
+            'leads_limit': 5,
             'campaigns_limit': 0,
-            'valid_until': None,
+            'messages_limit': 0,
+            'plan_expires_at': None,
             'subscription_id': None,
             'subscription_status': 'canceled',
             'cancellation_reason': reason,
