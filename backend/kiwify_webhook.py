@@ -121,6 +121,8 @@ async def downgrade_user_to_demo(user_id: str, reason: str):
     Downgrade para plano Demo (cancelamento/reembolso)
     """
     try:
+        db = SupabaseService()  # Criar instância aqui
+        
         await db.client.from_('user_quotas').update({
             'plan': 'Demo',
             'lead_search_limit': 5,
