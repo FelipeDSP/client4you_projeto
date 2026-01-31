@@ -37,7 +37,7 @@ const items = [
     icon: Search,
   },
   {
-    title: "Histórico & Biblioteca",
+    title: "Histórico",
     url: "/history",
     icon: History,
   },
