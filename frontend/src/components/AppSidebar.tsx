@@ -6,7 +6,8 @@ import {
   User, 
   MessageSquare, 
   LogOut,
-  ShieldCheck // <--- Ícone para Admin
+  ShieldCheck, // <--- Ícone para Admin
+  Library // <--- NOVO: Ícone para Biblioteca
 } from "lucide-react";
 import { useLocation, Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
