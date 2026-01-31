@@ -89,7 +89,7 @@ const AppRoutes = () => (
       }
     />
     
-    <Route path="/pricing" element={<Pricing />} />
+    {/* Rota /pricing removida - agora só na landing page */}
     
     {/* Rotas Protegidas com Layout */}
     <Route
