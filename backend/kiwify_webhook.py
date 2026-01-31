@@ -81,6 +81,8 @@ async def upgrade_user_to_plan(user_id: str, plan: str, subscription_id: str, or
     Upgrade do plano do usuário
     """
     try:
+        db = SupabaseService()  # Criar instância aqui
+        
         # Calcular data de expiração (30 dias)
         valid_until = (datetime.now() + timedelta(days=30)).isoformat()
         
