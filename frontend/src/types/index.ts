@@ -16,6 +16,15 @@ export interface Lead {
   extractedAt: string;
   searchId?: string;
   companyId?: string;
+  
+  // Nova arquitetura v2 - Deduplicação e rastreamento
+  fingerprint?: string;
+  timesSeen?: number;
+  firstSeenAt?: string;
+  lastSeenAt?: string;
+  isFavorite?: boolean;
+  tags?: string[];
+  isDuplicate?: boolean; // Temporário - usado apenas em resultados de busca
 }
 
 export interface SearchHistory {
