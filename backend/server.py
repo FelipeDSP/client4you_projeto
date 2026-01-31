@@ -32,6 +32,7 @@ from security_utils import (
     validate_campaign_ownership,
     validate_quota_for_action
 )
+from kiwify_webhook import webhook_router  # <--- NOVO
 
 # --- CORREÇÃO DO LOAD DOTENV ---
 # Pega o diretório atual (backend)
