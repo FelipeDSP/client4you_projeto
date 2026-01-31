@@ -16,7 +16,9 @@ from supabase_service import SupabaseService
 logger = logging.getLogger(__name__)
 
 webhook_router = APIRouter()
-db = SupabaseService()
+
+# Não instanciar db aqui - será criado dentro das funções
+# db = SupabaseService()  # REMOVIDO
 
 # Configuração Kiwify
 KIWIFY_WEBHOOK_SECRET = os.environ.get('KIWIFY_WEBHOOK_SECRET', '')
