@@ -150,6 +150,27 @@ export default function SearchLeads() {
         <ConfigurationAlert type="serp" />
       )}
 
+      {/* Alert sobre Edge Function V2 */}
+      <Card className="p-4 bg-blue-50 border-blue-200">
+        <div className="flex items-start gap-3">
+          <div className="flex-shrink-0">
+            ℹ️
+          </div>
+          <div className="flex-1">
+            <h4 className="font-semibold text-blue-900 mb-1">
+              Nova Arquitetura de Busca Disponível
+            </h4>
+            <p className="text-sm text-blue-700 mb-2">
+              Para habilitar a busca progressiva ilimitada (carregar mais de 20 resultados), 
+              você precisa fazer deploy da Edge Function <code className="bg-blue-100 px-1 py-0.5 rounded">search-leads-v2</code> no Supabase.
+            </p>
+            <p className="text-xs text-blue-600">
+              📄 Instruções: <code>/app/INSTRUCOES_DEPLOY_BUSCA_V2.md</code>
+            </p>
+          </div>
+        </div>
+      </Card>
+
       {/* Área de Busca */}
       <Card className="p-6 bg-white shadow-sm border-none rounded-xl">
         <div className="space-y-6">
