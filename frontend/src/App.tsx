@@ -106,10 +106,20 @@ const AppRoutes = () => (
   element={
     <ProtectedRoute>
       <MainLayout>
-        <SearchLeads />
+        <SearchLeadsV2 />
       </MainLayout>
     </ProtectedRoute>
   }
+    />
+    <Route
+      path="/leads"
+      element={
+        <ProtectedRoute>
+          <MainLayout>
+            <LeadsLibrary />
+          </MainLayout>
+        </ProtectedRoute>
+      }
     />
     <Route
       path="/history"
