@@ -38,6 +38,11 @@ const items = [
     icon: Search,
   },
   {
+    title: "Biblioteca",
+    url: "/leads",
+    icon: Library,
+  },
+  {
     title: "Disparador",
     url: "/disparador",
     icon: MessageSquare,
