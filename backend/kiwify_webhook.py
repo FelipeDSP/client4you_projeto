@@ -69,7 +69,7 @@ async def get_user_by_email(email: str) -> Optional[Dict]:
     """Busca usuário pelo email"""
     try:
         db = SupabaseService()  # Criar instância aqui
-        result = await db.client.from_('profiles').select('*').eq('email', email).maybeSingle().execute()
+        result = db.client.table('profiles').select('*').eq('email', email).maybe_single().execute()
         return result.data
     except Exception as e:
         logger.error(f"Erro ao buscar usuário por email: {e}")
