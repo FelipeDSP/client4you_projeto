@@ -1,4 +1,4 @@
-import { AlertCircle, Sparkles, Zap, Check, Crown, Rocket } from "lucide-react";
+import { AlertCircle, Check, Crown, Rocket, Zap, Bot } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -20,9 +20,10 @@ export function QuotaLimitModal({
   onClose
 }: QuotaLimitModalProps) {
   
-  // URLs do Kiwify (substitua pelos seus links reais)
-  const KIWIFY_PRO_URL = "https://pay.kiwify.com.br/SEU_LINK_PRO";
-  const KIWIFY_ENTERPRISE_URL = "https://pay.kiwify.com.br/SEU_LINK_ENTERPRISE";
+  // URLs do Kiwify - SUBSTITUA PELOS SEUS LINKS REAIS
+  const KIWIFY_BASICO_URL = "https://pay.kiwify.com.br/SEU_LINK_BASICO";
+  const KIWIFY_INTERMEDIARIO_URL = "https://pay.kiwify.com.br/SEU_LINK_INTERMEDIARIO";
+  const KIWIFY_AVANCADO_URL = "https://pay.kiwify.com.br/SEU_LINK_AVANCADO";
 
   const handleUpgrade = (planUrl: string) => {
     window.open(planUrl, '_blank');
@@ -31,7 +32,7 @@ export function QuotaLimitModal({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-orange-400 to-orange-600">
             <AlertCircle className="h-8 w-8 text-white" />
@@ -40,159 +41,183 @@ export function QuotaLimitModal({
             Limite Atingido! 🚀
           </DialogTitle>
           <DialogDescription className="text-center text-base">
-            Você atingiu o limite do seu plano. Faça upgrade para continuar usando!
+            Você atingiu o limite do seu plano. Escolha o melhor plano para você!
           </DialogDescription>
         </DialogHeader>
 
         {/* Planos */}
-        <div className="grid md:grid-cols-2 gap-6 py-6">
+        <div className="grid md:grid-cols-3 gap-4 py-6">
           
-          {/* PLANO PRO */}
-          <Card className="relative overflow-hidden border-2 border-primary hover:shadow-xl transition-all">
-            <div className="absolute top-0 right-0 bg-primary text-white px-4 py-1 text-xs font-semibold rounded-bl-lg">
-              MAIS POPULAR
-            </div>
-            
-            <div className="p-6 space-y-4">
+          {/* PLANO BÁSICO */}
+          <Card className="relative overflow-hidden border-2 hover:border-blue-400 hover:shadow-lg transition-all">
+            <div className="p-5 space-y-4">
               {/* Header */}
               <div className="text-center space-y-2">
                 <div className="flex items-center justify-center gap-2">
-                  <Rocket className="h-6 w-6 text-primary" />
-                  <h3 className="text-2xl font-bold">Plano Pro</h3>
+                  <Zap className="h-5 w-5 text-blue-500" />
+                  <h3 className="text-xl font-bold">Básico</h3>
                 </div>
+                <p className="text-xs text-gray-500">Ideal para começar</p>
                 <div className="flex items-baseline justify-center gap-1">
-                  <span className="text-4xl font-bold">R$ 97</span>
-                  <span className="text-gray-500">/mês</span>
+                  <span className="text-3xl font-bold">R$ 39,90</span>
+                  <span className="text-gray-500 text-sm">/mês</span>
                 </div>
-                <p className="text-sm text-gray-500">
-                  Ideal para profissionais e pequenas equipes
-                </p>
               </div>
 
               {/* Features */}
-              <div className="space-y-3">
-                <div className="flex items-start gap-3">
-                  <Check className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-medium">Buscas Ilimitadas</p>
-                    <p className="text-sm text-gray-500">Capture quantos leads quiser</p>
-                  </div>
+              <div className="space-y-2 text-sm">
+                <div className="flex items-start gap-2">
+                  <Check className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
+                  <span><strong>Extrator de Leads</strong> Ilimitado</span>
                 </div>
-                
-                <div className="flex items-start gap-3">
-                  <Check className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-medium">Disparador WhatsApp</p>
-                    <p className="text-sm text-gray-500">Envio automatizado de mensagens</p>
-                  </div>
+                <div className="flex items-start gap-2">
+                  <Check className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
+                  <span>Exportar para Excel/CSV</span>
                 </div>
-                
-                <div className="flex items-start gap-3">
-                  <Check className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-medium">1 Conexão WhatsApp</p>
-                    <p className="text-sm text-gray-500">QR Code rápido e fácil</p>
-                  </div>
+                <div className="flex items-start gap-2">
+                  <Check className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
+                  <span>Histórico de buscas</span>
                 </div>
-                
-                <div className="flex items-start gap-3">
-                  <Check className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-medium">Campanhas Ilimitadas</p>
-                    <p className="text-sm text-gray-500">Quantas precisar</p>
-                  </div>
+                <div className="flex items-start gap-2">
+                  <Check className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
+                  <span>Suporte por email</span>
                 </div>
-                
-                <div className="flex items-start gap-3">
-                  <Check className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-medium">Suporte Prioritário</p>
-                    <p className="text-sm text-gray-500">Resposta em até 24h</p>
-                  </div>
+                <div className="flex items-start gap-2 text-gray-400">
+                  <span className="w-4 text-center">−</span>
+                  <span>Disparador WhatsApp</span>
+                </div>
+                <div className="flex items-start gap-2 text-gray-400">
+                  <span className="w-4 text-center">−</span>
+                  <span>Agente IA</span>
                 </div>
               </div>
 
               {/* CTA */}
               <Button 
-                className="w-full h-12 text-lg font-semibold"
-                onClick={() => handleUpgrade(KIWIFY_PRO_URL)}
+                variant="outline"
+                className="w-full"
+                onClick={() => handleUpgrade(KIWIFY_BASICO_URL)}
               >
-                Assinar Plano Pro
+                Assinar Básico
               </Button>
             </div>
           </Card>
 
-          {/* PLANO ENTERPRISE */}
-          <Card className="relative overflow-hidden border-2 border-purple-500 hover:shadow-xl transition-all bg-gradient-to-br from-purple-50 to-white">
-            <div className="absolute top-0 right-0 bg-gradient-to-r from-purple-600 to-purple-800 text-white px-4 py-1 text-xs font-semibold rounded-bl-lg">
-              EMPRESAS
+          {/* PLANO INTERMEDIÁRIO - MAIS POPULAR */}
+          <Card className="relative overflow-hidden border-2 border-primary shadow-xl scale-105">
+            <div className="absolute top-0 left-0 right-0 bg-primary text-white px-4 py-1.5 text-xs font-semibold text-center">
+              ⭐ MAIS POPULAR
             </div>
             
-            <div className="p-6 space-y-4">
+            <div className="p-5 pt-10 space-y-4">
               {/* Header */}
               <div className="text-center space-y-2">
                 <div className="flex items-center justify-center gap-2">
-                  <Crown className="h-6 w-6 text-purple-600" />
-                  <h3 className="text-2xl font-bold">Plano Enterprise</h3>
+                  <Rocket className="h-5 w-5 text-primary" />
+                  <h3 className="text-xl font-bold">Intermediário</h3>
                 </div>
+                <p className="text-xs text-gray-500">Para profissionais</p>
                 <div className="flex items-baseline justify-center gap-1">
-                  <span className="text-4xl font-bold">R$ 297</span>
-                  <span className="text-gray-500">/mês</span>
+                  <span className="text-3xl font-bold">R$ 99,90</span>
+                  <span className="text-gray-500 text-sm">/mês</span>
                 </div>
-                <p className="text-sm text-gray-500">
-                  Para empresas que precisam de mais
-                </p>
               </div>
 
               {/* Features */}
-              <div className="space-y-3">
-                <div className="flex items-start gap-3">
-                  <Check className="h-5 w-5 text-purple-500 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-medium">Tudo do Plano Pro</p>
-                    <p className="text-sm text-gray-500">Todos os recursos inclusos</p>
-                  </div>
+              <div className="space-y-2 text-sm">
+                <div className="flex items-start gap-2">
+                  <Check className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
+                  <span>Tudo do plano <strong>Básico</strong></span>
                 </div>
-                
-                <div className="flex items-start gap-3">
-                  <Check className="h-5 w-5 text-purple-500 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-medium">Múltiplas Conexões WhatsApp</p>
-                    <p className="text-sm text-gray-500">Até 5 números simultaneamente</p>
-                  </div>
+                <div className="flex items-start gap-2">
+                  <Check className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
+                  <span><strong>Disparador WhatsApp</strong> Ilimitado</span>
                 </div>
-                
-                <div className="flex items-start gap-3">
-                  <Check className="h-5 w-5 text-purple-500 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-medium">Multi-Servidor</p>
-                    <p className="text-sm text-gray-500">Distribuição de carga avançada</p>
-                  </div>
+                <div className="flex items-start gap-2">
+                  <Check className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
+                  <span>Conexão WhatsApp automatizada</span>
                 </div>
-                
-                <div className="flex items-start gap-3">
-                  <Check className="h-5 w-5 text-purple-500 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-medium">Usuários Ilimitados</p>
-                    <p className="text-sm text-gray-500">Toda sua equipe conectada</p>
-                  </div>
+                <div className="flex items-start gap-2">
+                  <Check className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
+                  <span>Upload de listas de contatos</span>
                 </div>
-                
-                <div className="flex items-start gap-3">
-                  <Check className="h-5 w-5 text-purple-500 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-medium">Suporte VIP</p>
-                    <p className="text-sm text-gray-500">WhatsApp direto + prioridade máxima</p>
-                  </div>
+                <div className="flex items-start gap-2">
+                  <Check className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
+                  <span>Agendamento de mensagens</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <Check className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
+                  <span>Suporte prioritário</span>
                 </div>
               </div>
 
               {/* CTA */}
               <Button 
-                className="w-full h-12 text-lg font-semibold bg-gradient-to-r from-purple-600 to-purple-800 hover:from-purple-700 hover:to-purple-900"
-                onClick={() => handleUpgrade(KIWIFY_ENTERPRISE_URL)}
+                className="w-full"
+                onClick={() => handleUpgrade(KIWIFY_INTERMEDIARIO_URL)}
               >
-                Assinar Plano Enterprise
+                Assinar Intermediário
+              </Button>
+            </div>
+          </Card>
+
+          {/* PLANO AVANÇADO */}
+          <Card className="relative overflow-hidden border-2 border-purple-400 hover:shadow-lg transition-all bg-gradient-to-br from-purple-50 to-white">
+            <div className="absolute top-0 right-0 bg-gradient-to-r from-purple-500 to-purple-700 text-white px-3 py-1 text-xs font-semibold rounded-bl-lg">
+              + IA
+            </div>
+            
+            <div className="p-5 space-y-4">
+              {/* Header */}
+              <div className="text-center space-y-2">
+                <div className="flex items-center justify-center gap-2">
+                  <Crown className="h-5 w-5 text-purple-600" />
+                  <h3 className="text-xl font-bold">Avançado</h3>
+                </div>
+                <p className="text-xs text-gray-500">Solução completa com IA</p>
+                <div className="flex items-baseline justify-center gap-1">
+                  <span className="text-3xl font-bold">R$ 199,90</span>
+                  <span className="text-gray-500 text-sm">/mês</span>
+                </div>
+              </div>
+
+              {/* Features */}
+              <div className="space-y-2 text-sm">
+                <div className="flex items-start gap-2">
+                  <Check className="h-4 w-4 text-purple-500 flex-shrink-0 mt-0.5" />
+                  <span>Tudo do plano <strong>Intermediário</strong></span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <Check className="h-4 w-4 text-purple-500 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <span><strong>Agente de IA</strong></span>
+                    <Badge variant="secondary" className="ml-2 text-xs">Em breve</Badge>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <Check className="h-4 w-4 text-purple-500 flex-shrink-0 mt-0.5" />
+                  <span>Automações avançadas com IA</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <Check className="h-4 w-4 text-purple-500 flex-shrink-0 mt-0.5" />
+                  <span>Respostas automáticas inteligentes</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <Check className="h-4 w-4 text-purple-500 flex-shrink-0 mt-0.5" />
+                  <span>Múltiplas instâncias WhatsApp</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <Check className="h-4 w-4 text-purple-500 flex-shrink-0 mt-0.5" />
+                  <span>API de integração + Suporte dedicado</span>
+                </div>
+              </div>
+
+              {/* CTA */}
+              <Button 
+                className="w-full bg-gradient-to-r from-purple-600 to-purple-800 hover:from-purple-700 hover:to-purple-900"
+                onClick={() => handleUpgrade(KIWIFY_AVANCADO_URL)}
+              >
+                Assinar Avançado
               </Button>
             </div>
           </Card>
