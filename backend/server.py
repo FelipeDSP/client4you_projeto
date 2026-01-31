@@ -636,11 +636,11 @@ async def start_campaign(
             db
         )
         
-        # VALIDAR QUOTA (requer Pro ou Enterprise)
+        # VALIDAR QUOTA (requer Intermediário ou Avançado)
         await validate_quota_for_action(
             user_id=auth_user["user_id"],
             action="start_campaign",
-            required_plan=["Pro", "Enterprise"],
+            required_plan=["intermediario", "avancado"],
             db=db
         )
         
