@@ -388,9 +388,22 @@ async def validate_quota_for_action(
     if required_plan:
         # Compatível com plan_type OU plan_name (campos diferentes nas migrations)
         user_plan = quota.get("plan_type", quota.get("plan_name", quota.get("plan", "demo")))
-        # Normalizar para comparação (Pro, Enterprise, Demo)
-        user_plan_normalized = user_plan.capitalize() if user_plan else "Demo"
-        if user_plan_normalized not in required_plan:
+        # Normalizar para comparação (basico, intermediario, avancado, demo)
+        user_plan_normalized = user_plan.lower() if user_plan else "demo"
+        
+        # Converter required_plan para lowercase para comparação
+        required_plan_lower = [p.lower() for p in required_plan]
+        
+        if user_plan_normalized not in required_plan_lower:
+            # Mapear nomes amigáveis para exibição
+            plan_display_names = {
+                'demo': 'Demo',
+                'basico': 'Básico',
+                'intermediario': 'Intermediário',
+                'avancado': 'Avançado'
+            }
+            user_plan_display = plan_display_names.get(user_plan_normalized, user_plan_normalized.title())
+            required_display = ', '.join([plan_display_names.get(p, p.title()) for p in required_plan_lower])
             raise HTTPException(
                 status_code=403,
                 detail=f"Esta funcionalidade está disponível apenas para os planos: {', '.join(required_plan)}. "
