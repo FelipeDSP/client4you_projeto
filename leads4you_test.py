@@ -81,9 +81,11 @@ class Leads4YouTester:
             return False
     
     async def test_webhook_kiwify(self) -> bool:
-        """Test GET /api/webhook/test - Kiwify webhook test endpoint (no auth required)"""
+        """Test GET /webhook/test - Kiwify webhook test endpoint (no auth required)"""
         try:
-            response = await self.client.get(f"{BACKEND_URL}/webhook/test")
+            # Note: webhook endpoints are not under /api prefix
+            webhook_url = BACKEND_URL.replace("/api", "")
+            response = await self.client.get(f"{webhook_url}/webhook/test")
             
             if response.status_code == 200:
                 data = response.json()
