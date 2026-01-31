@@ -117,31 +117,22 @@ async def upgrade_user_to_plan(user_id: str, plan: str, subscription_id: str, or
     Upgrade do plano do usuário
     """
     try:
-        db = SupabaseService()  # Criar instância aqui
+        db = SupabaseService()
         
-        # Calcular data de expiração (30 dias)
+        # Calcular data de expiração (30 dias para planos pagos)
         valid_until = (datetime.now() + timedelta(days=30)).isoformat()
         
-        # Definir limites por plano
-        if plan == 'Pro':
-            lead_limit = -1  # Ilimitado
-            campaigns_limit = -1  # Ilimitado
-        elif plan == 'Enterprise':
-            lead_limit = -1
-            campaigns_limit = -1
-        else:
-            lead_limit = 5
-            campaigns_limit = 0
+        # Buscar configuração do plano
+        plan_key = plan.lower()
+        plan_config = PLAN_LIMITS.get(plan_key, PLAN_LIMITS['demo'])
         
         # Atualizar quota - usando campos corretos da tabela
-        # plan_type: demo, free, pro, enterprise (lowercase)
-        # plan_name: Nome amigável (Ex: "Plano Pro")
         db.client.table('user_quotas').update({
-            'plan_type': plan.lower(),
-            'plan_name': f'Plano {plan}',
-            'leads_limit': lead_limit,
-            'campaigns_limit': campaigns_limit,
-            'messages_limit': -1 if plan in ['Pro', 'Enterprise'] else 0,
+            'plan_type': plan_key,
+            'plan_name': plan_config['name'],
+            'leads_limit': plan_config['leads_limit'],
+            'campaigns_limit': plan_config['campaigns_limit'],
+            'messages_limit': plan_config['messages_limit'],
             'plan_expires_at': valid_until,
             'subscription_id': subscription_id,
             'order_id': order_id,
@@ -149,7 +140,7 @@ async def upgrade_user_to_plan(user_id: str, plan: str, subscription_id: str, or
             'updated_at': datetime.now().isoformat()
         }).eq('user_id', user_id).execute()
         
-        logger.info(f"✅ Usuário {user_id} atualizado para plano {plan}")
+        logger.info(f"✅ Usuário {user_id} atualizado para plano {plan_config['name']}")
         
     except Exception as e:
         logger.error(f"Erro ao fazer upgrade: {e}")
@@ -161,16 +152,18 @@ async def downgrade_user_to_demo(user_id: str, reason: str):
     Downgrade para plano Demo (cancelamento/reembolso)
     """
     try:
-        db = SupabaseService()  # Criar instância aqui
+        db = SupabaseService()
         
-        # Usar campos corretos da tabela
+        # Usar configuração do plano Demo
+        demo_config = PLAN_LIMITS['demo']
+        
         db.client.table('user_quotas').update({
             'plan_type': 'demo',
-            'plan_name': 'Plano Demo',
-            'leads_limit': 5,
-            'campaigns_limit': 0,
-            'messages_limit': 0,
-            'plan_expires_at': None,
+            'plan_name': demo_config['name'],
+            'leads_limit': demo_config['leads_limit'],
+            'campaigns_limit': demo_config['campaigns_limit'],
+            'messages_limit': demo_config['messages_limit'],
+            'plan_expires_at': (datetime.now() + timedelta(days=7)).isoformat(),
             'subscription_id': None,
             'subscription_status': 'canceled',
             'cancellation_reason': reason,
