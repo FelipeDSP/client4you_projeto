@@ -394,7 +394,7 @@ async def validate_quota_for_action(
             raise HTTPException(
                 status_code=403,
                 detail=f"Esta funcionalidade está disponível apenas para os planos: {', '.join(required_plan)}. "
-                       f"Seu plano atual: {user_plan}. Faça upgrade para acessar."
+                       f"Seu plano atual: {user_plan_normalized}. Faça upgrade para acessar."
             )
     
     # Verificar limite de uso
