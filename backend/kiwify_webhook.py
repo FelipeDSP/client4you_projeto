@@ -10,6 +10,10 @@ import hmac
 import hashlib
 import logging
 from datetime import datetime, timedelta
+from dotenv import load_dotenv
+
+# Carregar variáveis de ambiente
+load_dotenv()
 
 from supabase_service import SupabaseService
 
