@@ -20,16 +20,19 @@
 ### **2. Backend (Edge Function)**
 - ✅ Nova Edge Function `search-leads-v2`
 - ✅ Deduplicação inteligente
-- ✅ Paginação com "Carregar Mais"
+- ✅ **Paginação progressiva** (SERP API start=0, 20, 40...)
 - ✅ Controle de sessões
 - ✅ Estatísticas em tempo real
+- ✅ **Busca ilimitada** até esgotar região
 
 ### **3. Frontend (React)**
 - ✅ Hook `useSearchSession` para busca paginada
 - ✅ Hook `useLeadsLibrary` para biblioteca
-- ✅ Página `/leads` (Biblioteca completa)
-- ✅ Página `/search` atualizada (SearchLeadsV2)
-- ✅ Menu lateral atualizado
+- ✅ **Página `/history` UNIFICADA** (3 abas: Buscas, Biblioteca, Favoritos)
+- ✅ Página `/search` com indicador de página
+- ✅ **Botão "Carregar Mais"** busca próximos 20 (não repete)
+- ✅ Badges: 🆕 Novos / 🔄 Já capturados
+- ✅ Contador de páginas buscadas
 - ✅ Tipos TypeScript atualizados
 
 ---
