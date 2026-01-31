@@ -81,9 +81,11 @@ export default function SearchLeads() {
     
     if (response) {
       if (response.new_count === 0 && response.duplicate_count === 0) {
-        toast.info("Não há mais resultados disponíveis");
+        toast.info("Não há mais resultados disponíveis nesta região");
       } else {
-        toast.success(`Carregados mais ${response.new_count} novos leads e ${response.duplicate_count} já existentes`);
+        toast.success(
+          `Página ${session!.current_page + 1}: ${response.new_count} novos, ${response.duplicate_count} já capturados`
+        );
       }
     } else if (error) {
       toast.error(error);
