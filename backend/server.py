@@ -1004,6 +1004,7 @@ async def increment_quota_endpoint(
 
 # Include the router in the main app
 app.include_router(api_router)
+app.include_router(webhook_router)  # <--- NOVO: Webhook Kiwify
 
 app.add_middleware(
     CORSMiddleware,
