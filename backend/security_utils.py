@@ -72,15 +72,32 @@ async def get_authenticated_user(request: Request) -> dict:
                 logger.error(f"Profile not found for user_id: {user_id}")
                 raise HTTPException(status_code=403, detail="Perfil de usuário não encontrado")
             
-            # Definir role padrão como 'user' (pode ser estendido no futuro)
-            role = "user"  # Default role
+            # Buscar roles do usuário
+            roles_result = supabase.table('user_roles')\
+                .select('role')\
+                .eq('user_id', user_id)\
+                .execute()
             
-            logger.info(f"Profile found: company_id={profile.data.get('company_id')}, role={role}")
+            # Extrair lista de roles
+            user_roles = [r['role'] for r in (roles_result.data or [])]
+            
+            # Determinar role principal (prioridade: super_admin > company_owner > member)
+            if 'super_admin' in user_roles:
+                role = 'super_admin'
+            elif 'company_owner' in user_roles:
+                role = 'company_owner'
+            elif 'member' in user_roles:
+                role = 'member'
+            else:
+                role = 'user'  # Default se não tiver nenhuma role
+            
+            logger.info(f"Profile found: company_id={profile.data.get('company_id')}, role={role}, all_roles={user_roles}")
             
             return {
                 "user_id": user_id,
                 "company_id": profile.data.get("company_id"),
                 "role": role,
+                "roles": user_roles,  # Todas as roles
                 "email": profile.data.get("email") or decoded.get("email")
             }
         
