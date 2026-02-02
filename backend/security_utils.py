@@ -123,7 +123,7 @@ async def get_authenticated_user(request: Request) -> dict:
                 "email": profile.data.get("email") or decoded.get("email")
             }
         
-        except jwt.DecodeError as e:
+        except pyjwt.DecodeError as e:
             logger.error(f"JWT decode error: {e}")
             raise HTTPException(status_code=401, detail="Token malformado")
     
