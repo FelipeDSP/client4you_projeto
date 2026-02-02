@@ -166,13 +166,14 @@ export default function LoginSecure() {
         return false;
       }
 
-      if (data.show_captcha && !showCaptcha) {
+      // Se precisa CAPTCHA mas ainda não está mostrando, mostrar agora
+      if (data.show_captcha && !showCaptcha && !turnstileToken) {
         setShowCaptcha(true);
         toast({
           title: "Verificação necessária",
           description: "Complete o CAPTCHA para continuar.",
         });
-        return false;
+        return false; // Impede submit até CAPTCHA ser completado
       }
 
       return true;
