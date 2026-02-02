@@ -117,7 +117,7 @@ export default function Signup() {
             </p>
           </CardContent>
           <CardFooter>
-            <Link to="/" className="w-full">
+            <Link to="/login" className="w-full">
               <Button variant="outline" className="w-full">
                 Voltar para Login
               </Button>
