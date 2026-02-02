@@ -230,7 +230,7 @@ async def process_campaign(
             
             # Prepare message with variables (campaign_data still needed for message)
             # Re-fetch only message fields (lightweight)
-            message_result = await db.client.table('campaigns')\
+            message_result = db.client.table('campaigns')\
                 .select('message_text, message_type, media_url, media_filename, sent_count, error_count')\
                 .eq('id', campaign_id)\
                 .single()\
