@@ -309,7 +309,7 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Admin Quota Endpoints - GET/POST /api/admin/users/{user_id}/quota"
+    - "Security Fixes - JWT, WhatsApp Auth, Webhook Signature, CORS"
   stuck_tasks:
     - "Campaign CRUD API - Criar, listar, atualizar, deletar campanhas"
   test_all: false
