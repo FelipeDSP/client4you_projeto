@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Backend API Tests for WhatsApp Message Dispatcher - Supabase Migration
-Tests all endpoints after MongoDB to Supabase migration
+Backend API Tests for Admin Quota Endpoints Bug Fix
+Tests the new admin quota endpoint that bypasses RLS using service_role
 """
 
 import asyncio
@@ -14,6 +14,7 @@ from typing import Dict, Any, Optional
 # Get backend URL from frontend .env
 BACKEND_URL = "https://client-bugfix.preview.emergentagent.com/api"
 COMPANY_ID = "550e8400-e29b-41d4-a716-446655440000"  # Valid UUID format
+TEST_USER_ID = "550e8400-e29b-41d4-a716-446655440001"  # Test user ID for quota tests
 
 class BackendTester:
     def __init__(self):
