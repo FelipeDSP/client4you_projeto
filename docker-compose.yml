@@ -2,77 +2,77 @@ version: '3.8'
 
 services:
   backend:
-    build: ./backend
-    restart: always
-    expose:
-      - "8001"
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: client4you-backend
+    restart: unless-stopped
     ports:
-      - "8001:8001" # Importante para você acessar localmente se rodar via docker
+      - "8001:8001"
     environment:
+      - PYTHONUNBUFFERED=1
       - SUPABASE_URL=${SUPABASE_URL}
       - SUPABASE_KEY=${SUPABASE_KEY}
-      # O Backend conversa com o WAHA usando o nome do serviço 'waha' na rede interna
-      - WAHA_DEFAULT_URL=http://waha:3000
-      - WAHA_MASTER_KEY=segredo123
-    depends_on:
-      - waha
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - SUPABASE_JWT_SECRET=${SUPABASE_JWT_SECRET}
+      - TURNSTILE_SECRET_KEY=${TURNSTILE_SECRET_KEY}
+      - LOGIN_MAX_ATTEMPTS=${LOGIN_MAX_ATTEMPTS}
+      - LOGIN_LOCKOUT_DURATION=${LOGIN_LOCKOUT_DURATION}
+      - LOGIN_WINDOW_DURATION=${LOGIN_WINDOW_DURATION}
+      - CORS_ORIGINS=${CORS_ORIGINS}
+      - WAHA_DEFAULT_URL=${WAHA_DEFAULT_URL}
+      - WAHA_MASTER_KEY=${WAHA_MASTER_KEY}
+      - KIWIFY_WEBHOOK_SECRET=${KIWIFY_WEBHOOK_SECRET}
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+      - SMTP_FROM_EMAIL=${SMTP_FROM_EMAIL}
+      - SMTP_FROM_NAME=${SMTP_FROM_NAME}
+      - SMTP_USE_TLS=${SMTP_USE_TLS}
+      - ADMIN_IP_WHITELIST=${ADMIN_IP_WHITELIST}
+    volumes:
+      - backend-uploads:/app/uploads
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://127.0.0.1:8001/api/"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
+      test: ["CMD", "curl", "-f", "http://localhost:8001/api/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     networks:
       - app_network
 
   frontend:
     build:
       context: ./frontend
+      dockerfile: Dockerfile
       args:
         - VITE_BACKEND_URL=${VITE_BACKEND_URL}
-    restart: always
+        - VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
+        - VITE_SUPABASE_PUBLISHABLE_KEY=${VITE_SUPABASE_PUBLISHABLE_KEY}
+        - VITE_SUPABASE_PROJECT_ID=${VITE_SUPABASE_PROJECT_ID}
+        - VITE_TURNSTILE_SITE_KEY=${VITE_TURNSTILE_SITE_KEY}
+        - REACT_APP_BACKEND_URL=${REACT_APP_BACKEND_URL}
+    container_name: client4you-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
     depends_on:
       backend:
         condition: service_healthy
-    expose:
-      - "80"
-    ports:
-      - "3000:80" # Mapeia a porta 80 do container para a 3000 do Codespace
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:80/"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 20s
     networks:
       - app_network
-      # Se der erro de rede 'coolify' não encontrada localmente, comente a linha abaixo
-      # - coolify 
-    
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.frontend-custom.rule=Host(`72.60.10.10`)"
-      - "traefik.http.routers.frontend-custom.entrypoints=http"
-      - "traefik.http.services.frontend-custom.loadbalancer.server.port=80"
-      - "traefik.docker.network=coolify"
 
-  # --- ADICIONADO: O Motor do WhatsApp ---
-  waha:
-    image: devlikeapro/waha
-    container_name: waha
-    restart: always
-    ports:
-      - "3000:3000"
-    environment:
-      - WHATSAPP_DEFAULT_ENGINE=WEBJS
-      - WAHA_API_KEY=segredo123
-      - WAHA_PRINT_QR=False
-    networks:
-      - app_network
+volumes:
+  backend-uploads:
+    driver: local
 
 networks:
   app_network:
     driver: bridge
-  # Se estiver rodando local e der erro de rede, comente as linhas abaixo
-  coolify:
-    external: true
