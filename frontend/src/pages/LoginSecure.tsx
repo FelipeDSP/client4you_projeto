@@ -10,7 +10,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 
 // Cloudflare Turnstile site key
-const TURNSTILE_SITE_KEY = "0x4AAAAAACW4RDfzQ0vdBVOB";
+const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY || "0x4AAAAAACW4RDfzQ0vdBVOB";
 
 // Backend URL
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:8001";
