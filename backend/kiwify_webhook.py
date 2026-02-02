@@ -99,10 +99,16 @@ class KiwifyWebhookPayload(BaseModel):
 def verify_kiwify_signature(payload: bytes, signature: str) -> bool:
     """
     Verifica assinatura do webhook Kiwify
+    SEGURANÇA: Sempre verifica em produção
     """
     if not KIWIFY_WEBHOOK_SECRET:
-        logger.warning("KIWIFY_WEBHOOK_SECRET não configurado")
-        return True  # Em desenvolvimento, aceita sem verificar
+        # SEGURANÇA: Em produção, rejeitar se secret não configurado
+        logger.error("KIWIFY_WEBHOOK_SECRET não configurado - rejeitando webhook")
+        return False
+    
+    if not signature:
+        logger.warning("Assinatura não fornecida no webhook")
+        return False
     
     expected_signature = hmac.new(
         KIWIFY_WEBHOOK_SECRET.encode(),
