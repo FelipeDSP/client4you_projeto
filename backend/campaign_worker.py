@@ -352,8 +352,7 @@ async def process_campaign(
         # Mark campaign as paused due to error
         try:
             await db.update_campaign(campaign_id, {
-                "status": "paused",
-                "error_message": sanitize_error_message(str(e))
+                "status": "paused"
             })
             
             # Create notification for user
