@@ -40,6 +40,7 @@ async def get_authenticated_user(request: Request) -> dict:
         # Criar cliente Supabase
         supabase_url = os.environ.get('SUPABASE_URL')
         supabase_key = os.environ.get('SUPABASE_SERVICE_ROLE_KEY') or os.environ.get('SUPABASE_KEY')
+        jwt_secret = os.environ.get('SUPABASE_JWT_SECRET')
         
         if not supabase_url or not supabase_key:
             logger.error("Supabase credentials not configured")
@@ -47,18 +48,39 @@ async def get_authenticated_user(request: Request) -> dict:
         
         supabase = create_client(supabase_url, supabase_key)
         
-        # Validar token e obter usuário (usando service_role key para validar o token do usuário)
+        # Validar token e obter usuário COM VERIFICAÇÃO DE ASSINATURA
         try:
-            # Decodificar o JWT localmente para obter o user_id
-            import jwt
-            decoded = jwt.decode(token, options={"verify_signature": False})
+            import jwt as pyjwt
+            from jwt.exceptions import InvalidTokenError, ExpiredSignatureError
+            
+            # SEGURANÇA: Verificar assinatura do JWT
+            if jwt_secret:
+                try:
+                    decoded = pyjwt.decode(
+                        token, 
+                        jwt_secret, 
+                        algorithms=["HS256"],
+                        audience="authenticated",
+                        options={"verify_exp": True}
+                    )
+                except ExpiredSignatureError:
+                    logger.warning("Token expirado")
+                    raise HTTPException(status_code=401, detail="Token expirado. Faça login novamente.")
+                except InvalidTokenError as e:
+                    logger.warning(f"Token inválido: {e}")
+                    raise HTTPException(status_code=401, detail="Token inválido")
+            else:
+                # Fallback se JWT_SECRET não configurado (apenas desenvolvimento)
+                logger.warning("SUPABASE_JWT_SECRET não configurado - verificação de assinatura desabilitada")
+                decoded = pyjwt.decode(token, options={"verify_signature": False})
+            
             user_id = decoded.get("sub")
             
             if not user_id:
                 logger.error("No user_id in token")
                 raise HTTPException(status_code=401, detail="Token inválido")
             
-            logger.info(f"Token decoded, user_id: {user_id}")
+            logger.debug(f"Token validated for user_id: {user_id[:8]}...")
             
             # Buscar company_id do perfil usando service_role key
             # Nota: coluna 'role' pode não existir, então não buscamos
