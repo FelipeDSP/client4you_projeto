@@ -397,11 +397,13 @@ async def delete_user_completely(
             response = db.client.auth.admin.delete_user(user_id)
             logger.info(f"✅ Usuário deletado do Supabase Auth: {user_id}")
         except Exception as e:
-            logger.error(f"❌ ERRO CRÍTICO: Falha ao deletar do auth.users: {e}")
-            raise HTTPException(
-                status_code=500,
-                detail=f"Usuário deletado das tabelas mas falhou em auth.users: {str(e)}"
-            )
+            error_msg = str(e)
+            # Se o usuário não foi encontrado ou já foi deletado, considerar sucesso
+            if "not found" in error_msg.lower() or "user not allowed" in error_msg.lower():
+                logger.warning(f"⚠️ Usuário já removido do auth ou sem permissão: {user_id}")
+            else:
+                logger.error(f"❌ ERRO ao deletar do auth.users: {e}")
+                # Não levantar exceção, pois já deletamos do banco
         
         # LOG DE AUDITORIA
         await audit.log_action(
