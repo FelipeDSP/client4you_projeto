@@ -1043,10 +1043,29 @@ app.include_router(api_router)
 app.include_router(webhook_router)  # <--- NOVO: Webhook Kiwify
 app.include_router(admin_router)    # <--- NOVO: Admin endpoints
 
+# SEGURANÇA: Configuração CORS com whitelist
+cors_origins_str = os.environ.get('CORS_ORIGINS', '')
+if cors_origins_str and cors_origins_str != '*':
+    cors_origins = [origin.strip() for origin in cors_origins_str.split(',') if origin.strip()]
+else:
+    # Fallback para desenvolvimento (NÃO usar em produção)
+    cors_origins = ["http://localhost:3000", "http://localhost:5173"]
+    logger.warning("⚠️ CORS_ORIGINS não configurado - usando apenas localhost")
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=cors_origins,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Requested-With", "Accept"],
 )
+
+# SEGURANÇA: Middleware para headers de segurança
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    return response
