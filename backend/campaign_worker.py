@@ -176,7 +176,7 @@ async def process_campaign(
                         await asyncio.sleep(WAIT_CHECK_INTERVAL)
                         
                         # Re-check status
-                        status_check = await db.client.table('campaigns')\
+                        status_check = db.client.table('campaigns')\
                             .select('status')\
                             .eq('id', campaign_id)\
                             .single()\
