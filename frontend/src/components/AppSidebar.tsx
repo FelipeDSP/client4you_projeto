@@ -67,10 +67,10 @@ export function AppSidebar() {
     <Sidebar collapsible="icon">
       <SidebarContent>
         <div className="p-4 flex items-center justify-center">
-          {/* Logo Leads4you */}
+          {/* Logo Client4you */}
           <img 
             src="/leads4you-logo.png" 
-            alt="Leads4you" 
+            alt="Client4you" 
             className="h-8 w-auto group-data-[collapsible=icon]:h-6"
           />
         </div>

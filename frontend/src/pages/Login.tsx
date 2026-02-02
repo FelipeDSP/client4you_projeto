@@ -62,7 +62,7 @@ export default function Login() {
     if (result.success) {
       toast({
         title: "Login realizado!",
-        description: "Bem-vindo ao Leads4you.",
+        description: "Bem-vindo ao Client4you.",
       });
       navigate("/dashboard");
     } else {
@@ -85,11 +85,11 @@ export default function Login() {
           <div className="mx-auto mb-4 flex items-center justify-center">
             <img 
               src="/leads4you-logo.png" 
-              alt="Leads4you" 
+              alt="Client4you" 
               className="h-20 w-auto"
             />
           </div>
-          <CardTitle className="text-2xl text-white">Leads4you</CardTitle>
+          <CardTitle className="text-2xl text-white">Client4you</CardTitle>
           <CardDescription className="text-slate-400">
             Extraia leads do Google Maps de forma simples e eficiente
           </CardDescription>

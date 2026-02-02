@@ -39,7 +39,7 @@ export function Header() {
               <MapPin className="h-6 w-6 text-primary-foreground" />
             </div>
             <div>
-              <h1 className="text-lg font-bold">Leads4You</h1>
+              <h1 className="text-lg font-bold">Client4you</h1>
               <p className="text-xs text-muted-foreground">Google Maps Leads</p>
             </div>
           </Link>

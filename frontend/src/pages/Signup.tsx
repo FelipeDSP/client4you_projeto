@@ -137,7 +137,7 @@ export default function Signup() {
           <div className="mx-auto mb-4 flex items-center justify-center">
             <img 
               src="/leads4you-logo.png" 
-              alt="Leads4you" 
+              alt="Client4you" 
               className="h-16 w-auto"
             />
           </div>
