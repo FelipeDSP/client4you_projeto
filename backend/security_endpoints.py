@@ -41,6 +41,117 @@ class AuditLogFilter(BaseModel):
     target_type: Optional[str] = None
 
 
+class AdminReauthRequest(BaseModel):
+    password: str
+
+
+# ========== ADMIN ACCESS CONTROL ==========
+
+@security_router.post("/admin/verify-access")
+async def verify_admin_access(
+    request: Request,
+    auth_user: dict = Depends(require_role("super_admin"))
+):
+    """
+    Verifica se admin pode acessar painel
+    
+    Checa:
+    - IP whitelist
+    - Registra acesso em audit logs
+    """
+    try:
+        access_control = get_admin_access_control()
+        
+        # Verificar acesso (já loga automaticamente)
+        await access_control.verify_admin_access(
+            request=request,
+            user_id=auth_user['user_id'],
+            user_email=auth_user['email'],
+            company_id=auth_user.get('company_id')
+        )
+        
+        return {
+            "allowed": True,
+            "message": "Acesso autorizado ao painel administrativo"
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Erro ao verificar acesso admin: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Erro ao verificar acesso administrativo")
+
+
+@security_router.post("/admin/reauth")
+async def admin_reauth(
+    request: Request,
+    data: AdminReauthRequest,
+    auth_user: dict = Depends(get_authenticated_user)
+):
+    """
+    Re-autenticação administrativa
+    
+    Requer senha para confirmar identidade antes de acessar painel admin
+    """
+    try:
+        db = get_supabase_service()
+        
+        # Tentar autenticar com Supabase
+        try:
+            result = db.client.auth.sign_in_with_password({
+                "email": auth_user['email'],
+                "password": data.password
+            })
+            
+            if not result.user:
+                raise Exception("Senha incorreta")
+        
+        except Exception as e:
+            logger.warning(f"❌ Re-autenticação falhou para {auth_user['email']}: {e}")
+            
+            # Log de tentativa falha
+            audit = get_audit_service()
+            await audit.log_action(
+                user_id=auth_user['user_id'],
+                user_email=auth_user['email'],
+                action='admin_reauth_failed',
+                target_type='settings',
+                details={'reason': 'Senha incorreta'},
+                ip_address=request.client.host if request.client else None,
+                user_agent=request.headers.get('user-agent')
+            )
+            
+            raise HTTPException(
+                status_code=401,
+                detail="Senha incorreta. Tente novamente."
+            )
+        
+        # Log de re-autenticação bem-sucedida
+        audit = get_audit_service()
+        await audit.log_action(
+            user_id=auth_user['user_id'],
+            user_email=auth_user['email'],
+            action='admin_reauth_success',
+            target_type='settings',
+            ip_address=request.client.host if request.client else None,
+            user_agent=request.headers.get('user-agent')
+        )
+        
+        logger.info(f"✅ Re-autenticação bem-sucedida: {auth_user['email']}")
+        
+        return {
+            "success": True,
+            "message": "Re-autenticação bem-sucedida",
+            "expires_in": 1800  # 30 minutos
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Erro na re-autenticação: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Erro ao processar re-autenticação")
+
+
 # ========== LOGIN VALIDATION ENDPOINTS ==========
 
 @security_router.post("/validate-login")
