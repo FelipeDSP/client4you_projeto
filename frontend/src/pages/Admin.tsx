@@ -355,24 +355,48 @@ export default function Admin() {
   const handleOpenEditQuota = async (userId: string) => {
     setEditingUserId(userId);
     
-    // Buscar quota atual do usuário
-    const { data: quota } = await supabase
-      .from("user_quotas")
-      .select("*")
-      .eq("user_id", userId)
-      .single();
-
-    if (quota) {
-      setEditQuotaPlan(quota.plan_type);
-      setEditLeadsLimit(String(quota.leads_limit));
-      setEditCampaignsLimit(String(quota.campaigns_limit));
-      setEditMessagesLimit(String(quota.messages_limit));
-    } else {
-      // Default values
-      setEditQuotaPlan("intermediario");
-      setEditLeadsLimit("-1");
-      setEditCampaignsLimit("-1");
-      setEditMessagesLimit("-1");
+    try {
+      // Buscar quota via backend (bypassa RLS com service_role)
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8001';
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        toast({
+          title: "Erro",
+          description: "Sessão não encontrada. Faça login novamente.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      const response = await fetch(`${backendUrl}/api/admin/users/${userId}/quota`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const quota = await response.json();
+        setEditQuotaPlan(quota.plan_type || "demo");
+        setEditLeadsLimit(String(quota.leads_limit ?? -1));
+        setEditCampaignsLimit(String(quota.campaigns_limit ?? -1));
+        setEditMessagesLimit(String(quota.messages_limit ?? -1));
+      } else {
+        // Default values se não encontrar
+        setEditQuotaPlan("demo");
+        setEditLeadsLimit("5");
+        setEditCampaignsLimit("1");
+        setEditMessagesLimit("0");
+      }
+    } catch (error) {
+      console.error("Erro ao buscar quota:", error);
+      // Default values em caso de erro
+      setEditQuotaPlan("demo");
+      setEditLeadsLimit("5");
+      setEditCampaignsLimit("1");
+      setEditMessagesLimit("0");
     }
     
     setShowEditQuotaDialog(true);
