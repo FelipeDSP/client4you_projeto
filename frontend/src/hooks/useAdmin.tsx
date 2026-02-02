@@ -396,19 +396,31 @@ export function useAdmin() {
     if (userId === user?.id) return false;
 
     try {
-      // Delete user roles
-      await supabase.from("user_roles").delete().eq("user_id", userId);
+      // Usar endpoint do backend que deleta completamente
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8001';
+      const token = session?.access_token;
       
-      // Delete the profile (this doesn't delete the auth user)
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .delete()
-        .eq("id", userId);
-
-      if (profileError) {
-        console.error("Error deleting user profile:", profileError);
+      if (!token) {
+        console.error("No access token available");
         return false;
       }
+      
+      const response = await fetch(`${backendUrl}/api/admin/users/${userId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        console.error("Error deleting user:", error);
+        return false;
+      }
+      
+      const result = await response.json();
+      console.log("✅ Usuário deletado completamente:", result);
 
       await fetchUsers();
       await fetchCompanies();
