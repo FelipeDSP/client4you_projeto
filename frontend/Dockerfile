@@ -3,18 +3,30 @@ FROM node:20-alpine as builder
 WORKDIR /app
 
 # Instalar dependências
-COPY package*.json ./
-RUN npm ci
+COPY package*.json yarn.lock ./
+RUN yarn install --frozen-lockfile
 
 # Copiar código fonte
 COPY . .
 
-# Receber URL do backend via argumento do Coolify
+# Receber argumentos de build do Coolify
 ARG VITE_BACKEND_URL
+ARG VITE_SUPABASE_URL
+ARG VITE_SUPABASE_PUBLISHABLE_KEY
+ARG VITE_SUPABASE_PROJECT_ID
+ARG VITE_TURNSTILE_SITE_KEY
+ARG REACT_APP_BACKEND_URL
+
+# Definir variáveis de ambiente para o build
 ENV VITE_BACKEND_URL=$VITE_BACKEND_URL
+ENV VITE_SUPABASE_URL=$VITE_SUPABASE_URL
+ENV VITE_SUPABASE_PUBLISHABLE_KEY=$VITE_SUPABASE_PUBLISHABLE_KEY
+ENV VITE_SUPABASE_PROJECT_ID=$VITE_SUPABASE_PROJECT_ID
+ENV VITE_TURNSTILE_SITE_KEY=$VITE_TURNSTILE_SITE_KEY
+ENV REACT_APP_BACKEND_URL=$REACT_APP_BACKEND_URL
 
 # Buildar o projeto
-RUN npm run build
+RUN yarn build
 
 # Estágio de Servidor (Nginx)
 FROM nginx:alpine
