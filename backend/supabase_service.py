@@ -346,16 +346,48 @@ class SupabaseService:
             return None
     
     async def check_quota(self, user_id: str, action: str) -> Dict[str, Any]:
-        """Check if user can perform action"""
+        """Check if user can perform action based on quota limits"""
         try:
-            result = self.client.rpc('check_user_quota', {
-                'p_user_id': user_id,
-                'p_action': action
-            }).execute()
-            return result.data if result.data else {'allowed': False, 'reason': 'Unknown error'}
+            # Buscar quota do usuário diretamente (evita problema de função RPC duplicada)
+            quota = await self.get_user_quota(user_id)
+            
+            if not quota:
+                return {'allowed': False, 'reason': 'Quota não encontrada'}
+            
+            # Mapear ação para campo de limite e uso
+            action_map = {
+                'create_campaign': ('campaigns_limit', 'campaigns_used'),
+                'send_message': ('messages_limit', 'messages_used'),
+                'search_leads': ('leads_limit', 'leads_used'),
+                'start_campaign': ('campaigns_limit', 'campaigns_used'),
+            }
+            
+            if action not in action_map:
+                # Ação não mapeada - permitir por padrão
+                return {'allowed': True, 'reason': 'OK'}
+            
+            limit_field, used_field = action_map[action]
+            limit = quota.get(limit_field, 0)
+            used = quota.get(used_field, 0)
+            
+            # -1 significa ilimitado
+            if limit == -1:
+                return {'allowed': True, 'reason': 'Ilimitado'}
+            
+            # 0 significa bloqueado
+            if limit == 0:
+                return {'allowed': False, 'reason': f'Recurso não disponível no seu plano'}
+            
+            # Verificar se ainda tem quota
+            if used >= limit:
+                return {'allowed': False, 'reason': f'Limite atingido ({used}/{limit})'}
+            
+            return {'allowed': True, 'reason': f'OK ({used}/{limit})'}
+            
         except Exception as e:
             logger.error(f"Error checking quota: {e}")
-            return {'allowed': False, 'reason': str(e)}
+            # Em caso de erro, permitir para não bloquear o usuário
+            return {'allowed': True, 'reason': 'Erro na verificação (permitido por padrão)'}
     
     async def increment_quota(self, user_id: str, action: str, amount: int = 1) -> bool:
         """Increment quota usage"""
