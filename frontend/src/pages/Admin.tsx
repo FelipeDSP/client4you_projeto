@@ -378,20 +378,33 @@ export default function Admin() {
     try {
       const planConfig = QUOTA_PLANS.find(p => p.id === editQuotaPlan);
       
-      const { error } = await supabase
-        .from("user_quotas")
-        .upsert({
-          user_id: editingUserId,
+      // Usar endpoint do backend
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8001';
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        throw new Error("Sessão não encontrada");
+      }
+      
+      const response = await fetch(`${backendUrl}/api/admin/users/${editingUserId}/quota`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
           plan_type: editQuotaPlan,
           plan_name: planConfig?.name || editQuotaPlan,
           leads_limit: parseInt(editLeadsLimit),
           campaigns_limit: parseInt(editCampaignsLimit),
-          messages_limit: parseInt(editMessagesLimit),
-        }, {
-          onConflict: "user_id"
-        });
-
-      if (error) throw error;
+          messages_limit: parseInt(editMessagesLimit)
+        })
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || "Erro ao atualizar quota");
+      }
 
       toast({
         title: "Quota atualizada!",
