@@ -125,7 +125,7 @@ async def process_campaign(
         
         while True:
             # Check campaign status (lightweight query)
-            status_result = await db.client.table('campaigns')\
+            status_result = db.client.table('campaigns')\
                 .select('status, pending_count')\
                 .eq('id', campaign_id)\
                 .single()\
