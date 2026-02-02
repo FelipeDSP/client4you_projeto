@@ -222,7 +222,7 @@ Deve retornar:
 
 1. **Acesse a aplicação:**
    ```
-   https://email-config-setup-2.preview.emergentagent.com
+   https://repo-inspector-73.preview.emergentagent.com
    ```
 
 2. **Faça login e teste:**

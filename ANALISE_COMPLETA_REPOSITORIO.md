@@ -228,7 +228,7 @@ O **Leads4You** é uma plataforma SaaS completa para captura e gestão de leads 
 
 ## 🔌 API BACKEND - ENDPOINTS PRINCIPAIS
 
-**Base URL:** `https://email-config-setup-2.preview.emergentagent.com/api`
+**Base URL:** `https://repo-inspector-73.preview.emergentagent.com/api`
 
 ### **1. Sistema / Health Check**
 ```
@@ -820,7 +820,7 @@ CORS_ORIGINS=*
 ```bash
 VITE_SUPABASE_URL=https://owlignktsqlrqaqhzujb.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=eyJhbGc...
-VITE_BACKEND_URL=https://email-config-setup-2.preview.emergentagent.com
+VITE_BACKEND_URL=https://repo-inspector-73.preview.emergentagent.com
 ```
 
 ### **Comandos:**
@@ -842,7 +842,7 @@ sudo supervisorctl restart frontend
 ### **Verificar Status:**
 ```bash
 sudo supervisorctl status
-curl https://email-config-setup-2.preview.emergentagent.com/api/
+curl https://repo-inspector-73.preview.emergentagent.com/api/
 ```
 
 ---
