@@ -34,6 +34,7 @@ from security_utils import (
 )
 from kiwify_webhook import webhook_router  # <--- NOVO
 from admin_endpoints import admin_router  # <--- NOVO: Admin endpoints
+from security_endpoints import security_router  # <--- NOVO: Security endpoints
 
 # --- CORREÇÃO DO LOAD DOTENV ---
 # Pega o diretório atual (backend)
