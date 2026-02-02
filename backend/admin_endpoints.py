@@ -138,6 +138,67 @@ async def cleanup_orphan_users(
         raise HTTPException(status_code=500, detail=f"Erro na limpeza: {str(e)}")
 
 
+@admin_router.post("/users/{user_id}/quota")
+async def update_user_quota(
+    user_id: str,
+    plan_type: str,
+    plan_name: str,
+    leads_limit: int,
+    campaigns_limit: int,
+    messages_limit: int,
+    auth_user: dict = Depends(require_role("super_admin"))
+):
+    """
+    Atualiza quota de um usuário (admin only)
+    
+    IMPORTANTE: Requer role super_admin
+    """
+    try:
+        db = get_supabase_service()
+        
+        # Buscar user_id para pegar company_id
+        profile = db.client.table('profiles')\
+            .select('company_id')\
+            .eq('id', user_id)\
+            .single()\
+            .execute()
+        
+        if not profile.data:
+            raise HTTPException(status_code=404, detail="Usuário não encontrado")
+        
+        company_id = profile.data.get('company_id')
+        
+        # Upsert quota
+        quota_data = {
+            'user_id': user_id,
+            'company_id': company_id,
+            'plan_type': plan_type,
+            'plan_name': plan_name,
+            'leads_limit': leads_limit,
+            'campaigns_limit': campaigns_limit,
+            'messages_limit': messages_limit,
+            'subscription_status': 'active'
+        }
+        
+        result = db.client.table('user_quotas')\
+            .upsert(quota_data, on_conflict='user_id')\
+            .execute()
+        
+        logger.info(f"Admin {auth_user['email']} atualizou quota de {user_id} para {plan_type}")
+        
+        return {
+            'success': True,
+            'message': 'Quota atualizada com sucesso',
+            'quota': result.data[0] if result.data else quota_data
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro ao atualizar quota: {e}")
+        raise HTTPException(status_code=500, detail=f"Erro ao atualizar quota: {str(e)}")
+
+
 @admin_router.delete("/users/{user_id}")
 async def delete_user_completely(
     user_id: str,
