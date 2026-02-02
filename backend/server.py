@@ -71,20 +71,47 @@ def get_db() -> SupabaseService:
     return get_supabase_service()
 
 
-async def get_session_name_for_company(company_id: str) -> str:
+async def get_session_name_for_company(company_id: str, company_name: str = None) -> str:
     """
     Define o nome da sessão do WhatsApp de forma segura.
+    Formato: nome_empresa_id (ex: "acme_corp_efdaca5d")
     Retorna sempre uma string válida, nunca falha.
     """
+    import re
+    
     try:
         db = get_db()
         # Tenta buscar configuração legada (se existir no banco)
         config = await db.get_waha_config(company_id)
         if config and config.get("session_name"):
             return config.get("session_name")
+        
+        # Se não tem nome da empresa, busca do banco
+        if not company_name:
+            try:
+                company_result = db.client.table('companies')\
+                    .select('name')\
+                    .eq('id', company_id)\
+                    .single()\
+                    .execute()
+                if company_result.data:
+                    company_name = company_result.data.get('name')
+            except Exception as e:
+                logger.debug(f"Não encontrou nome da empresa: {e}")
+        
     except Exception as e:
         # Se der erro no banco, apenas loga e usa o fallback
         logger.warning(f"Usando sessão padrão devido a erro ou config ausente: {e}")
+    
+    # Criar nome legível para a sessão
+    if company_name:
+        # Normaliza o nome: remove acentos, caracteres especiais, lowercase
+        # Limita a 30 caracteres para não ficar muito longo
+        safe_name = re.sub(r'[^a-zA-Z0-9]', '_', company_name.lower())
+        safe_name = re.sub(r'_+', '_', safe_name).strip('_')[:30]
+        # Usa apenas os primeiros 8 caracteres do UUID para ficar mais curto
+        short_id = company_id.split('-')[0] if company_id else 'unknown'
+        return f"{safe_name}_{short_id}"
     
     # Fallback seguro: Padrão automático para SaaS
     return f"company_{company_id}"
