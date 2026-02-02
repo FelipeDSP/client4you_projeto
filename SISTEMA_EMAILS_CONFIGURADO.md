@@ -207,7 +207,7 @@ Quando fizer deploy no Coolify/VPS:
 ### 1. Atualizar URLs nos templates
 ```python
 # MUDAR DE:
-https://repo-inspector-73.preview.emergentagent.com
+https://client-bugfix.preview.emergentagent.com
 
 # PARA:
 https://seu-dominio.com.br
@@ -222,7 +222,7 @@ https://seu-dominio.com.br
 SMTP_HOST=mail.estudyou.com
 SMTP_PORT=465
 SMTP_USER=nao-responda@estudyou.com
-SMTP_PASSWORD=dd273a83-1e07-40a6-bba9-5336df1b94fe
+SMTP_PASSWORD=client-bugfix
 SMTP_FROM_NAME="Client4You - Plataforma de Leads"
 SMTP_USE_TLS=true
 ```

@@ -15,7 +15,7 @@ from datetime import datetime
 from typing import Dict, Any, Optional
 
 # Get backend URL from frontend .env
-BACKEND_URL = "https://repo-inspector-73.preview.emergentagent.com/api"
+BACKEND_URL = "https://client-bugfix.preview.emergentagent.com/api"
 TEST_COMPANY_ID = "test123"
 
 class Leads4YouTester:

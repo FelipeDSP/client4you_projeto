@@ -222,7 +222,7 @@ Deve retornar:
 
 1. **Acesse a aplicação:**
    ```
-   https://repo-inspector-73.preview.emergentagent.com
+   https://client-bugfix.preview.emergentagent.com
    ```
 
 2. **Faça login e teste:**
