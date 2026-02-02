@@ -72,7 +72,8 @@ export default function Settings() {
     
     const checkStatus = async () => {
       try {
-        const res = await api.get(`/whatsapp/status?company_id=${user.companyId}`);
+        // SEGURANÇA: company_id agora vem do token autenticado
+        const res = await api.get(`/whatsapp/status`);
         setWaStatus(res.status);
         
         // Se o status for SCANNING e não tivermos o QR ainda, buscamos
@@ -93,7 +94,7 @@ export default function Settings() {
 
   const fetchQR = async () => {
     try {
-      const res = await api.get(`/whatsapp/qr?company_id=${user.companyId}`);
+      const res = await api.get(`/whatsapp/qr`);
       if (res.image) setQrCode(res.image);
     } catch (e) { console.error("Erro ao buscar QR:", e); }
   };
@@ -102,7 +103,7 @@ export default function Settings() {
   const handleStartSession = async () => {
     setIsActionLoading(true);
     try {
-      await api.post(`/whatsapp/session/start?company_id=${user.companyId}`);
+      await api.post(`/whatsapp/session/start`);
       toast({ title: "Iniciando...", description: "O motor do WhatsApp está ligando." });
     } catch (e) {
       toast({ variant: "destructive", title: "Erro", description: "Falha ao iniciar motor." });
@@ -112,7 +113,7 @@ export default function Settings() {
   const handleStopSession = async () => {
     setIsActionLoading(true);
     try {
-      await api.post(`/whatsapp/session/stop?company_id=${user.companyId}`);
+      await api.post(`/whatsapp/session/stop`);
       toast({ title: "Sessão Parada", description: "O motor foi desligado." });
     } catch (e) {
       toast({ variant: "destructive", title: "Erro", description: "Falha ao parar motor." });
