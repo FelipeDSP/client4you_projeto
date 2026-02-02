@@ -173,27 +173,27 @@ async def update_user_quota(
         company_id = profile.data.get('company_id')
         
         # Upsert quota
-        quota_data = {
+        quota_dict = {
             'user_id': user_id,
             'company_id': company_id,
-            'plan_type': plan_type,
-            'plan_name': plan_name,
-            'leads_limit': leads_limit,
-            'campaigns_limit': campaigns_limit,
-            'messages_limit': messages_limit,
+            'plan_type': quota_data.plan_type,
+            'plan_name': quota_data.plan_name,
+            'leads_limit': quota_data.leads_limit,
+            'campaigns_limit': quota_data.campaigns_limit,
+            'messages_limit': quota_data.messages_limit,
             'subscription_status': 'active'
         }
         
         result = db.client.table('user_quotas')\
-            .upsert(quota_data, on_conflict='user_id')\
+            .upsert(quota_dict, on_conflict='user_id')\
             .execute()
         
-        logger.info(f"Admin {auth_user['email']} atualizou quota de {user_id} para {plan_type}")
+        logger.info(f"Admin {auth_user['email']} atualizou quota de {user_id} para {quota_data.plan_type}")
         
         return {
             'success': True,
             'message': 'Quota atualizada com sucesso',
-            'quota': result.data[0] if result.data else quota_data
+            'quota': result.data[0] if result.data else quota_dict
         }
         
     except HTTPException:
