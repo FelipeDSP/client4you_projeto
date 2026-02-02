@@ -54,7 +54,7 @@ export function AdminReauthDialog({ open, onSuccess, onCancel }: AdminReauthDial
 
     try {
       // Get session token
-      const { data: { session } } = await (window as any).supabase.auth.getSession();
+      const { data: { session } } = await supabase.auth.getSession();
       
       if (!session?.access_token) {
         throw new Error("Sessão não encontrada. Por favor, faça login novamente.");
