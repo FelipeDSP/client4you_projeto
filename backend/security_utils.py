@@ -115,21 +115,37 @@ async def get_authenticated_user(request: Request) -> dict:
 def require_role(required_role: str):
     """
     Decorator/dependency para verificar role do usuário.
-    Hierarquia: admin > manager > user
+    
+    Roles suportadas:
+    - super_admin: Acesso total ao sistema
+    - company_owner: Dono da empresa
+    - member: Membro da empresa
+    - user: Usuário padrão
     
     Usage:
         @api_router.get("/admin/endpoint")
-        async def admin_endpoint(auth_user: dict = Depends(require_role("admin"))):
+        async def admin_endpoint(auth_user: dict = Depends(require_role("super_admin"))):
             ...
     """
     async def role_checker(request: Request) -> dict:
         auth_user = await get_authenticated_user(request)
         
-        role_hierarchy = {"admin": 3, "manager": 2, "user": 1}
-        user_level = role_hierarchy.get(auth_user.get("role", "user"), 0)
+        # Hierarquia de roles
+        role_hierarchy = {
+            "super_admin": 4,
+            "company_owner": 3,
+            "member": 2,
+            "user": 1
+        }
+        
+        user_role = auth_user.get("role", "user")
+        user_level = role_hierarchy.get(user_role, 0)
         required_level = role_hierarchy.get(required_role, 999)
         
+        logger.info(f"Role check: user={user_role} (level {user_level}), required={required_role} (level {required_level})")
+        
         if user_level < required_level:
+            logger.warning(f"Access denied for user {auth_user.get('email')} with role {user_role}, required: {required_role}")
             raise HTTPException(
                 status_code=403,
                 detail=f"Acesso negado. Requer permissão: {required_role}"
