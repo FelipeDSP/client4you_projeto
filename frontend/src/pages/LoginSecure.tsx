@@ -261,11 +261,11 @@ export default function LoginSecure() {
         }
       }
 
-      // Check if should show CAPTCHA after failure
-      const recheckAllowed = await checkLoginAllowed();
-      if (!recheckAllowed) {
-        // Will be handled by checkLoginAllowed
-      }
+      // Re-check if should show CAPTCHA or block after this failure
+      setTimeout(async () => {
+        const recheckAllowed = await checkLoginAllowed();
+        // checkLoginAllowed já atualiza os estados necessários
+      }, 500);
     }
 
     setIsLoading(false);
