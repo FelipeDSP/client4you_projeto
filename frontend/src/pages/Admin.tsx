@@ -123,6 +123,61 @@ export default function Admin() {
   const [filterPlan, setFilterPlan] = useState<string>("all");
   const [updateKey, setUpdateKey] = useState(0);
   
+  // Re-authentication state
+  const [showReauthDialog, setShowReauthDialog] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  
+  // Check if re-auth is needed
+  useEffect(() => {
+    const checkReauth = () => {
+      const reauthTime = sessionStorage.getItem('admin_reauth_time');
+      const reauthExpires = sessionStorage.getItem('admin_reauth_expires');
+      
+      if (!reauthTime || !reauthExpires) {
+        // No reauth yet, show dialog
+        setShowReauthDialog(true);
+        setIsAuthenticated(false);
+        return;
+      }
+      
+      const now = Date.now();
+      const expires = parseInt(reauthExpires);
+      
+      if (now > expires) {
+        // Reauth expired, show dialog again
+        sessionStorage.removeItem('admin_reauth_time');
+        sessionStorage.removeItem('admin_reauth_expires');
+        setShowReauthDialog(true);
+        setIsAuthenticated(false);
+      } else {
+        // Still valid
+        setIsAuthenticated(true);
+      }
+    };
+    
+    if (isAdmin) {
+      checkReauth();
+      
+      // Check every minute if reauth expired
+      const interval = setInterval(checkReauth, 60000);
+      return () => clearInterval(interval);
+    }
+  }, [isAdmin]);
+  
+  const handleReauthSuccess = () => {
+    setIsAuthenticated(true);
+    setShowReauthDialog(false);
+    toast({
+      title: "✅ Acesso concedido",
+      description: "Bem-vindo ao painel administrativo.",
+    });
+  };
+  
+  const handleReauthCancel = () => {
+    setShowReauthDialog(false);
+    // Will redirect via Navigate below
+  };
+  
   // Create user dialog state
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [newUserName, setNewUserName] = useState("");
