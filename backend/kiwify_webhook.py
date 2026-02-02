@@ -16,6 +16,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from supabase_service import SupabaseService
+from email_service import get_email_service
 
 logger = logging.getLogger(__name__)
 
