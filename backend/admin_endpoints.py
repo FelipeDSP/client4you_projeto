@@ -302,18 +302,28 @@ async def delete_user_completely(
         db = get_supabase_service()
         audit = get_audit_service()
         
-        # 1. Buscar dados do usuário antes de deletar
+        # 1. Buscar dados do usuário antes de deletar (com maybe_single para evitar erro se não existir)
         user_profile = db.client.table('profiles')\
             .select('email, company_id')\
             .eq('id', user_id)\
-            .single()\
+            .maybe_single()\
             .execute()
         
+        # Se profile não existe, verificar se usuário existe no auth
         if not user_profile.data:
-            raise HTTPException(status_code=404, detail="Usuário não encontrado")
-        
-        user_email = user_profile.data.get('email')
-        company_id = user_profile.data.get('company_id')
+            # Tentar buscar direto no auth
+            try:
+                auth_user_data = db.client.auth.admin.get_user_by_id(user_id)
+                if auth_user_data and auth_user_data.user:
+                    user_email = auth_user_data.user.email
+                    company_id = None
+                else:
+                    raise HTTPException(status_code=404, detail="Usuário não encontrado no sistema")
+            except:
+                raise HTTPException(status_code=404, detail="Usuário não encontrado")
+        else:
+            user_email = user_profile.data.get('email')
+            company_id = user_profile.data.get('company_id')
         
         logger.info(f"Admin {auth_user['email']} iniciando deleção de usuário {user_email} (ID: {user_id})")
         
