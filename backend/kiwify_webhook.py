@@ -278,6 +278,39 @@ async def kiwify_webhook(
                 order_id=payload.order_id
             )
             
+            # ENVIAR EMAIL DE CONFIRMAÇÃO
+            try:
+                plan_config = PLAN_LIMITS.get(plan_key, {})
+                features = []
+                if plan_config.get('leads_limit') == -1:
+                    features.append("✓ Buscas de leads ilimitadas")
+                else:
+                    features.append(f"✓ {plan_config.get('leads_limit')} buscas de leads")
+                
+                if plan_config.get('campaigns_limit', 0) == -1:
+                    features.append("✓ Disparador WhatsApp ilimitado")
+                elif plan_config.get('campaigns_limit', 0) > 0:
+                    features.append(f"✓ {plan_config.get('campaigns_limit')} campanhas WhatsApp")
+                
+                if plan_config.get('whatsapp_instances'):
+                    features.append(f"✓ {plan_config.get('whatsapp_instances')} instâncias WhatsApp simultâneas")
+                
+                features.append("✓ Suporte via email")
+                features.append("✓ Atualizações automáticas")
+                
+                email_service = get_email_service()
+                await email_service.send_purchase_confirmation(
+                    user_email=payload.customer_email,
+                    user_name=payload.customer_name,
+                    plan_name=plan_config.get('name', plan_key),
+                    plan_features=features,
+                    order_id=payload.order_id
+                )
+                logger.info(f"📧 Email de confirmação enviado para {payload.customer_email}")
+            except Exception as e:
+                logger.error(f"❌ Erro ao enviar email de confirmação: {e}")
+                # Não falhar o webhook se email falhar
+            
             await log_webhook_event(payload.event_type, payload_dict, 'success')
             
             plan_config = PLAN_LIMITS.get(plan_key, {})
