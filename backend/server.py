@@ -1070,6 +1070,7 @@ async def increment_quota_endpoint(
 app.include_router(api_router)
 app.include_router(webhook_router)  # <--- NOVO: Webhook Kiwify
 app.include_router(admin_router)    # <--- NOVO: Admin endpoints
+app.include_router(security_router)  # <--- NOVO: Security endpoints
 
 # SEGURANÇA: Configuração CORS com whitelist
 cors_origins_str = os.environ.get('CORS_ORIGINS', '')
