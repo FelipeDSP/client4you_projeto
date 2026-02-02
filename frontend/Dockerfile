@@ -32,10 +32,10 @@ RUN yarn build
 FROM nginx:alpine
 
 # Instalar curl para o healthcheck funcionar
-RUN apk add --no-cache curl
+RUN apk add --no-cache curl wget
 
-# Copiar os arquivos gerados no build (pasta 'build' conforme seu vite.config.ts)
-COPY --from=builder /app/build /usr/share/nginx/html
+# Copiar os arquivos gerados no build (Vite gera na pasta 'dist')
+COPY --from=builder /app/dist /usr/share/nginx/html
 
 # Copiar configuração do Nginx
 COPY nginx.conf /etc/nginx/conf.d/default.conf
