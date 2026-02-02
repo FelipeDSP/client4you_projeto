@@ -124,7 +124,7 @@ export default function Settings() {
     if(!confirm("Isso desconectará seu celular. Confirmar?")) return;
     setIsActionLoading(true);
     try {
-      await api.post(`/whatsapp/session/logout?company_id=${user.companyId}`);
+      await api.post(`/whatsapp/session/logout`);
       toast({ title: "Desconectado", description: "Sessão encerrada com sucesso." });
     } catch (e) {
       toast({ variant: "destructive", title: "Erro", description: "Falha ao deslogar." });
