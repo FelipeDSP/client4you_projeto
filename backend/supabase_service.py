@@ -390,13 +390,36 @@ class SupabaseService:
             return {'allowed': True, 'reason': 'Erro na verificação (permitido por padrão)'}
     
     async def increment_quota(self, user_id: str, action: str, amount: int = 1) -> bool:
-        """Increment quota usage"""
+        """Increment quota usage directly in the table"""
         try:
-            self.client.rpc('increment_quota_usage', {
-                'p_user_id': user_id,
-                'p_action': action,
-                'p_amount': amount
-            }).execute()
+            # Mapear ação para campo de uso
+            action_map = {
+                'create_campaign': 'campaigns_used',
+                'send_message': 'messages_used',
+                'search_leads': 'leads_used',
+                'start_campaign': 'campaigns_used',
+            }
+            
+            used_field = action_map.get(action)
+            if not used_field:
+                logger.warning(f"Action {action} not mapped for quota increment")
+                return True
+            
+            # Buscar valor atual
+            quota = await self.get_user_quota(user_id)
+            if not quota:
+                logger.warning(f"Quota not found for user {user_id}")
+                return False
+            
+            current_value = quota.get(used_field, 0) or 0
+            new_value = current_value + amount
+            
+            # Atualizar diretamente na tabela
+            self.client.table('user_quotas')\
+                .update({used_field: new_value})\
+                .eq('user_id', user_id)\
+                .execute()
+            
             return True
         except Exception as e:
             logger.error(f"Error incrementing quota: {e}")
