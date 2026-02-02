@@ -52,21 +52,65 @@ async def get_authenticated_user(request: Request) -> dict:
         try:
             import jwt as pyjwt
             from jwt.exceptions import InvalidTokenError, ExpiredSignatureError
+            import base64
             
             # SEGURANÇA: Verificar assinatura do JWT
             if jwt_secret:
                 try:
-                    decoded = pyjwt.decode(
-                        token, 
-                        jwt_secret, 
-                        algorithms=["HS256"],
-                        audience="authenticated",
-                        options={"verify_exp": True}
-                    )
+                    # Supabase JWT secret pode precisar de decode base64
+                    # Tenta primeiro com o secret direto, depois com base64 decode
+                    decoded = None
+                    last_error = None
+                    
+                    # Lista de algoritmos suportados pelo Supabase
+                    algorithms = ["HS256", "HS384", "HS512"]
+                    
+                    # Tenta com o secret original
+                    for alg in algorithms:
+                        try:
+                            decoded = pyjwt.decode(
+                                token, 
+                                jwt_secret, 
+                                algorithms=[alg],
+                                audience="authenticated",
+                                options={"verify_exp": True}
+                            )
+                            break
+                        except Exception:
+                            continue
+                    
+                    # Se falhou, tenta com base64 decode do secret
+                    if not decoded:
+                        try:
+                            # Adiciona padding se necessário
+                            padded_secret = jwt_secret + '=' * (4 - len(jwt_secret) % 4) if len(jwt_secret) % 4 else jwt_secret
+                            decoded_secret = base64.b64decode(padded_secret)
+                            
+                            for alg in algorithms:
+                                try:
+                                    decoded = pyjwt.decode(
+                                        token, 
+                                        decoded_secret, 
+                                        algorithms=[alg],
+                                        audience="authenticated",
+                                        options={"verify_exp": True}
+                                    )
+                                    break
+                                except Exception:
+                                    continue
+                        except Exception as e:
+                            last_error = e
+                    
+                    if not decoded:
+                        logger.warning(f"Token inválido após todas tentativas: {last_error}")
+                        raise HTTPException(status_code=401, detail="Token inválido")
+                        
                 except ExpiredSignatureError:
                     logger.warning("Token expirado")
                     raise HTTPException(status_code=401, detail="Token expirado. Faça login novamente.")
-                except InvalidTokenError as e:
+                except HTTPException:
+                    raise
+                except Exception as e:
                     logger.warning(f"Token inválido: {e}")
                     raise HTTPException(status_code=401, detail="Token inválido")
             else:
