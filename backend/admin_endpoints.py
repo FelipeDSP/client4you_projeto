@@ -1,12 +1,13 @@
 """
 Admin endpoints - Gerenciamento de usuários
 """
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 from pydantic import BaseModel
 from typing import Optional
 import logging
 from security_utils import get_authenticated_user, require_role
 from supabase_service import get_supabase_service
+from audit_service import get_audit_service
 
 logger = logging.getLogger(__name__)
 
