@@ -146,6 +146,56 @@ class UpdateQuotaRequest(BaseModel):
     messages_limit: int
 
 
+@admin_router.get("/users/{user_id}/quota")
+async def get_user_quota(
+    user_id: str,
+    auth_user: dict = Depends(require_role("super_admin"))
+):
+    """
+    Busca quota de um usuário específico (admin only)
+    
+    IMPORTANTE: Requer role super_admin
+    """
+    try:
+        db = get_supabase_service()
+        
+        # Buscar quota do usuário usando service_role (bypassa RLS)
+        quota_result = db.client.table('user_quotas')\
+            .select('*')\
+            .eq('user_id', user_id)\
+            .single()\
+            .execute()
+        
+        if not quota_result.data:
+            # Retornar valores default se não houver quota
+            return {
+                'user_id': user_id,
+                'plan_type': 'demo',
+                'plan_name': 'Demo',
+                'leads_limit': 5,
+                'campaigns_limit': 1,
+                'messages_limit': 0,
+                'leads_used': 0,
+                'campaigns_used': 0,
+                'messages_used': 0
+            }
+        
+        logger.info(f"Admin {auth_user['email']} consultou quota de {user_id}")
+        return quota_result.data
+        
+    except Exception as e:
+        logger.error(f"Erro ao buscar quota: {e}")
+        # Retornar valores default em caso de erro
+        return {
+            'user_id': user_id,
+            'plan_type': 'demo',
+            'plan_name': 'Demo',
+            'leads_limit': 5,
+            'campaigns_limit': 1,
+            'messages_limit': 0
+        }
+
+
 @admin_router.post("/users/{user_id}/quota")
 async def update_user_quota(
     user_id: str,
