@@ -148,12 +148,19 @@ async def root():
 
 
 # ========== WhatsApp Management (New SaaS Endpoints) ==========
+# SEGURANÇA: Todos os endpoints WhatsApp agora requerem autenticação
 
 @api_router.get("/whatsapp/status")
-async def get_whatsapp_status(company_id: str):
+async def get_whatsapp_status(
+    request: Request,
+    auth_user: dict = Depends(get_authenticated_user)
+):
     """Verifica o estado detalhado da sessão para o Painel de Gerenciamento"""
+    # SEGURANÇA: Usa company_id do token autenticado, não de parâmetro
+    company_id = auth_user.get("company_id")
+    
     if not company_id:
-        return {"status": "DISCONNECTED", "connected": False, "error": "Company ID missing"}
+        return {"status": "DISCONNECTED", "connected": False, "error": "Company ID não encontrado no perfil"}
 
     waha_url = os.getenv('WAHA_DEFAULT_URL')
     waha_key = os.getenv('WAHA_MASTER_KEY')
@@ -191,8 +198,15 @@ async def get_whatsapp_status(company_id: str):
 
 
 @api_router.post("/whatsapp/session/start")
-async def start_whatsapp_session(company_id: str):
+async def start_whatsapp_session(
+    request: Request,
+    auth_user: dict = Depends(get_authenticated_user)
+):
     """Cria e Inicia o motor da sessão (sem deslogar)"""
+    company_id = auth_user.get("company_id")
+    if not company_id:
+        raise HTTPException(status_code=400, detail="Company ID não encontrado")
+    
     waha_url = os.getenv('WAHA_DEFAULT_URL')
     waha_key = os.getenv('WAHA_MASTER_KEY')
     session_name = await get_session_name_for_company(company_id)
@@ -207,8 +221,15 @@ async def start_whatsapp_session(company_id: str):
     return {"status": "STARTING", "message": "Motor em inicialização..."}
 
 @api_router.post("/whatsapp/session/stop")
-async def stop_whatsapp_session(company_id: str):
+async def stop_whatsapp_session(
+    request: Request,
+    auth_user: dict = Depends(get_authenticated_user)
+):
     """Apenas para o motor da sessão (mantém o login se houver)"""
+    company_id = auth_user.get("company_id")
+    if not company_id:
+        raise HTTPException(status_code=400, detail="Company ID não encontrado")
+    
     waha_url = os.getenv('WAHA_DEFAULT_URL')
     waha_key = os.getenv('WAHA_MASTER_KEY')
     session_name = await get_session_name_for_company(company_id)
@@ -218,8 +239,15 @@ async def stop_whatsapp_session(company_id: str):
     return {"success": success}
 
 @api_router.post("/whatsapp/session/logout")
-async def logout_whatsapp_session(company_id: str):
+async def logout_whatsapp_session(
+    request: Request,
+    auth_user: dict = Depends(get_authenticated_user)
+):
     """Desconecta o WhatsApp e exige novo QR Code"""
+    company_id = auth_user.get("company_id")
+    if not company_id:
+        raise HTTPException(status_code=400, detail="Company ID não encontrado")
+    
     waha_url = os.getenv('WAHA_DEFAULT_URL')
     waha_key = os.getenv('WAHA_MASTER_KEY')
     session_name = await get_session_name_for_company(company_id)
@@ -229,8 +257,15 @@ async def logout_whatsapp_session(company_id: str):
     return {"success": success}
 
 @api_router.get("/whatsapp/qr")
-async def get_whatsapp_qr(company_id: str):
+async def get_whatsapp_qr(
+    request: Request,
+    auth_user: dict = Depends(get_authenticated_user)
+):
     """Endpoint dedicado apenas para buscar o QR Code atual"""
+    company_id = auth_user.get("company_id")
+    if not company_id:
+        raise HTTPException(status_code=400, detail="Company ID não encontrado")
+    
     waha_url = os.getenv('WAHA_DEFAULT_URL')
     waha_key = os.getenv('WAHA_MASTER_KEY')
     session_name = await get_session_name_for_company(company_id)
