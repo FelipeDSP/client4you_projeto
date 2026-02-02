@@ -277,6 +277,7 @@ async def update_user_quota(
 
 @admin_router.delete("/users/{user_id}")
 async def delete_user_completely(
+    request: Request,
     user_id: str,
     auth_user: dict = Depends(require_role("super_admin"))
 ):
@@ -299,6 +300,7 @@ async def delete_user_completely(
             )
         
         db = get_supabase_service()
+        audit = get_audit_service()
         
         # 1. Buscar dados do usuário antes de deletar
         user_profile = db.client.table('profiles')\
@@ -390,6 +392,21 @@ async def delete_user_completely(
                 status_code=500,
                 detail=f"Usuário deletado das tabelas mas falhou em auth.users: {str(e)}"
             )
+        
+        # LOG DE AUDITORIA
+        await audit.log_action(
+            user_id=auth_user['user_id'],
+            user_email=auth_user['email'],
+            action='user_deleted',
+            target_type='user',
+            target_id=user_id,
+            target_email=user_email,
+            details={
+                'company_id': company_id
+            },
+            ip_address=request.client.host if request.client else None,
+            user_agent=request.headers.get('user-agent')
+        )
         
         logger.info(f"✅ DELEÇÃO COMPLETA: Usuário {user_email} (ID: {user_id}) totalmente removido")
         
