@@ -305,20 +305,28 @@ export default function Admin() {
         .eq("id", authData.user.id)
         .single();
 
-      // Cria quota para o usuário
+      // Cria quota para o usuário via backend
       const planConfig = QUOTA_PLANS.find(p => p.id === newUserPlan) || QUOTA_PLANS[2];
       
-      await supabase
-        .from("user_quotas")
-        .insert({
-          user_id: authData.user.id,
-          company_id: profileData?.company_id || null,
-          plan_type: newUserPlan,
-          plan_name: planConfig.name,
-          leads_limit: planConfig.features.leads,
-          campaigns_limit: planConfig.features.campaigns,
-          messages_limit: planConfig.features.messages,
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8001';
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session?.access_token) {
+        await fetch(`${backendUrl}/api/admin/users/${authData.user.id}/quota`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            plan_type: newUserPlan,
+            plan_name: planConfig.name,
+            leads_limit: planConfig.features.leads,
+            campaigns_limit: planConfig.features.campaigns,
+            messages_limit: planConfig.features.messages
+          })
         });
+      }
 
       toast({
         title: "Usuário criado!",
