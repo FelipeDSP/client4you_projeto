@@ -373,8 +373,21 @@ export default function LoginSecure() {
 
             {/* Cloudflare Turnstile */}
             {showCaptcha && (
-              <div className="flex justify-center">
-                <div ref={turnstileRef} />
+              <div className="space-y-3">
+                <div className="bg-blue-950/30 border border-blue-500/30 rounded-md p-3">
+                  <div className="flex items-start gap-2">
+                    <Shield className="h-4 w-4 text-blue-400 mt-0.5 flex-shrink-0" />
+                    <div className="text-xs text-blue-200">
+                      <p className="font-semibold mb-1">Por que estou vendo isso?</p>
+                      <p className="text-blue-200/80">
+                        Após algumas tentativas incorretas, pedimos esta verificação para garantir a segurança da sua conta.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex justify-center">
+                  <div ref={turnstileRef} />
+                </div>
               </div>
             )}
           </CardContent>
