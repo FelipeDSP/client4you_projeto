@@ -4,6 +4,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { usePageTitle } from "@/contexts/PageTitleContext";
+import { AdminReauthDialog } from "@/components/AdminReauthDialog";
 
 // Componentes UI
 import { Separator } from "@/components/ui/separator";
