@@ -138,14 +138,18 @@ async def cleanup_orphan_users(
         raise HTTPException(status_code=500, detail=f"Erro na limpeza: {str(e)}")
 
 
+class UpdateQuotaRequest(BaseModel):
+    plan_type: str
+    plan_name: str
+    leads_limit: int
+    campaigns_limit: int
+    messages_limit: int
+
+
 @admin_router.post("/users/{user_id}/quota")
 async def update_user_quota(
     user_id: str,
-    plan_type: str,
-    plan_name: str,
-    leads_limit: int,
-    campaigns_limit: int,
-    messages_limit: int,
+    quota_data: UpdateQuotaRequest,
     auth_user: dict = Depends(require_role("super_admin"))
 ):
     """
