@@ -294,18 +294,29 @@ export default function LoginSecure() {
           <CardContent className="space-y-4 pt-4">
             {/* Blocked Alert */}
             {isBlocked && (
-              <Alert variant="destructive" className="border-red-500/50 bg-red-950/50">
-                <Shield className="h-4 w-4" />
-                <AlertDescription className="flex items-center justify-between">
+              <Alert variant="destructive" className="border-orange-500/50 bg-orange-950/30">
+                <Shield className="h-5 w-5 text-orange-400" />
+                <AlertDescription className="space-y-2">
                   <div>
-                    <p className="font-semibold">{blockMessage}</p>
-                    {retryAfter > 0 && (
-                      <p className="text-sm mt-1 flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        Tente novamente em {formatTime(retryAfter)}
-                      </p>
-                    )}
+                    <p className="font-bold text-orange-100 text-base">
+                      Acesso temporariamente bloqueado
+                    </p>
+                    <p className="text-sm text-orange-200/80 mt-1">
+                      Detectamos muitas tentativas de login incorretas para proteger sua conta.
+                    </p>
                   </div>
+                  {retryAfter > 0 && (
+                    <div className="flex items-center gap-2 bg-orange-900/30 rounded-md p-2 mt-2">
+                      <Clock className="h-4 w-4 text-orange-300" />
+                      <div className="flex-1">
+                        <p className="text-xs text-orange-200/70">Você poderá tentar novamente em:</p>
+                        <p className="font-mono font-bold text-orange-100 text-lg">{formatTime(retryAfter)}</p>
+                      </div>
+                    </div>
+                  )}
+                  <p className="text-xs text-orange-200/60 mt-2">
+                    💡 Dica: Aguarde o tempo indicado ou entre em contato com o suporte se precisar de ajuda.
+                  </p>
                 </AlertDescription>
               </Alert>
             )}
