@@ -54,55 +54,64 @@ async def get_authenticated_user(request: Request) -> dict:
             from jwt.exceptions import InvalidTokenError, ExpiredSignatureError
             import base64
             
+            decoded = None
+            
             # SEGURANÇA: Verificar assinatura do JWT
             if jwt_secret:
                 try:
-                    # Supabase JWT secret pode precisar de decode base64
-                    # Tenta primeiro com o secret direto, depois com base64 decode
-                    decoded = None
-                    last_error = None
-                    
                     # Lista de algoritmos suportados pelo Supabase
                     algorithms = ["HS256", "HS384", "HS512"]
                     
-                    # Tenta com o secret original
-                    for alg in algorithms:
-                        try:
-                            decoded = pyjwt.decode(
-                                token, 
-                                jwt_secret, 
-                                algorithms=[alg],
-                                audience="authenticated",
-                                options={"verify_exp": True}
-                            )
-                            break
-                        except Exception:
-                            continue
+                    # Prepara variações do secret
+                    secrets_to_try = [jwt_secret]
                     
-                    # Se falhou, tenta com base64 decode do secret
-                    if not decoded:
-                        try:
-                            # Adiciona padding se necessário
-                            padded_secret = jwt_secret + '=' * (4 - len(jwt_secret) % 4) if len(jwt_secret) % 4 else jwt_secret
-                            decoded_secret = base64.b64decode(padded_secret)
-                            
-                            for alg in algorithms:
+                    # Tenta decodificar base64 se parecer ser base64
+                    try:
+                        padded = jwt_secret + '=' * (-len(jwt_secret) % 4)
+                        decoded_secret = base64.b64decode(padded)
+                        secrets_to_try.append(decoded_secret)
+                    except:
+                        pass
+                    
+                    # Tenta cada combinação de secret e algoritmo
+                    for secret in secrets_to_try:
+                        for alg in algorithms:
+                            try:
+                                # Tenta com audience
+                                decoded = pyjwt.decode(
+                                    token, 
+                                    secret, 
+                                    algorithms=[alg],
+                                    audience="authenticated",
+                                    options={"verify_exp": True}
+                                )
+                                logger.debug(f"Token válido com secret#{secrets_to_try.index(secret)+1}, alg={alg}")
+                                break
+                            except pyjwt.InvalidAudienceError:
+                                # Tenta sem verificar audience
                                 try:
                                     decoded = pyjwt.decode(
                                         token, 
-                                        decoded_secret, 
+                                        secret, 
                                         algorithms=[alg],
-                                        audience="authenticated",
-                                        options={"verify_exp": True}
+                                        options={"verify_exp": True, "verify_aud": False}
                                     )
+                                    logger.debug(f"Token válido (sem aud) com secret#{secrets_to_try.index(secret)+1}, alg={alg}")
                                     break
-                                except Exception:
+                                except:
                                     continue
-                        except Exception as e:
-                            last_error = e
+                            except:
+                                continue
+                        if decoded:
+                            break
                     
                     if not decoded:
-                        logger.warning(f"Token inválido após todas tentativas: {last_error}")
+                        # Última tentativa: decodificar sem verificação para log
+                        try:
+                            debug_decoded = pyjwt.decode(token, options={"verify_signature": False})
+                            logger.warning(f"Token structure OK mas assinatura inválida. aud={debug_decoded.get('aud')}, alg header={pyjwt.get_unverified_header(token).get('alg')}")
+                        except Exception as e:
+                            logger.warning(f"Token malformado: {e}")
                         raise HTTPException(status_code=401, detail="Token inválido")
                         
                 except ExpiredSignatureError:
