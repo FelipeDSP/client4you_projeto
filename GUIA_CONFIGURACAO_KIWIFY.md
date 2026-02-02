@@ -35,7 +35,7 @@
    ```
    - **Preço:** R$ 39,90
    - **Recorrência:** Mensal
-   - **Página de vendas:** `https://client-bugfix.preview.emergentagent.com`
+   - **Página de vendas:** `https://admin-security-boost.preview.emergentagent.com`
 
 4. Clique em **"Criar produto"**
 5. **ANOTE O ID DO PRODUTO** (aparece na URL)
@@ -61,7 +61,7 @@
    ```
    - **Preço:** R$ 99,90
    - **Recorrência:** Mensal
-   - **Página de vendas:** `https://client-bugfix.preview.emergentagent.com`
+   - **Página de vendas:** `https://admin-security-boost.preview.emergentagent.com`
 
 4. **ANOTE O ID DO PRODUTO**
 
@@ -87,7 +87,7 @@
    ```
    - **Preço:** R$ 199,90
    - **Recorrência:** Mensal
-   - **Página de vendas:** `https://client-bugfix.preview.emergentagent.com`
+   - **Página de vendas:** `https://admin-security-boost.preview.emergentagent.com`
 
 4. **ANOTE O ID DO PRODUTO**
 

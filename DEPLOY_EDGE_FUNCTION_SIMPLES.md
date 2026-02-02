@@ -43,7 +43,7 @@ Você precisa fazer deploy da **Edge Function** no Supabase.
 
 ### **PASSO 6: Teste**
 
-1. Volte na aplicação: https://client-bugfix.preview.emergentagent.com
+1. Volte na aplicação: https://admin-security-boost.preview.emergentagent.com
 2. Faça uma busca de leads
 3. O alerta azul deve desaparecer
 4. Botão "Carregar Mais" deve funcionar

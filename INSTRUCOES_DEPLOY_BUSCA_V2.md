@@ -222,7 +222,7 @@ Deve retornar:
 
 1. **Acesse a aplicação:**
    ```
-   https://client-bugfix.preview.emergentagent.com
+   https://admin-security-boost.preview.emergentagent.com
    ```
 
 2. **Faça login e teste:**

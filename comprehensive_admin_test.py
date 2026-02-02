@@ -11,7 +11,7 @@ from datetime import datetime
 from typing import Dict, Any, Optional
 
 # Get backend URL from frontend .env
-BACKEND_URL = "https://client-bugfix.preview.emergentagent.com/api"
+BACKEND_URL = "https://admin-security-boost.preview.emergentagent.com/api"
 
 class ComprehensiveAdminTester:
     def __init__(self):

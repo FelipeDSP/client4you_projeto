@@ -229,7 +229,7 @@ python3 check_and_fix_rls.py
 
 ### Teste 3: Frontend
 ```
-Abrir: https://client-bugfix.preview.emergentagent.com
+Abrir: https://admin-security-boost.preview.emergentagent.com
 Login com usuário de teste
 Navegar para /disparador
 ```

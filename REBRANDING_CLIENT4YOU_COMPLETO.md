@@ -202,7 +202,7 @@
 ### **2. Testar a Landing Page**
 
 ```
-1. Abra: https://client-bugfix.preview.emergentagent.com
+1. Abra: https://admin-security-boost.preview.emergentagent.com
 2. Verificar:
    ✓ Logo e nome "Client4you" aparecem
    ✓ Hero section carrega
