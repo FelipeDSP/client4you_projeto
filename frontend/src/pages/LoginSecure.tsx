@@ -170,8 +170,8 @@ export default function LoginSecure() {
       if (data.show_captcha && !showCaptcha && !turnstileToken) {
         setShowCaptcha(true);
         toast({
-          title: "Verificação necessária",
-          description: "Complete o CAPTCHA para continuar.",
+          title: "⚠️ Verificação de segurança necessária",
+          description: "Por favor, complete a verificação abaixo para continuar.",
         });
         return false; // Impede submit até CAPTCHA ser completado
       }
