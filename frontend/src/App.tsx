@@ -13,6 +13,7 @@ import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { SubscriptionProvider } from "@/hooks/useSubscription";
 import { PageTitleProvider } from "@/contexts/PageTitleContext";
 import Login from "./pages/Login";
+import LoginSecure from "./pages/LoginSecure";
 import Signup from "./pages/Signup";
 import Dashboard from "./pages/Dashboard";
 import History from "./pages/History";
