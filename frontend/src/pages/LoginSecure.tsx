@@ -107,8 +107,8 @@ export default function LoginSecure() {
           'error-callback': () => {
             setTurnstileToken(null);
             toast({
-              title: "Erro no CAPTCHA",
-              description: "Por favor, recarregue a página e tente novamente.",
+              title: "❌ Erro na verificação",
+              description: "Não foi possível validar a verificação. Por favor, recarregue a página e tente novamente.",
               variant: "destructive",
             });
           },
