@@ -8,14 +8,41 @@ import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { usePageTitle } from "@/contexts/PageTitleContext";
+import { supabase } from "@/integrations/supabase/client";
 
-const api = {
-  get: async (url: string) => (await fetch(`/api${url}`)).json(),
-  post: async (url: string) => (await fetch(`/api${url}`, { method: 'POST' })).json()
-};
+// Helper para fazer requisições autenticadas
+const createAuthenticatedApi = () => ({
+  get: async (url: string) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+    if (session?.access_token) {
+      headers['Authorization'] = `Bearer ${session.access_token}`;
+    }
+    const response = await fetch(`/api${url}`, { headers });
+    return response.json();
+  },
+  post: async (url: string, body?: unknown) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+    if (session?.access_token) {
+      headers['Authorization'] = `Bearer ${session.access_token}`;
+    }
+    const response = await fetch(`/api${url}`, { 
+      method: 'POST',
+      headers,
+      body: body ? JSON.stringify(body) : undefined
+    });
+    return response.json();
+  }
+});
 
 export default function Settings() {
   const { setPageTitle } = usePageTitle();
+  const api = createAuthenticatedApi();
   
   useEffect(() => {
     setPageTitle("Configurações", SettingsIcon);
