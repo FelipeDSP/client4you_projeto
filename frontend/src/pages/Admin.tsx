@@ -518,9 +518,30 @@ export default function Admin() {
   const totalUsers = users.length;
   const totalAdmins = users.filter((u) => u.roles.includes("super_admin")).length;
   const totalCompanies = companies.length;
+  
+  // If not authenticated yet, don't show content (wait for dialog)
+  if (!isAuthenticated) {
+    return (
+      <>
+        <AdminReauthDialog
+          open={showReauthDialog}
+          onSuccess={handleReauthSuccess}
+          onCancel={handleReauthCancel}
+        />
+        {!showReauthDialog && <Navigate to="/dashboard" replace />}
+      </>
+    );
+  }
 
   return (
     <div className="space-y-8 animate-fade-in pb-10">
+      
+      {/* Re-auth Dialog */}
+      <AdminReauthDialog
+        open={showReauthDialog}
+        onSuccess={handleReauthSuccess}
+        onCancel={handleReauthCancel}
+      />
       
       {/* CABEÇALHO */}
       <div className="flex flex-col gap-2">
