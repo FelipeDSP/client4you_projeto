@@ -199,6 +199,7 @@ async def get_user_quota(
 
 @admin_router.post("/users/{user_id}/quota")
 async def update_user_quota(
+    request: Request,
     user_id: str,
     quota_data: UpdateQuotaRequest,
     auth_user: dict = Depends(require_role("super_admin"))
@@ -210,10 +211,11 @@ async def update_user_quota(
     """
     try:
         db = get_supabase_service()
+        audit = get_audit_service()
         
-        # Buscar user_id para pegar company_id
+        # Buscar user_id para pegar company_id e email
         profile = db.client.table('profiles')\
-            .select('company_id')\
+            .select('company_id, email')\
             .eq('id', user_id)\
             .single()\
             .execute()
@@ -222,6 +224,7 @@ async def update_user_quota(
             raise HTTPException(status_code=404, detail="Usuário não encontrado")
         
         company_id = profile.data.get('company_id')
+        target_email = profile.data.get('email')
         
         # Upsert quota
         quota_dict = {
@@ -237,6 +240,25 @@ async def update_user_quota(
         result = db.client.table('user_quotas')\
             .upsert(quota_dict, on_conflict='user_id')\
             .execute()
+        
+        # LOG DE AUDITORIA
+        await audit.log_action(
+            user_id=auth_user['user_id'],
+            user_email=auth_user['email'],
+            action='quota_updated',
+            target_type='quota',
+            target_id=user_id,
+            target_email=target_email,
+            details={
+                'plan_type': quota_data.plan_type,
+                'plan_name': quota_data.plan_name,
+                'leads_limit': quota_data.leads_limit,
+                'campaigns_limit': quota_data.campaigns_limit,
+                'messages_limit': quota_data.messages_limit
+            },
+            ip_address=request.client.host if request.client else None,
+            user_agent=request.headers.get('user-agent')
+        )
         
         logger.info(f"Admin {auth_user['email']} atualizou quota de {user_id} para {quota_data.plan_type}")
         
