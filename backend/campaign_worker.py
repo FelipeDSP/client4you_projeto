@@ -197,6 +197,35 @@ async def process_campaign(
                     "completed_at": datetime.now(campaign_tz).isoformat()
                 })
                 logger.info(f"Campaign {campaign_id} completed - all contacts processed")
+                
+                # ENVIAR EMAIL DE CONCLUSÃO
+                try:
+                    # Buscar dados da campanha e usuário
+                    campaign_final = await db.get_campaign(campaign_id)
+                    if campaign_final:
+                        # Buscar email do usuário
+                        user_result = db.client.table('profiles')\
+                            .select('email, full_name')\
+                            .eq('id', campaign_final.get('user_id'))\
+                            .single()\
+                            .execute()
+                        
+                        if user_result.data:
+                            email_service = get_email_service()
+                            await email_service.send_campaign_completed(
+                                user_email=user_result.data.get('email'),
+                                user_name=user_result.data.get('full_name', 'Usuário'),
+                                campaign_name=campaign_final.get('name', 'Campanha'),
+                                total_sent=campaign_final.get('sent_count', 0),
+                                total_errors=campaign_final.get('error_count', 0),
+                                total_contacts=campaign_final.get('total_contacts', 0),
+                                campaign_id=campaign_id
+                            )
+                            logger.info(f"📧 Email de conclusão enviado para {user_result.data.get('email')}")
+                except Exception as e:
+                    logger.error(f"❌ Erro ao enviar email de conclusão: {e}")
+                    # Não falhar o worker se email falhar
+                
                 break
             
             # Prepare message with variables (campaign_data still needed for message)
