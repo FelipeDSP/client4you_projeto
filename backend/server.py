@@ -33,6 +33,7 @@ from security_utils import (
     validate_quota_for_action
 )
 from kiwify_webhook import webhook_router  # <--- NOVO
+from admin_endpoints import admin_router  # <--- NOVO: Admin endpoints
 
 # --- CORREÇÃO DO LOAD DOTENV ---
 # Pega o diretório atual (backend)
