@@ -180,8 +180,7 @@ async def update_user_quota(
             'plan_name': quota_data.plan_name,
             'leads_limit': quota_data.leads_limit,
             'campaigns_limit': quota_data.campaigns_limit,
-            'messages_limit': quota_data.messages_limit,
-            'subscription_status': 'active'
+            'messages_limit': quota_data.messages_limit
         }
         
         result = db.client.table('user_quotas')\
