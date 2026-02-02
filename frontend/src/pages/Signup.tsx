@@ -242,7 +242,7 @@ export default function Signup() {
 
             <div className="text-center text-sm text-slate-400">
               Já tem uma conta?{" "}
-              <Link to="/" className="text-primary hover:underline">
+              <Link to="/login" className="text-primary hover:underline">
                 Fazer login
               </Link>
             </div>
