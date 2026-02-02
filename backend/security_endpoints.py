@@ -13,6 +13,7 @@ from turnstile_service import get_turnstile_service
 from anti_brute_force_service import get_anti_brute_force_service
 from audit_service import get_audit_service
 from supabase_service import get_supabase_service
+from admin_access_control import get_admin_access_control
 
 logger = logging.getLogger(__name__)
 
