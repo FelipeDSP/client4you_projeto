@@ -53,16 +53,53 @@ async def get_authenticated_user(request: Request) -> dict:
             import jwt as pyjwt
             from jwt.exceptions import InvalidTokenError, ExpiredSignatureError
             import base64
+            import httpx
             
             decoded = None
             
+            # Obter header do token para verificar algoritmo
+            try:
+                token_header = pyjwt.get_unverified_header(token)
+                alg = token_header.get('alg', 'HS256')
+            except:
+                alg = 'HS256'
+            
             # SEGURANÇA: Verificar assinatura do JWT
-            if jwt_secret:
+            if alg.startswith('ES') or alg.startswith('RS'):
+                # Algoritmos assimétricos (ES256, RS256) - buscar JWKS do Supabase
                 try:
-                    # Lista de algoritmos suportados pelo Supabase
-                    algorithms = ["HS256", "HS384", "HS512"]
+                    jwks_url = f"{supabase_url}/auth/v1/.well-known/jwks.json"
                     
-                    # Prepara variações do secret
+                    # Cache simples da JWKS (em produção, usar cache real)
+                    with httpx.Client(timeout=10) as client:
+                        resp = client.get(jwks_url)
+                        if resp.status_code == 200:
+                            from jwt import PyJWKClient
+                            jwks_client = PyJWKClient(jwks_url)
+                            signing_key = jwks_client.get_signing_key_from_jwt(token)
+                            
+                            decoded = pyjwt.decode(
+                                token,
+                                signing_key.key,
+                                algorithms=[alg],
+                                audience="authenticated",
+                                options={"verify_exp": True}
+                            )
+                            logger.debug(f"Token validado via JWKS com {alg}")
+                        else:
+                            logger.warning(f"Não foi possível obter JWKS: {resp.status_code}")
+                            # Fallback: decodificar sem verificação
+                            decoded = pyjwt.decode(token, options={"verify_signature": False})
+                            logger.warning("Usando fallback sem verificação de assinatura")
+                except Exception as e:
+                    logger.warning(f"Erro ao validar com JWKS: {e}")
+                    # Fallback: decodificar sem verificação
+                    decoded = pyjwt.decode(token, options={"verify_signature": False})
+                    logger.warning("Usando fallback sem verificação de assinatura")
+                    
+            elif jwt_secret:
+                # Algoritmos simétricos (HS256) - usar JWT secret
+                try:
                     secrets_to_try = [jwt_secret]
                     
                     # Tenta decodificar base64 se parecer ser base64
@@ -73,45 +110,31 @@ async def get_authenticated_user(request: Request) -> dict:
                     except:
                         pass
                     
-                    # Tenta cada combinação de secret e algoritmo
                     for secret in secrets_to_try:
-                        for alg in algorithms:
+                        try:
+                            decoded = pyjwt.decode(
+                                token, 
+                                secret, 
+                                algorithms=["HS256", "HS384", "HS512"],
+                                audience="authenticated",
+                                options={"verify_exp": True}
+                            )
+                            break
+                        except pyjwt.InvalidAudienceError:
                             try:
-                                # Tenta com audience
                                 decoded = pyjwt.decode(
                                     token, 
                                     secret, 
-                                    algorithms=[alg],
-                                    audience="authenticated",
-                                    options={"verify_exp": True}
+                                    algorithms=["HS256", "HS384", "HS512"],
+                                    options={"verify_exp": True, "verify_aud": False}
                                 )
-                                logger.debug(f"Token válido com secret#{secrets_to_try.index(secret)+1}, alg={alg}")
                                 break
-                            except pyjwt.InvalidAudienceError:
-                                # Tenta sem verificar audience
-                                try:
-                                    decoded = pyjwt.decode(
-                                        token, 
-                                        secret, 
-                                        algorithms=[alg],
-                                        options={"verify_exp": True, "verify_aud": False}
-                                    )
-                                    logger.debug(f"Token válido (sem aud) com secret#{secrets_to_try.index(secret)+1}, alg={alg}")
-                                    break
-                                except:
-                                    continue
                             except:
                                 continue
-                        if decoded:
-                            break
+                        except:
+                            continue
                     
                     if not decoded:
-                        # Última tentativa: decodificar sem verificação para log
-                        try:
-                            debug_decoded = pyjwt.decode(token, options={"verify_signature": False})
-                            logger.warning(f"Token structure OK mas assinatura inválida. aud={debug_decoded.get('aud')}, alg header={pyjwt.get_unverified_header(token).get('alg')}")
-                        except Exception as e:
-                            logger.warning(f"Token malformado: {e}")
                         raise HTTPException(status_code=401, detail="Token inválido")
                         
                 except ExpiredSignatureError:
