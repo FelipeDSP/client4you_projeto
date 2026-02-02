@@ -322,7 +322,7 @@ export default function LoginSecure() {
                     setEmail(e.target.value);
                     setEmailError("");
                   }}
-                  disabled={isBlocked}
+                  disabled={isBlocked || isLoading}
                   className={`border-slate-600 bg-slate-700/50 pl-10 text-white placeholder:text-slate-400 ${emailError ? "border-red-500" : ""}`}
                 />
               </div>
@@ -347,7 +347,7 @@ export default function LoginSecure() {
                     setPassword(e.target.value);
                     setPasswordError("");
                   }}
-                  disabled={isBlocked}
+                  disabled={isBlocked || isLoading}
                   className={`border-slate-600 bg-slate-700/50 pl-10 text-white placeholder:text-slate-400 ${passwordError ? "border-red-500" : ""}`}
                 />
               </div>
