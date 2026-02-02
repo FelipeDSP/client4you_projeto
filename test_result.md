@@ -294,7 +294,7 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Campaign CRUD API - Criar, listar, atualizar, deletar campanhas"
+    - "Admin Quota Endpoints - GET/POST /api/admin/users/{user_id}/quota"
   stuck_tasks:
     - "Campaign CRUD API - Criar, listar, atualizar, deletar campanhas"
   test_all: false
