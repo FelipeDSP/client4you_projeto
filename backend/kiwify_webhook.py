@@ -230,8 +230,13 @@ async def kiwify_webhook(
         # Ler body raw
         body = await request.body()
         
-        # Verificar assinatura
-        if x_kiwify_signature and not verify_kiwify_signature(body, x_kiwify_signature):
+        # SEGURANÇA: Sempre verificar assinatura (obrigatório)
+        if not x_kiwify_signature:
+            logger.warning("⚠️ Webhook Kiwify sem assinatura - rejeitado")
+            await log_webhook_event('missing_signature', {}, 'failed', 'Missing signature header')
+            raise HTTPException(status_code=401, detail="Missing X-Kiwify-Signature header")
+        
+        if not verify_kiwify_signature(body, x_kiwify_signature):
             logger.warning("⚠️ Assinatura inválida do webhook Kiwify")
             await log_webhook_event('invalid_signature', {}, 'failed', 'Invalid signature')
             raise HTTPException(status_code=401, detail="Invalid signature")
