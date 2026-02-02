@@ -3,8 +3,10 @@ FROM node:20-alpine as builder
 WORKDIR /app
 
 # Instalar dependências
-COPY package*.json yarn.lock ./
-RUN yarn install --frozen-lockfile
+# Nota: yarn.lock* com asterisco torna opcional (funciona com ou sem o arquivo)
+COPY package*.json ./
+COPY yarn.lock* ./
+RUN yarn install --frozen-lockfile || yarn install
 
 # Copiar código fonte
 COPY . .
