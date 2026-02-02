@@ -213,8 +213,8 @@ export default function LoginSecure() {
     // If CAPTCHA is shown but not completed
     if (showCaptcha && !turnstileToken) {
       toast({
-        title: "CAPTCHA necessário",
-        description: "Por favor, complete o CAPTCHA para continuar.",
+        title: "⚠️ Verificação pendente",
+        description: "Por favor, marque a caixa de verificação acima para prosseguir.",
         variant: "destructive",
       });
       return;
