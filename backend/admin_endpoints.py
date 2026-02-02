@@ -17,6 +17,127 @@ class DeleteUserRequest(BaseModel):
     user_id: str
 
 
+class CleanupOrphansResponse(BaseModel):
+    orphans_found: int
+    orphans_deleted: int
+    orphan_emails: list[str]
+
+
+@admin_router.get("/orphan-users")
+async def get_orphan_users(
+    auth_user: dict = Depends(require_role("super_admin"))
+):
+    """
+    Lista usuários órfãos (existem em auth.users mas não em profiles)
+    
+    IMPORTANTE: Requer role super_admin
+    """
+    try:
+        db = get_supabase_service()
+        
+        # Buscar todos os usuários do Auth
+        auth_response = db.client.auth.admin.list_users()
+        auth_users = auth_response if isinstance(auth_response, list) else []
+        
+        # Buscar todos os IDs de profiles
+        profiles_result = db.client.table('profiles').select('id').execute()
+        profile_ids = set([p['id'] for p in profiles_result.data]) if profiles_result.data else set()
+        
+        # Encontrar órfãos
+        orphans = []
+        for user in auth_users:
+            user_id = user.id if hasattr(user, 'id') else user.get('id')
+            email = user.email if hasattr(user, 'email') else user.get('email')
+            created_at = user.created_at if hasattr(user, 'created_at') else user.get('created_at')
+            
+            if user_id not in profile_ids:
+                orphans.append({
+                    'id': user_id,
+                    'email': email,
+                    'created_at': created_at
+                })
+        
+        logger.info(f"Admin {auth_user['email']} listou {len(orphans)} usuários órfãos")
+        
+        return {
+            'total_auth_users': len(auth_users),
+            'total_profiles': len(profile_ids),
+            'orphans_found': len(orphans),
+            'orphans': orphans
+        }
+        
+    except Exception as e:
+        logger.error(f"Erro ao listar usuários órfãos: {e}")
+        raise HTTPException(status_code=500, detail=f"Erro ao listar órfãos: {str(e)}")
+
+
+@admin_router.delete("/orphan-users")
+async def cleanup_orphan_users(
+    auth_user: dict = Depends(require_role("super_admin"))
+):
+    """
+    Remove todos os usuários órfãos (existem em auth.users mas não em profiles)
+    
+    ATENÇÃO: Ação irreversível!
+    IMPORTANTE: Requer role super_admin
+    """
+    try:
+        db = get_supabase_service()
+        
+        # Buscar órfãos (mesmo código do endpoint GET)
+        auth_response = db.client.auth.admin.list_users()
+        auth_users = auth_response if isinstance(auth_response, list) else []
+        
+        profiles_result = db.client.table('profiles').select('id').execute()
+        profile_ids = set([p['id'] for p in profiles_result.data]) if profiles_result.data else set()
+        
+        orphans = []
+        for user in auth_users:
+            user_id = user.id if hasattr(user, 'id') else user.get('id')
+            email = user.email if hasattr(user, 'email') else user.get('email')
+            
+            if user_id not in profile_ids:
+                orphans.append({'id': user_id, 'email': email})
+        
+        if not orphans:
+            return {
+                'success': True,
+                'message': 'Nenhum usuário órfão encontrado',
+                'orphans_deleted': 0,
+                'orphan_emails': []
+            }
+        
+        # Deletar órfãos
+        deleted_count = 0
+        deleted_emails = []
+        failed = []
+        
+        for orphan in orphans:
+            try:
+                db.client.auth.admin.delete_user(orphan['id'])
+                deleted_count += 1
+                deleted_emails.append(orphan['email'])
+                logger.info(f"✅ Órfão deletado: {orphan['email']} (ID: {orphan['id']})")
+            except Exception as e:
+                failed.append({'email': orphan['email'], 'error': str(e)})
+                logger.error(f"❌ Erro ao deletar órfão {orphan['email']}: {e}")
+        
+        logger.warning(f"Admin {auth_user['email']} deletou {deleted_count} usuários órfãos")
+        
+        return {
+            'success': True,
+            'message': f'{deleted_count} usuário(s) órfão(s) deletado(s)',
+            'orphans_found': len(orphans),
+            'orphans_deleted': deleted_count,
+            'orphan_emails': deleted_emails,
+            'failed': failed if failed else None
+        }
+        
+    except Exception as e:
+        logger.error(f"Erro ao limpar usuários órfãos: {e}")
+        raise HTTPException(status_code=500, detail=f"Erro na limpeza: {str(e)}")
+
+
 @admin_router.delete("/users/{user_id}")
 async def delete_user_completely(
     user_id: str,
