@@ -7,8 +7,7 @@ services:
       dockerfile: Dockerfile
     container_name: client4you-backend
     restart: unless-stopped
-    ports:
-      - "8001:8001"
+    # Porta removida para evitar conflito. O Coolify fará o roteamento interno.
     environment:
       - PYTHONUNBUFFERED=1
       - SUPABASE_URL=${SUPABASE_URL}
@@ -55,8 +54,7 @@ services:
         - REACT_APP_BACKEND_URL=${REACT_APP_BACKEND_URL}
     container_name: client4you-frontend
     restart: unless-stopped
-    ports:
-      - "80:80"
+    # Porta 80 removida. O Traefik enviará o tráfego para cá automaticamente.
     depends_on:
       backend:
         condition: service_healthy
