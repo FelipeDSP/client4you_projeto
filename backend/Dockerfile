@@ -1,23 +1,22 @@
+# Imagem base Python
 FROM python:3.11-slim
 
 WORKDIR /app
 
-# Instalar dependências do sistema (incluindo curl para healthcheck)
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Instalar dependências do sistema
+RUN apt-get update && apt-get install -y \
     gcc \
-    curl \
+    python3-dev \
+    libmagic1 \
     && rm -rf /var/lib/apt/lists/*
 
-# Copiar requirements e instalar
+# Copiar requirements
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt || \
-    (sed -i '/emergentintegrations/d' requirements.txt && pip install --no-cache-dir -r requirements.txt)
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Copiar código
+# Copiar código fonte
 COPY . .
 
-# Expor porta
 EXPOSE 8001
 
-# Comando para iniciar
 CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8001"]
