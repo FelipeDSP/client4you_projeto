@@ -425,9 +425,11 @@ export default function LandingPage() {
           <div className="grid md:grid-cols-4 gap-8">
             <div className="space-y-4">
               <div className="flex items-center gap-2">
-                <div className="h-8 w-8 rounded bg-primary flex items-center justify-center text-white font-bold text-sm">
-                  C4Y
-                </div>
+                <img 
+                  src="/client4you-icon.png" 
+                  alt="Client4you" 
+                  className="h-8 w-8 rounded"
+                />
                 <span className="font-bold">Client4you</span>
               </div>
               <p className="text-sm text-muted-foreground">
