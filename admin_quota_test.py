@@ -12,7 +12,7 @@ from datetime import datetime
 from typing import Dict, Any, Optional
 
 # Get backend URL from frontend .env
-BACKEND_URL = "https://admin-security-boost.preview.emergentagent.com/api"
+BACKEND_URL = "https://rebrand-client4you.preview.emergentagent.com/api"
 TEST_USER_ID = "550e8400-e29b-41d4-a716-446655440001"  # Test user ID for quota tests
 
 class AdminQuotaTester:
