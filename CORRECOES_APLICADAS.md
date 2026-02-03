@@ -229,7 +229,7 @@ python3 check_and_fix_rls.py
 
 ### Teste 3: Frontend
 ```
-Abrir: https://rebrand-client4you.preview.emergentagent.com
+Abrir: https://server-ready-check.preview.emergentagent.com
 Login com usuário de teste
 Navegar para /disparador
 ```

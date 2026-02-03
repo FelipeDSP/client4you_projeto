@@ -207,7 +207,7 @@ Quando fizer deploy no Coolify/VPS:
 ### 1. Atualizar URLs nos templates
 ```python
 # MUDAR DE:
-https://rebrand-client4you.preview.emergentagent.com
+https://server-ready-check.preview.emergentagent.com
 
 # PARA:
 https://seu-dominio.com.br

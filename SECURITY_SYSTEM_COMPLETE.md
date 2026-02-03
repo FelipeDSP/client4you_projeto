@@ -63,7 +63,7 @@ LOGIN_WINDOW_DURATION=900    # 15 minutos
 #### 2. **Configurações**
 ```env
 VITE_TURNSTILE_SITE_KEY=0x4AAAAAACW4RDfzQ0vdBVOB
-VITE_BACKEND_URL=https://rebrand-client4you.preview.emergentagent.com
+VITE_BACKEND_URL=https://server-ready-check.preview.emergentagent.com
 ```
 
 #### 3. **Rotas Atualizadas**
@@ -75,7 +75,7 @@ VITE_BACKEND_URL=https://rebrand-client4you.preview.emergentagent.com
 
 ### **TESTE 1: Login Normal (Sucesso)**
 
-1. Acesse: `https://rebrand-client4you.preview.emergentagent.com/login`
+1. Acesse: `https://server-ready-check.preview.emergentagent.com/login`
 2. Digite email e senha corretos
 3. Clique em "Entrar"
 4. ✅ **Esperado:** Login bem-sucedido, redirecionamento para dashboard
@@ -102,11 +102,11 @@ VITE_BACKEND_URL=https://rebrand-client4you.preview.emergentagent.com
 #### Via Backend (cURL):
 ```bash
 # Health check
-curl https://rebrand-client4you.preview.emergentagent.com/api/security/health
+curl https://server-ready-check.preview.emergentagent.com/api/security/health
 
 # Login attempts (precisa ser admin)
 curl -H "Authorization: Bearer SEU_TOKEN_ADMIN" \
-  https://rebrand-client4you.preview.emergentagent.com/api/security/login-attempts
+  https://server-ready-check.preview.emergentagent.com/api/security/login-attempts
 ```
 
 #### Via Supabase:

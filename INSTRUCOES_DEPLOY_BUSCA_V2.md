@@ -222,7 +222,7 @@ Deve retornar:
 
 1. **Acesse a aplicação:**
    ```
-   https://rebrand-client4you.preview.emergentagent.com
+   https://server-ready-check.preview.emergentagent.com
    ```
 
 2. **Faça login e teste:**
