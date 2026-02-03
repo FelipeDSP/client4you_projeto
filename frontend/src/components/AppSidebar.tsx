@@ -6,11 +6,11 @@ import {
   User, 
   MessageSquare, 
   LogOut,
-  ShieldCheck // <--- Ícone para Admin
+  ShieldCheck
 } from "lucide-react";
 import { useLocation, Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { useAdmin } from "@/hooks/useAdmin"; // <--- Importante
+import { useAdmin } from "@/hooks/useAdmin";
 import {
   Sidebar,
   SidebarContent,
@@ -24,7 +24,6 @@ import {
 } from "@/components/ui/sidebar";
 import { Button } from "./ui/button";
 
-// Itens fixos para todos os usuários
 const items = [
   {
     title: "Dashboard",
@@ -61,15 +60,14 @@ const items = [
 export function AppSidebar() {
   const location = useLocation();
   const { signOut } = useAuth();
-  const { isAdmin, isLoading } = useAdmin(); // <--- Verificação de Admin
+  const { isAdmin, isLoading } = useAdmin();
 
   return (
     <Sidebar collapsible="icon">
       <SidebarContent>
         <div className="p-4 flex items-center justify-center">
-          {/* Logo Client4you */}
           <img 
-            src="/leads4you-logo.png" 
+            src="/client4you-logo-white.png" 
             alt="Client4you" 
             className="h-8 w-auto group-data-[collapsible=icon]:h-6"
           />
@@ -94,7 +92,6 @@ export function AppSidebar() {
                 </SidebarMenuItem>
               ))}
 
-              {/* ITEM EXCLUSIVO DE ADMIN */}
               {!isLoading && isAdmin && (
                 <SidebarMenuItem>
                   <SidebarMenuButton 

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom"; // <--- ADICIONADO O Link AQUI
+import { useNavigate, Link } from "react-router-dom";
 import { MapPin, Loader2, Mail, Lock, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -84,7 +84,7 @@ export default function Login() {
         <CardHeader className="text-center">
           <div className="mx-auto mb-4 flex items-center justify-center">
             <img 
-              src="/leads4you-logo.png" 
+              src="/client4you-logo-color.png" 
               alt="Client4you" 
               className="h-20 w-auto"
             />

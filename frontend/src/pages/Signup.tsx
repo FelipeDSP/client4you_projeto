@@ -136,7 +136,7 @@ export default function Signup() {
         <CardHeader className="text-center">
           <div className="mx-auto mb-4 flex items-center justify-center">
             <img 
-              src="/leads4you-logo.png" 
+              src="/client4you-logo-color.png" 
               alt="Client4you" 
               className="h-16 w-auto"
             />
