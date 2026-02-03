@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Leads4you Design System - Orange Primary Theme */
+/* Client4you Design System - Orange Primary Theme */
 
 @layer base {
   :root {
@@ -10,7 +10,7 @@
     --background: 0 0% 98%; /* Cinza muito claro, quase branco */
     --foreground: 222 47% 11%; /* Texto escuro */
 
-    /* --- Cor Principal (LARANJA Leads4you) 🟠 --- */
+    /* --- Cor Principal (LARANJA Client4you) 🟠 --- */
     --primary: 40 100% 50%; /* Laranja vibrante #FFAA00 */
     --primary-foreground: 0 0% 100%; /* Texto branco no botão laranja */
 
@@ -24,11 +24,11 @@
     --sidebar-border: 210 50% 25%; /* Borda sutil */
     --sidebar-ring: 40 100% 50%;
     
-    /* --- Secondary (Verde Leads4you) 🟢 --- */
+    /* --- Secondary (Verde Client4you) 🟢 --- */
     --secondary: 120 100% 40%; /* Verde #33cc33 */
     --secondary-foreground: 0 0% 100%;
     
-    /* --- Accent (Azul Leads4you) 🔵 --- */
+    /* --- Accent (Azul Client4you) 🔵 --- */
     --accent: 210 100% 40%; /* Azul #0066cc */
     --accent-foreground: 0 0% 100%;
     
