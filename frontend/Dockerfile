@@ -42,5 +42,11 @@ COPY --from=builder /app/dist /usr/share/nginx/html
 # Copiar configuração do Nginx
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-EXPOSE 80
+# ⚠️ CORREÇÃO: Expor porta 3000 (Coolify mapeia para esta porta)
+EXPOSE 3000
+
+# Healthcheck para Coolify saber quando o app está pronto
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/ || exit 1
+
 CMD ["nginx", "-g", "daemon off;"]
