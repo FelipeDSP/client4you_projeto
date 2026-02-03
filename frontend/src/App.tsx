@@ -76,7 +76,7 @@ const AppRoutes = () => (
       path="/login"
       element={
         <PublicRoute>
-          <LoginSecure />
+          <Login />
         </PublicRoute>
       }
     />
