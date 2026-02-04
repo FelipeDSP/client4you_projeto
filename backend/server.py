@@ -1068,9 +1068,9 @@ async def increment_quota_endpoint(
         raise handle_error(e, "Erro ao incrementar quota")
 
 
-# ========== Leads Search Endpoint ==========
-@api_router.post("/leads/search")
-async def search_leads_endpoint(
+# ========== Leads Search Endpoint (DESATIVADO TEMPORARIAMENTE) ==========
+# @api_router.post("/leads/search")
+# async def search_leads_endpoint(
     query: str = Form(...),
     location: str = Form(...),
     start: int = Form(0),
