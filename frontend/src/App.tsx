@@ -12,7 +12,6 @@ import { PageTitleProvider } from "@/contexts/PageTitleContext";
 
 // Lazy load das páginas para reduzir bundle inicial
 const Login = lazy(() => import("./pages/Login"));
-const LoginSecure = lazy(() => import("./pages/LoginSecure"));
 const Signup = lazy(() => import("./pages/Signup"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const History = lazy(() => import("./pages/History"));
@@ -21,12 +20,8 @@ const Settings = lazy(() => import("./pages/Settings"));
 const Admin = lazy(() => import("./pages/Admin"));
 const Disparador = lazy(() => import("./pages/Disparador"));
 const LandingPage = lazy(() => import("./pages/LandingPage"));
-const Pricing = lazy(() => import("./pages/Pricing"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const SearchLeads = lazy(() => import("./pages/SearchLeads"));
-const SearchLeadsV2 = lazy(() => import("./pages/SearchLeadsV2"));
-const LeadsLibrary = lazy(() => import("./pages/LeadsLibrary"));
-const HistoryV2 = lazy(() => import("./pages/HistoryV2"));
 
 // Componente de Loading para Suspense
 const PageLoader = () => (
