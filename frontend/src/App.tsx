@@ -11,6 +11,7 @@ import { SubscriptionProvider } from "@/hooks/useSubscription";
 import { PageTitleProvider } from "@/contexts/PageTitleContext";
 
 // Lazy load das páginas para reduzir bundle inicial
+const PaymentSuccess = lazy(() => import("./pages/PaymentSuccess"));
 const Login = lazy(() => import("./pages/Login"));
 const Signup = lazy(() => import("./pages/Signup"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
@@ -87,6 +88,14 @@ const AppRoutes = () => (
           <Login />
         </PublicRoute>
       }
+    />
+    <Route
+  path="/sucesso"
+  element={
+    <PublicRoute>
+      <PaymentSuccess />
+    </PublicRoute>
+     }
     />
     
     <Route

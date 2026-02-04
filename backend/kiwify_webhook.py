@@ -1,6 +1,7 @@
 """
 Kiwify Webhook Handler
 Processa eventos de pagamento, cancelamento e reembolso
+Agora com criação automática de contas!
 """
 from fastapi import APIRouter, HTTPException, Request, Header
 from pydantic import BaseModel
@@ -9,6 +10,9 @@ import os
 import hmac
 import hashlib
 import logging
+import secrets
+import string
+import asyncio
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 
@@ -23,16 +27,8 @@ logger = logging.getLogger(__name__)
 # Usar prefixo /api para garantir roteamento correto no Kubernetes
 webhook_router = APIRouter(prefix="/api")
 
-# Não instanciar db aqui - será criado dentro das funções
-# db = SupabaseService()  # REMOVIDO
-
 # Configuração Kiwify
 KIWIFY_WEBHOOK_SECRET = os.environ.get('KIWIFY_WEBHOOK_SECRET', '')
-
-# Mapeamento de produtos Kiwify para planos
-# ID do produto principal: 4a99e8f0-fee2-11f0-8736-21de1acd3b14
-# O Kiwify envia o nome do plano no campo product_name
-PRODUCT_ID = '4a99e8f0-fee2-11f0-8736-21de1acd3b14'
 
 # Mapeamento por nome do plano (como aparece no Kiwify)
 PLAN_NAME_MAP = {
@@ -97,12 +93,8 @@ class KiwifyWebhookPayload(BaseModel):
 
 
 def verify_kiwify_signature(payload: bytes, signature: str) -> bool:
-    """
-    Verifica assinatura do webhook Kiwify
-    SEGURANÇA: Sempre verifica em produção
-    """
+    """Verifica assinatura do webhook Kiwify"""
     if not KIWIFY_WEBHOOK_SECRET:
-        # SEGURANÇA: Em produção, rejeitar se secret não configurado
         logger.error("KIWIFY_WEBHOOK_SECRET não configurado - rejeitando webhook")
         return False
     
@@ -119,10 +111,17 @@ def verify_kiwify_signature(payload: bytes, signature: str) -> bool:
     return hmac.compare_digest(signature, expected_signature)
 
 
+def generate_temporary_password(length=12):
+    """Gera uma senha segura e amigável"""
+    alphabet = string.ascii_letters + string.digits + "!@#$%&"
+    password = ''.join(secrets.choice(alphabet) for i in range(length))
+    return password
+
+
 async def get_user_by_email(email: str) -> Optional[Dict]:
     """Busca usuário pelo email"""
     try:
-        db = SupabaseService()  # Criar instância aqui
+        db = SupabaseService()
         result = db.client.table('profiles').select('*').eq('email', email).maybe_single().execute()
         return result.data
     except Exception as e:
@@ -130,9 +129,49 @@ async def get_user_by_email(email: str) -> Optional[Dict]:
         return None
 
 
+async def create_new_user(email: str, name: str) -> Dict:
+    """
+    Cria um novo usuário no Supabase Auth e retorna os dados
+    """
+    try:
+        db = SupabaseService()
+        password = generate_temporary_password()
+        
+        logger.info(f"🆕 Criando novo usuário para: {email}")
+        
+        # Cria usuário no Auth (Admin API)
+        # O SupabaseService usa a chave service_role, então tem permissão de admin
+        user_attributes = {
+            "email": email,
+            "password": password,
+            "email_confirm": True, # Já confirma o email pois pagou
+            "user_metadata": {"full_name": name}
+        }
+        
+        # A chamada exata depende da versão do cliente, mas geralmente é admin.create_user
+        auth_response = db.client.auth.admin.create_user(user_attributes)
+        
+        # O objeto retornado tem user dentro
+        new_user = auth_response.user
+        
+        # Pequeno delay para garantir que triggers de banco (se houver) rodem
+        await asyncio.sleep(1)
+        
+        return {
+            "id": new_user.id,
+            "email": email,
+            "password": password, # Retornamos a senha para enviar por email
+            "is_new": True
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ Erro ao criar novo usuário: {e}")
+        raise e
+
+
 async def upgrade_user_to_plan(user_id: str, plan: str, subscription_id: str, order_id: str):
     """
-    Upgrade do plano do usuário
+    Upgrade do plano do usuário (Usando UPSERT para garantir criação)
     """
     try:
         db = SupabaseService()
@@ -144,8 +183,9 @@ async def upgrade_user_to_plan(user_id: str, plan: str, subscription_id: str, or
         plan_key = plan.lower()
         plan_config = PLAN_LIMITS.get(plan_key, PLAN_LIMITS['demo'])
         
-        # Atualizar quota - usando campos corretos da tabela
-        db.client.table('user_quotas').update({
+        # Dados para atualização/inserção
+        quota_data = {
+            'user_id': user_id,
             'plan_type': plan_key,
             'plan_name': plan_config['name'],
             'leads_limit': plan_config['leads_limit'],
@@ -156,9 +196,12 @@ async def upgrade_user_to_plan(user_id: str, plan: str, subscription_id: str, or
             'order_id': order_id,
             'subscription_status': 'active',
             'updated_at': datetime.now().isoformat()
-        }).eq('user_id', user_id).execute()
+        }
         
-        logger.info(f"✅ Usuário {user_id} atualizado para plano {plan_config['name']}")
+        # UPSERT: Atualiza se existir, Cria se não existir
+        db.client.table('user_quotas').upsert(quota_data, on_conflict='user_id').execute()
+        
+        logger.info(f"✅ Usuário {user_id} atualizado/criado com plano {plan_config['name']}")
         
     except Exception as e:
         logger.error(f"Erro ao fazer upgrade: {e}")
@@ -166,13 +209,9 @@ async def upgrade_user_to_plan(user_id: str, plan: str, subscription_id: str, or
 
 
 async def downgrade_user_to_demo(user_id: str, reason: str):
-    """
-    Downgrade para plano Demo (cancelamento/reembolso)
-    """
+    """Downgrade para plano Demo"""
     try:
         db = SupabaseService()
-        
-        # Usar configuração do plano Demo
         demo_config = PLAN_LIMITS['demo']
         
         db.client.table('user_quotas').update({
@@ -196,12 +235,9 @@ async def downgrade_user_to_demo(user_id: str, reason: str):
 
 
 async def log_webhook_event(event_type: str, payload: Dict[str, Any], status: str, error: Optional[str] = None):
-    """
-    Registra evento de webhook para auditoria
-    """
+    """Registra evento de webhook para auditoria"""
     try:
-        db = SupabaseService()  # Criar instância aqui
-        
+        db = SupabaseService()
         db.client.table('webhook_logs').insert({
             'event_type': event_type,
             'payload': payload,
@@ -220,17 +256,10 @@ async def kiwify_webhook(
 ):
     """
     Endpoint para receber webhooks do Kiwify
-    
-    Eventos suportados:
-    - order.paid: Pagamento aprovado → Upgrade
-    - order.refunded: Reembolso solicitado → Downgrade
-    - subscription.canceled: Assinatura cancelada → Downgrade
     """
     try:
-        # Ler body raw
         body = await request.body()
         
-        # SEGURANÇA: Sempre verificar assinatura (obrigatório)
         if not x_kiwify_signature:
             logger.warning("⚠️ Webhook Kiwify sem assinatura - rejeitado")
             await log_webhook_event('missing_signature', {}, 'failed', 'Missing signature header')
@@ -241,47 +270,54 @@ async def kiwify_webhook(
             await log_webhook_event('invalid_signature', {}, 'failed', 'Invalid signature')
             raise HTTPException(status_code=401, detail="Invalid signature")
         
-        # Parse payload
         payload_dict = await request.json()
         payload = KiwifyWebhookPayload(**payload_dict)
         
-        logger.info(f"📩 Webhook recebido: {payload.event_type} - {payload.customer_email} - Produto: {payload.product_name}")
+        logger.info(f"📩 Webhook recebido: {payload.event_type} - {payload.customer_email}")
         
-        # Buscar usuário pelo email
-        user = await get_user_by_email(payload.customer_email)
+        # 1. Tentar buscar usuário existente
+        existing_user = await get_user_by_email(payload.customer_email)
         
-        if not user:
-            logger.warning(f"⚠️ Usuário não encontrado: {payload.customer_email}")
-            await log_webhook_event(
-                payload.event_type,
-                payload_dict,
-                'failed',
-                f'User not found: {payload.customer_email}'
-            )
-            return {"status": "error", "message": "User not found"}
+        user_id = None
+        new_password = None
+        is_new_user = False
         
-        user_id = user['id']
+        if existing_user:
+            user_id = existing_user['id']
+            logger.info(f"👤 Usuário existente encontrado: {user_id}")
+        else:
+            # 2. Se não existe e for pagamento aprovado, criar conta!
+            if payload.event_type == 'order.paid':
+                try:
+                    new_user_data = await create_new_user(payload.customer_email, payload.customer_name)
+                    user_id = new_user_data['id']
+                    new_password = new_user_data['password']
+                    is_new_user = True
+                    logger.info(f"✨ Nova conta criada com sucesso: {user_id}")
+                except Exception as e:
+                    logger.error(f"Falha crítica ao criar usuário: {e}")
+                    raise HTTPException(status_code=500, detail="Failed to create user account")
+            else:
+                # Se for cancelamento/reembolso de user que não existe, ignora
+                logger.warning(f"⚠️ Evento {payload.event_type} para usuário inexistente ignorado.")
+                return {"status": "ignored", "message": "User not found"}
         
         # Processar evento
         if payload.event_type == 'order.paid':
             # PAGAMENTO APROVADO - UPGRADE
-            # Identificar plano pelo nome do produto (Básico, Intermediário, Avançado)
             product_name_lower = payload.product_name.lower().strip()
             plan_key = PLAN_NAME_MAP.get(product_name_lower)
             
             if not plan_key:
-                # Tentar encontrar pelo nome parcial
                 for name, key in PLAN_NAME_MAP.items():
                     if name in product_name_lower:
                         plan_key = key
                         break
             
             if not plan_key:
-                logger.warning(f"⚠️ Plano não identificado: {payload.product_name}")
-                plan_key = 'basico'  # Fallback para básico
+                plan_key = 'basico'
             
-            logger.info(f"✅ Plano identificado: {plan_key} (produto: {payload.product_name})")
-            
+            # Atualiza ou Insere a cota (Upsert)
             await upgrade_user_to_plan(
                 user_id=user_id,
                 plan=plan_key,
@@ -289,27 +325,31 @@ async def kiwify_webhook(
                 order_id=payload.order_id
             )
             
-            # ENVIAR EMAIL DE CONFIRMAÇÃO
+            # ENVIAR EMAIL
             try:
                 plan_config = PLAN_LIMITS.get(plan_key, {})
                 features = []
+                
+                # SE FOR NOVO USUÁRIO, COLOCAR AS CREDENCIAIS NO TOPO
+                if is_new_user and new_password:
+                    features.append("🔐 === SUAS CREDENCIAIS DE ACESSO ===")
+                    features.append(f"📧 Login: {payload.customer_email}")
+                    features.append(f"🔑 Senha Temporária: {new_password}")
+                    features.append("==================================")
+                    features.append("⚠️ Recomendamos trocar sua senha ao entrar.")
+                    features.append("") # Linha em branco
+                
+                features.append(f"✓ Plano: {plan_config.get('name', plan_key)}")
+                
                 if plan_config.get('leads_limit') == -1:
                     features.append("✓ Buscas de leads ilimitadas")
-                else:
-                    features.append(f"✓ {plan_config.get('leads_limit')} buscas de leads")
                 
                 if plan_config.get('campaigns_limit', 0) == -1:
                     features.append("✓ Disparador WhatsApp ilimitado")
-                elif plan_config.get('campaigns_limit', 0) > 0:
-                    features.append(f"✓ {plan_config.get('campaigns_limit')} campanhas WhatsApp")
-                
-                if plan_config.get('whatsapp_instances'):
-                    features.append(f"✓ {plan_config.get('whatsapp_instances')} instâncias WhatsApp simultâneas")
-                
-                features.append("✓ Suporte via email")
-                features.append("✓ Atualizações automáticas")
                 
                 email_service = get_email_service()
+                
+                # Usa o método existente de confirmação, mas agora com credenciais se necessário
                 await email_service.send_purchase_confirmation(
                     user_email=payload.customer_email,
                     user_name=payload.customer_name,
@@ -317,72 +357,36 @@ async def kiwify_webhook(
                     plan_features=features,
                     order_id=payload.order_id
                 )
-                logger.info(f"📧 Email de confirmação enviado para {payload.customer_email}")
+                logger.info(f"📧 Email enviado para {payload.customer_email}")
+                
             except Exception as e:
-                logger.error(f"❌ Erro ao enviar email de confirmação: {e}")
-                # Não falhar o webhook se email falhar
+                logger.error(f"❌ Erro ao enviar email: {e}")
             
             await log_webhook_event(payload.event_type, payload_dict, 'success')
             
-            plan_config = PLAN_LIMITS.get(plan_key, {})
             return {
                 "status": "success",
-                "message": f"User upgraded to {plan_config.get('name', plan_key)}",
-                "user_id": user_id,
-                "plan": plan_key
+                "message": "User processed successfully",
+                "is_new_user": is_new_user
             }
         
-        elif payload.event_type == 'order.refunded':
-            # REEMBOLSO - DOWNGRADE
+        elif payload.event_type in ['order.refunded', 'subscription.canceled']:
+            # REEMBOLSO/CANCELAMENTO
             await downgrade_user_to_demo(
                 user_id=user_id,
-                reason=f'Reembolso solicitado - Order: {payload.order_id}'
+                reason=f'Evento: {payload.event_type}'
             )
-            
             await log_webhook_event(payload.event_type, payload_dict, 'success')
-            
-            return {
-                "status": "success",
-                "message": "User downgraded due to refund",
-                "user_id": user_id
-            }
-        
-        elif payload.event_type == 'subscription.canceled':
-            # CANCELAMENTO - DOWNGRADE
-            await downgrade_user_to_demo(
-                user_id=user_id,
-                reason=f'Assinatura cancelada - Subscription: {payload.subscription_id}'
-            )
-            
-            await log_webhook_event(payload.event_type, payload_dict, 'success')
-            
-            return {
-                "status": "success",
-                "message": "User downgraded due to cancellation",
-                "user_id": user_id
-            }
+            return {"status": "success", "message": "User downgraded"}
         
         else:
-            # Evento desconhecido
-            logger.warning(f"⚠️ Evento desconhecido: {payload.event_type}")
-            await log_webhook_event(payload.event_type, payload_dict, 'ignored', 'Unknown event type')
-            
-            return {
-                "status": "ignored",
-                "message": f"Unknown event type: {payload.event_type}"
-            }
+            return {"status": "ignored", "message": f"Unknown event: {payload.event_type}"}
     
     except Exception as e:
-        logger.error(f"❌ Erro ao processar webhook: {e}")
+        logger.error(f"❌ Erro no webhook: {e}")
         await log_webhook_event('error', {}, 'failed', str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
-
 @webhook_router.get("/webhook/test")
 async def test_webhook():
-    """Endpoint de teste"""
-    return {
-        "status": "ok",
-        "message": "Webhook endpoint is working",
-        "secret_configured": bool(KIWIFY_WEBHOOK_SECRET)
-    }
+    return {"status": "ok", "message": "Webhook V2 (Auto-Create) Active"}

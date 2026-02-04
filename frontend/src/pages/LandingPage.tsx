@@ -1,15 +1,21 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Check, Star, Search, Send, Bot, ArrowRight, Zap, Users, TrendingUp, Shield } from "lucide-react";
+import { Check, Star, Search, Send, Bot, ArrowRight, Zap, Users, TrendingUp, Shield, Lock } from "lucide-react";
 import { Link, Navigate } from "react-router-dom";
 import { plans } from "@/hooks/useSubscription";
 import { useAuth } from "@/hooks/useAuth";
 
+// Seus links de checkout
+const CHECKOUT_LINKS: Record<string, string> = {
+  basico: "https://pay.kiwify.com.br/FzhyShi",
+  intermediario: "https://pay.kiwify.com.br/YlIDqCN",
+  avancado: "https://pay.kiwify.com.br/TnUQl3f"
+};
+
 export default function LandingPage() {
   const { user, isLoading } = useAuth();
   
-  // Redireciona usuários logados para o dashboard
   if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -26,7 +32,8 @@ export default function LandingPage() {
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
       {/* Header/Navbar */}
       <header className="sticky top-0 z-50 w-full border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60">
-        <div className="container flex h-16 items-center justify-between">
+        <div className="container relative flex h-16 items-center justify-between">
+          {/* Logo (Esquerda) */}
           <div className="flex items-center gap-2">
             <img 
               src="/client4you-icon.png" 
@@ -36,7 +43,8 @@ export default function LandingPage() {
             <span className="text-xl font-bold">Client4you</span>
           </div>
           
-          <nav className="hidden md:flex gap-6">
+          {/* Nav (Centro Absoluto) */}
+          <nav className="hidden md:flex gap-6 absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
             <a href="#features" className="text-sm font-medium hover:text-primary transition-colors">
               Recursos
             </a>
@@ -48,18 +56,19 @@ export default function LandingPage() {
             </a>
           </nav>
           
+          {/* Botões (Direita) */}
           <div className="flex items-center gap-4">
             <Link to="/login">
               <Button variant="ghost" size="sm">
                 Entrar
               </Button>
             </Link>
-            <Link to="/signup">
+            <a href="#pricing">
               <Button size="sm" className="gap-2">
-                Começar Grátis
+                Começar Agora
                 <ArrowRight className="h-4 w-4" />
               </Button>
-            </Link>
+            </a>
           </div>
         </div>
       </header>
@@ -82,15 +91,15 @@ export default function LandingPage() {
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-            <Link to="/signup">
+            <a href="#pricing">
               <Button size="lg" className="text-lg h-12 px-8 gap-2">
-                Começar Grátis por 7 Dias
+                Quero Começar Agora
                 <ArrowRight className="h-5 w-5" />
               </Button>
-            </Link>
-            <a href="#pricing">
+            </a>
+            <a href="#features">
               <Button size="lg" variant="outline" className="text-lg h-12 px-8">
-                Ver Planos
+                Ver Recursos
               </Button>
             </a>
           </div>
@@ -198,51 +207,6 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Benefits Section */}
-      <section className="container py-20">
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-6xl mx-auto">
-          <div className="text-center space-y-2">
-            <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
-              <Zap className="h-6 w-6 text-primary" />
-            </div>
-            <h3 className="font-bold text-lg">Setup Rápido</h3>
-            <p className="text-sm text-muted-foreground">
-              Comece a captar clientes em menos de 5 minutos
-            </p>
-          </div>
-
-          <div className="text-center space-y-2">
-            <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
-              <Users className="h-6 w-6 text-primary" />
-            </div>
-            <h3 className="font-bold text-lg">Escalável</h3>
-            <p className="text-sm text-muted-foreground">
-              De 10 a 10.000 leads, a plataforma cresce com você
-            </p>
-          </div>
-
-          <div className="text-center space-y-2">
-            <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
-              <TrendingUp className="h-6 w-6 text-primary" />
-            </div>
-            <h3 className="font-bold text-lg">Resultados Rápidos</h3>
-            <p className="text-sm text-muted-foreground">
-              Primeiros clientes nas primeiras 24 horas
-            </p>
-          </div>
-
-          <div className="text-center space-y-2">
-            <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
-              <Shield className="h-6 w-6 text-primary" />
-            </div>
-            <h3 className="font-bold text-lg">Seguro</h3>
-            <p className="text-sm text-muted-foreground">
-              Dados criptografados e em conformidade com LGPD
-            </p>
-          </div>
-        </div>
-      </section>
-
       {/* Pricing Section */}
       <section id="pricing" className="container py-20 bg-slate-50">
         <div className="text-center space-y-4 mb-16">
@@ -255,9 +219,10 @@ export default function LandingPage() {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
-          {plans.map((plan) => {
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
+          {plans.filter(p => !p.isDemo).map((plan) => {
             const isPopular = plan.id === "intermediario";
+            const checkoutLink = CHECKOUT_LINKS[plan.id] || "#pricing";
             
             return (
               <Card key={plan.id} className={`${isPopular ? "border-primary border-2 shadow-lg relative" : ""}`}>
@@ -306,14 +271,14 @@ export default function LandingPage() {
                     ))}
                   </ul>
                   
-                  <Link to="/signup" className="block">
+                  <a href={checkoutLink} target="_blank" rel="noopener noreferrer" className="block">
                     <Button 
                       className="w-full" 
                       variant={isPopular ? "default" : "outline"}
                     >
-                      {plan.isDemo ? "Começar Grátis" : "Assinar Agora"}
+                      Assinar Agora
                     </Button>
-                  </Link>
+                  </a>
                 </CardContent>
               </Card>
             );
@@ -341,7 +306,7 @@ export default function LandingPage() {
             </CardHeader>
             <CardContent>
               <p className="text-muted-foreground">
-                O plano Demo é 100% gratuito por 7 dias. Você tem acesso a 5 buscas de leads e pode criar 1 campanha de teste. Não precisa cadastrar cartão de crédito.
+                Garantia de 7 dias: se você não gostar, devolvemos 100% do seu dinheiro pela própria plataforma de pagamento.
               </p>
             </CardContent>
           </Card>
@@ -403,15 +368,10 @@ export default function LandingPage() {
               Junte-se a centenas de profissionais que já estão escalando suas vendas com Client4you
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link to="/signup">
-                <Button size="lg" className="text-lg h-12 px-8 gap-2">
-                  Começar Grátis por 7 Dias
-                  <ArrowRight className="h-5 w-5" />
-                </Button>
-              </Link>
               <a href="#pricing">
-                <Button size="lg" variant="outline" className="text-lg h-12 px-8">
+                <Button size="lg" className="text-lg h-12 px-8 gap-2">
                   Ver Planos e Preços
+                  <ArrowRight className="h-5 w-5" />
                 </Button>
               </a>
             </div>
@@ -442,7 +402,7 @@ export default function LandingPage() {
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li><a href="#features" className="hover:text-primary">Recursos</a></li>
                 <li><a href="#pricing" className="hover:text-primary">Preços</a></li>
-                <li><Link to="/signup" className="hover:text-primary">Começar Grátis</Link></li>
+                <li><Link to="/login" className="hover:text-primary">Área do Cliente</Link></li>
               </ul>
             </div>
 
