@@ -200,17 +200,27 @@ Deno.serve(async (req) => {
         );
       }
 
-      // Validate WhatsApp logic
+      // ✅ RETORNAR LEADS IMEDIATAMENTE (usuário não espera)
+      console.log(`Returning ${leads.length} leads to user immediately`);
+
+      // 🔄 VALIDAÇÃO ASSÍNCRONA EM BACKGROUND (não bloqueia resposta)
       if (settings?.waha_api_url && settings?.waha_api_key && settings?.waha_session && leads.length > 0) {
-        const wahaSession = settings.waha_session;
-        console.log("WAHA Configuration found - validating", leads.filter(l => l.phone).length, "leads with phone numbers");
+        console.log("Starting background WhatsApp validation with rate limiting");
         
-        let validatedCount = 0;
-        let whatsappFoundCount = 0;
-        let errorCount = 0;
-        
-        for (const lead of leads) {
-          if (lead.phone) {
+        // Inicia validação em background (não aguarda)
+        (async () => {
+          const wahaSession = settings.waha_session;
+          const leadsWithPhone = leads.filter(l => l.phone);
+          const maxToValidate = Math.min(leadsWithPhone.length, 10); // Limita a 10 por busca
+          
+          console.log(`[Background] Validating ${maxToValidate} of ${leadsWithPhone.length} leads with 3s delay`);
+          
+          let validatedCount = 0;
+          let whatsappFoundCount = 0;
+          
+          for (let i = 0; i < maxToValidate; i++) {
+            const lead = leadsWithPhone[i];
+            
             try {
               const cleanPhone = lead.phone.replace(/\D/g, "");
               const phoneWithCountry = cleanPhone.startsWith("55") ? cleanPhone : `55${cleanPhone}`;
@@ -227,19 +237,32 @@ Deno.serve(async (req) => {
               if (wahaResponse.ok) {
                 const wahaData = await wahaResponse.json();
                 const exists = wahaData.numberExists === true;
-                lead.has_whatsapp = exists;
+                
+                // Atualizar no banco de dados
+                await supabase
+                  .from('leads')
+                  .update({ has_whatsapp: exists })
+                  .eq('id', lead.id);
+                
                 validatedCount++;
                 if (exists) whatsappFoundCount++;
-              } else {
-                errorCount++;
+                
+                console.log(`[Background] ${i + 1}/${maxToValidate} validated: ${lead.name} = ${exists ? 'YES' : 'NO'}`);
               }
             } catch (wahaError) {
-              console.error("WAHA validation error occurred");
-              errorCount++;
+              console.error(`[Background] Error validating ${lead.name}`);
+            }
+            
+            // ⏱️ DELAY DE 3 SEGUNDOS entre validações (previne bloqueio)
+            if (i < maxToValidate - 1) {
+              await new Promise(resolve => setTimeout(resolve, 3000));
             }
           }
-        }
-        console.log(`WAHA Summary: Validated ${validatedCount}, Found ${whatsappFoundCount}`);
+          
+          console.log(`[Background] Validation complete: ${validatedCount} validated, ${whatsappFoundCount} have WhatsApp`);
+        })().catch(err => {
+          console.error('[Background] Validation error:', err);
+        });
       }
 
     } else {
