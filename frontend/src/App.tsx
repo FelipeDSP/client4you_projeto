@@ -1,8 +1,5 @@
+import { Suspense, lazy } from "react";
 import MainLayout from "@/layouts/MainLayout";
-import SearchLeads from "./pages/SearchLeads";
-import SearchLeadsV2 from "./pages/SearchLeadsV2";
-import LeadsLibrary from "./pages/LeadsLibrary";
-import HistoryV2 from "./pages/HistoryV2";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -12,18 +9,34 @@ import React from "react";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { SubscriptionProvider } from "@/hooks/useSubscription";
 import { PageTitleProvider } from "@/contexts/PageTitleContext";
-import Login from "./pages/Login";
-import LoginSecure from "./pages/LoginSecure";
-import Signup from "./pages/Signup";
-import Dashboard from "./pages/Dashboard";
-import History from "./pages/History";
-import Profile from "./pages/Profile";
-import Settings from "./pages/Settings";
-import Admin from "./pages/Admin";
-import Disparador from "./pages/Disparador";
-import LandingPage from "./pages/LandingPage";
-import Pricing from "./pages/Pricing";
-import NotFound from "./pages/NotFound";
+
+// Lazy load das páginas para reduzir bundle inicial
+const Login = lazy(() => import("./pages/Login"));
+const LoginSecure = lazy(() => import("./pages/LoginSecure"));
+const Signup = lazy(() => import("./pages/Signup"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const History = lazy(() => import("./pages/History"));
+const Profile = lazy(() => import("./pages/Profile"));
+const Settings = lazy(() => import("./pages/Settings"));
+const Admin = lazy(() => import("./pages/Admin"));
+const Disparador = lazy(() => import("./pages/Disparador"));
+const LandingPage = lazy(() => import("./pages/LandingPage"));
+const Pricing = lazy(() => import("./pages/Pricing"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+const SearchLeads = lazy(() => import("./pages/SearchLeads"));
+const SearchLeadsV2 = lazy(() => import("./pages/SearchLeadsV2"));
+const LeadsLibrary = lazy(() => import("./pages/LeadsLibrary"));
+const HistoryV2 = lazy(() => import("./pages/HistoryV2"));
+
+// Componente de Loading para Suspense
+const PageLoader = () => (
+  <div className="flex min-h-screen items-center justify-center bg-slate-50">
+    <div className="text-center space-y-3">
+      <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto" />
+      <p className="text-sm text-muted-foreground">Carregando...</p>
+    </div>
+  </div>
+);
 
 const queryClient = new QueryClient();
 
