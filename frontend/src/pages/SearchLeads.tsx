@@ -24,6 +24,13 @@ export default function SearchLeads() {
   const [currentResults, setCurrentResults] = useState<Lead[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
   
+  // Estado para paginação
+  const [hasMore, setHasMore] = useState(false);
+  const [nextStart, setNextStart] = useState(0);
+  const [currentSearchId, setCurrentSearchId] = useState<string | null>(null);
+  const [currentQuery, setCurrentQuery] = useState("");
+  const [currentLocation, setCurrentLocation] = useState("");
+  
   const [filters, setFilters] = useState<LeadFilterState>(defaultFilters);
   const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
   
