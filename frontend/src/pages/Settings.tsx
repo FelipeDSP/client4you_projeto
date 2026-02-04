@@ -10,6 +10,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { usePageTitle } from "@/contexts/PageTitleContext";
 import { supabase } from "@/integrations/supabase/client";
 
+// URL do backend a partir de variável de ambiente
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || import.meta.env.REACT_APP_BACKEND_URL || '';
+
 // Helper para fazer requisições autenticadas
 const createAuthenticatedApi = () => ({
   get: async (url: string) => {
@@ -20,7 +23,7 @@ const createAuthenticatedApi = () => ({
     if (session?.access_token) {
       headers['Authorization'] = `Bearer ${session.access_token}`;
     }
-    const response = await fetch(`/api${url}`, { headers });
+    const response = await fetch(`${BACKEND_URL}/api${url}`, { headers });
     return response.json();
   },
   post: async (url: string, body?: unknown) => {
@@ -31,7 +34,7 @@ const createAuthenticatedApi = () => ({
     if (session?.access_token) {
       headers['Authorization'] = `Bearer ${session.access_token}`;
     }
-    const response = await fetch(`/api${url}`, { 
+    const response = await fetch(`${BACKEND_URL}/api${url}`, { 
       method: 'POST',
       headers,
       body: body ? JSON.stringify(body) : undefined
