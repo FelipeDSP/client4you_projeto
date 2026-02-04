@@ -10,7 +10,7 @@ import hmac
 import hashlib
 from datetime import datetime
 
-BACKEND_URL = "https://server-ready-check.preview.emergentagent.com/api"
+BACKEND_URL = "https://status-check-issue.preview.emergentagent.com/api"
 KIWIFY_WEBHOOK_SECRET = "o21anhwe1w1"  # From backend/.env
 
 async def test_webhook_with_valid_signature():

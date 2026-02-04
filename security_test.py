@@ -18,7 +18,7 @@ from datetime import datetime
 from typing import Dict, Any, Optional
 
 # Get backend URL from frontend .env
-BACKEND_URL = "https://server-ready-check.preview.emergentagent.com/api"
+BACKEND_URL = "https://status-check-issue.preview.emergentagent.com/api"
 
 class SecurityTester:
     def __init__(self):

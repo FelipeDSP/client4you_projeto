@@ -202,7 +202,7 @@
 ### **2. Testar a Landing Page**
 
 ```
-1. Abra: https://server-ready-check.preview.emergentagent.com
+1. Abra: https://status-check-issue.preview.emergentagent.com
 2. Verificar:
    ✓ Logo e nome "Client4you" aparecem
    ✓ Hero section carrega

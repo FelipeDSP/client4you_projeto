@@ -222,7 +222,7 @@ Deve retornar:
 
 1. **Acesse a aplicação:**
    ```
-   https://server-ready-check.preview.emergentagent.com
+   https://status-check-issue.preview.emergentagent.com
    ```
 
 2. **Faça login e teste:**
