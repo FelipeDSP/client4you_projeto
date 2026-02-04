@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Checkbox } from "@/components/ui/checkbox";
 import { 
   Globe, 
   MessageCircle, 
@@ -23,7 +24,9 @@ import {
   Zap,
   Clock,
   Ban,
-  Lightbulb
+  Lightbulb,
+  ShieldAlert,
+  FileWarning
 } from "lucide-react";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { useToast } from "@/hooks/use-toast";
