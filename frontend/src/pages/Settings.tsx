@@ -257,67 +257,156 @@ export default function Settings() {
         {/* ========== TAB WHATSAPP ========== */}
         <TabsContent value="whatsapp" className="space-y-6">
           
-          {/* Aviso de Conexão Não-Oficial */}
-          <Alert variant="default" className="border-amber-200 bg-amber-50">
-            <AlertTriangle className="h-5 w-5 text-amber-600" />
-            <AlertTitle className="text-amber-800 font-semibold">Conexão Não-Oficial</AlertTitle>
-            <AlertDescription className="text-amber-700 space-y-2">
-              <p>
-                Este sistema utiliza uma conexão <strong>não-oficial</strong> com o WhatsApp. 
-                O uso excessivo ou abusivo de disparos pode resultar em <strong>bloqueio temporário ou permanente</strong> do seu número.
-              </p>
-              <div className="flex flex-wrap gap-2 mt-3">
-                <Badge variant="outline" className="border-amber-400 text-amber-700 gap-1">
-                  <Ban className="h-3 w-3" /> Não somos parceiros oficiais do WhatsApp
-                </Badge>
-              </div>
-            </AlertDescription>
-          </Alert>
-
-          {/* Card Principal WhatsApp */}
-          <div className="grid gap-6 lg:grid-cols-3">
-            
-            {/* Coluna do Status e Controle */}
-            <div className="lg:col-span-2 space-y-6">
-              <Card>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-lg ${waStatus === 'CONNECTED' ? 'bg-green-100' : 'bg-gray-100'}`}>
-                        <Smartphone className={`h-5 w-5 ${waStatus === 'CONNECTED' ? 'text-green-600' : 'text-gray-500'}`} />
-                      </div>
-                      <div>
-                        <CardTitle>Conexão WhatsApp</CardTitle>
-                        <CardDescription>Gerencie a sessão do seu WhatsApp</CardDescription>
-                      </div>
+          {/* Tela de Aceitação de Riscos - Mostrada apenas se ainda não aceitou */}
+          {!hasAcceptedRisks ? (
+            <Card className="border-amber-200 bg-gradient-to-b from-amber-50 to-white">
+              <CardHeader className="text-center pb-2">
+                <div className="mx-auto bg-amber-100 p-4 rounded-full w-fit mb-4">
+                  <ShieldAlert className="h-12 w-12 text-amber-600" />
+                </div>
+                <CardTitle className="text-2xl text-amber-900">Aviso Importante</CardTitle>
+                <CardDescription className="text-amber-700 text-base">
+                  Leia atentamente antes de prosseguir
+                </CardDescription>
+              </CardHeader>
+              
+              <CardContent className="space-y-6 max-w-2xl mx-auto">
+                {/* Lista de Avisos */}
+                <div className="space-y-4">
+                  <div className="flex items-start gap-3 p-4 bg-white rounded-lg border border-amber-200">
+                    <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="font-medium text-amber-900">Conexão Não-Oficial</p>
+                      <p className="text-sm text-amber-700">
+                        Este sistema utiliza uma conexão <strong>não-oficial</strong> com o WhatsApp. 
+                        Não somos parceiros, afiliados ou autorizados pelo WhatsApp/Meta.
+                      </p>
                     </div>
-                    <StatusBadge status={waStatus} />
                   </div>
-                </CardHeader>
+                  
+                  <div className="flex items-start gap-3 p-4 bg-white rounded-lg border border-amber-200">
+                    <Ban className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="font-medium text-amber-900">Risco de Bloqueio</p>
+                      <p className="text-sm text-amber-700">
+                        O uso excessivo, abusivo ou em desacordo com os termos de uso do WhatsApp pode 
+                        resultar em <strong>bloqueio temporário ou permanente</strong> do seu número de telefone.
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-start gap-3 p-4 bg-white rounded-lg border border-amber-200">
+                    <FileWarning className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="font-medium text-amber-900">Sua Responsabilidade</p>
+                      <p className="text-sm text-amber-700">
+                        Ao utilizar este recurso, você assume <strong>total responsabilidade</strong> pelo 
+                        uso da ferramenta e pelas consequências que possam ocorrer, incluindo bloqueios.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Dicas para evitar bloqueio */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <p className="font-medium text-blue-800 flex items-center gap-2 mb-2">
+                    <Lightbulb className="h-4 w-4" />
+                    Dicas para evitar problemas:
+                  </p>
+                  <ul className="text-sm text-blue-700 space-y-1 ml-6 list-disc">
+                    <li>Use intervalos de 30-60 segundos entre mensagens</li>
+                    <li>Limite a 100-200 mensagens por dia para números novos</li>
+                    <li>Evite mensagens idênticas em massa</li>
+                    <li>Não envie para números desconhecidos em excesso</li>
+                  </ul>
+                </div>
+
+                {/* Checkbox e Botão de Aceitar */}
+                <div className="border-t pt-6 space-y-4">
+                  <div className="flex items-start space-x-3">
+                    <Checkbox 
+                      id="accept-risks" 
+                      checked={riskCheckbox}
+                      onCheckedChange={(checked) => setRiskCheckbox(checked === true)}
+                      className="mt-1"
+                    />
+                    <label 
+                      htmlFor="accept-risks" 
+                      className="text-sm text-gray-700 cursor-pointer leading-relaxed"
+                    >
+                      <strong>Eu li e compreendo os riscos.</strong> Estou ciente de que esta é uma conexão 
+                      não-oficial e que o uso inadequado pode resultar no bloqueio do meu número de WhatsApp. 
+                      Assumo total responsabilidade pelo uso desta ferramenta.
+                    </label>
+                  </div>
+                  
+                  <Button 
+                    onClick={handleAcceptRisks}
+                    disabled={!riskCheckbox}
+                    className="w-full bg-amber-600 hover:bg-amber-700 text-white"
+                    size="lg"
+                  >
+                    <Shield className="mr-2 h-4 w-4" />
+                    Entendi e desejo continuar
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <>
+              {/* Aviso compacto - Mostrado após aceitar */}
+              <Alert variant="default" className="border-amber-200 bg-amber-50">
+                <AlertTriangle className="h-5 w-5 text-amber-600" />
+                <AlertTitle className="text-amber-800 font-semibold">Lembre-se: Conexão Não-Oficial</AlertTitle>
+                <AlertDescription className="text-amber-700">
+                  Use com moderação para evitar bloqueios. Recomendamos intervalos de 30-60s entre mensagens.
+                </AlertDescription>
+              </Alert>
+
+              {/* Card Principal WhatsApp */}
+              <div className="grid gap-6 lg:grid-cols-3">
                 
-                <CardContent className="space-y-6">
-                  {/* Área de Visualização do Status */}
-                  <div className="border rounded-xl p-6 bg-gradient-to-b from-slate-50 to-white flex flex-col items-center justify-center min-h-[280px]">
-                    {waStatus === 'LOADING' && (
-                      <div className="text-center space-y-3">
-                        <Skeleton className="h-20 w-20 rounded-full mx-auto" />
-                        <Skeleton className="h-4 w-32 mx-auto" />
-                        <Skeleton className="h-3 w-48 mx-auto" />
-                      </div>
-                    )}
-                    
-                    {waStatus === 'STARTING' && (
-                      <div className="text-center space-y-3">
-                        <div className="relative">
-                          <div className="absolute inset-0 animate-ping bg-blue-200 rounded-full opacity-75" style={{ animationDuration: '2s' }}></div>
-                          <div className="relative bg-blue-100 p-4 rounded-full">
-                            <Loader2 className="h-10 w-10 text-blue-600 animate-spin" />
+                {/* Coluna do Status e Controle */}
+                <div className="lg:col-span-2 space-y-6">
+                  <Card>
+                    <CardHeader>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className={`p-2 rounded-lg ${waStatus === 'CONNECTED' ? 'bg-green-100' : 'bg-gray-100'}`}>
+                            <Smartphone className={`h-5 w-5 ${waStatus === 'CONNECTED' ? 'text-green-600' : 'text-gray-500'}`} />
+                          </div>
+                          <div>
+                            <CardTitle>Conexão WhatsApp</CardTitle>
+                            <CardDescription>Gerencie a sessão do seu WhatsApp</CardDescription>
                           </div>
                         </div>
-                        <p className="font-semibold text-blue-800">Iniciando WhatsApp...</p>
-                        <p className="text-sm text-muted-foreground">Isso pode levar até 30 segundos</p>
+                        <StatusBadge status={waStatus} />
                       </div>
-                    )}
+                    </CardHeader>
+                    
+                    <CardContent className="space-y-6">
+                      {/* Área de Visualização do Status */}
+                      <div className="border rounded-xl p-6 bg-gradient-to-b from-slate-50 to-white flex flex-col items-center justify-center min-h-[280px]">
+                        {waStatus === 'LOADING' && (
+                          <div className="text-center space-y-3">
+                            <Skeleton className="h-20 w-20 rounded-full mx-auto" />
+                            <Skeleton className="h-4 w-32 mx-auto" />
+                            <Skeleton className="h-3 w-48 mx-auto" />
+                          </div>
+                        )}
+                        
+                        {waStatus === 'STARTING' && (
+                          <div className="text-center space-y-3">
+                            <div className="relative">
+                              <div className="absolute inset-0 animate-ping bg-blue-200 rounded-full opacity-75" style={{ animationDuration: '2s' }}></div>
+                              <div className="relative bg-blue-100 p-4 rounded-full">
+                                <Loader2 className="h-10 w-10 text-blue-600 animate-spin" />
+                              </div>
+                            </div>
+                            <p className="font-semibold text-blue-800">Iniciando WhatsApp...</p>
+                            <p className="text-sm text-muted-foreground">Isso pode levar até 30 segundos</p>
+                          </div>
+                        )}
 
                     {waStatus === 'SCANNING' && (
                       <div className="text-center space-y-4">
