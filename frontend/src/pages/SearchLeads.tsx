@@ -56,10 +56,10 @@ export default function SearchLeads() {
     setHasSearched(true);
     
     // Chama o hook e espera a resposta
-    const newLeads = await searchLeads(term, location);
+    const result = await searchLeads(term, location);
     
-    if (newLeads && newLeads.length > 0) {
-      setCurrentResults(newLeads);
+    if (result && result.leads && result.leads.length > 0) {
+      setCurrentResults(result.leads);
       // ✅ INCREMENTAR QUOTA APÓS SUCESSO
       await incrementQuota('lead_search');
     }
