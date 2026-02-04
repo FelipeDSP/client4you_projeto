@@ -10,6 +10,7 @@ interface SearchRequest {
   location: string;
   companyId: string;
   searchId: string;
+  start?: number; // Offset para paginação - buscar mais resultados
 }
 
 interface SerpAPIResult {
