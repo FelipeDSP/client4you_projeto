@@ -353,17 +353,7 @@ export default function Settings() {
               </CardContent>
             </Card>
           ) : (
-            <>
-              {/* Aviso compacto - Mostrado após aceitar */}
-              <Alert variant="default" className="border-amber-200 bg-amber-50">
-                <AlertTriangle className="h-5 w-5 text-amber-600" />
-                <AlertTitle className="text-amber-800 font-semibold">Lembre-se: Conexão Não-Oficial</AlertTitle>
-                <AlertDescription className="text-amber-700">
-                  Use com moderação para evitar bloqueios. Recomendamos intervalos de 30-60s entre mensagens.
-                </AlertDescription>
-              </Alert>
-
-              {/* Card Principal WhatsApp */}
+              /* Card Principal WhatsApp */
               <div className="grid gap-6 lg:grid-cols-3">
                 
                 {/* Coluna do Status e Controle */}
