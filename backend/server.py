@@ -1068,54 +1068,6 @@ async def increment_quota_endpoint(
         raise handle_error(e, "Erro ao incrementar quota")
 
 
-# ========== Leads Search Endpoint (DESATIVADO TEMPORARIAMENTE) ==========
-# @api_router.post("/leads/search")
-# async def search_leads_endpoint(
-    query: str = Form(...),
-    location: str = Form(...),
-    start: int = Form(0),
-    auth_user: dict = Depends(get_authenticated_user)
-):
-    """
-    Busca leads usando SERP API
-    """
-    try:
-        db = get_db()
-        company_id = auth_user["company_id"]
-        
-        # Buscar configurações da empresa
-        settings = await db.get_company_settings(company_id)
-        
-        if not settings or not settings.get('serpapi_key'):
-            raise HTTPException(
-                status_code=400,
-                detail="SERP API key not configured. Please configure in Settings."
-            )
-        
-        serpapi_key = settings['serpapi_key']
-        
-        # Fazer a busca
-        result = await search_leads_serp(
-            query=query,
-            location=location,
-            company_id=company_id,
-            serpapi_key=serpapi_key,
-            supabase=db,
-            start=start
-        )
-        
-        return {
-            "success": True,
-            **result
-        }
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error searching leads: {e}")
-        raise handle_error(e, "Erro ao buscar leads")
-
-
 # Include the router in the main app
 app.include_router(api_router)
 app.include_router(webhook_router)  # <--- NOVO: Webhook Kiwify
