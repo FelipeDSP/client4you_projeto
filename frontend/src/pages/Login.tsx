@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom"; // Link adicionado aqui
 import { Loader2, Mail, Lock, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -121,9 +121,17 @@ export default function Login() {
                 </p>
               )}
             </div>
+            
+            {/* Campo de Senha com Link de Recuperação */}
             <div className="space-y-2">
               <div className="flex justify-between items-center">
                 <Label htmlFor="login-password" className="text-slate-200">Senha</Label>
+                <Link 
+                  to="/forgot-password" 
+                  className="text-xs text-orange-400 hover:text-orange-300 transition-colors"
+                >
+                  Esqueci minha senha
+                </Link>
               </div>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
