@@ -102,11 +102,15 @@ export function useSearchSession() {
       console.log(`[useSearchSession] Search completed:`, {
         new: data.new_count,
         duplicates: data.duplicate_count,
-        has_more: data.has_more
+        has_more: data.has_more,
+        results_count: data.results?.length || 0
       });
+
+      console.log('[useSearchSession] Full response data:', data);
 
       // Atualizar estado
       setResults(data.results || []);
+      console.log('[useSearchSession] Results set, length:', data.results?.length || 0);
       setSession({
         id: data.session_id,
         company_id: user.companyId,
