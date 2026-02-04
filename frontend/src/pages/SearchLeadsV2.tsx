@@ -70,19 +70,27 @@ export default function SearchLeads() {
   }, []);
 
   const handleSearch = async (term: string, location: string) => {
+    console.log('[SearchLeadsV2] handleSearch called:', { term, location });
+    
     // Verificar quota antes de buscar
+    console.log('[SearchLeadsV2] Checking quota...');
     const quotaCheck = await checkQuota('lead_search');
+    console.log('[SearchLeadsV2] Quota check result:', quotaCheck);
     
     if (!quotaCheck.allowed) {
+      console.log('[SearchLeadsV2] Quota not allowed, showing modal');
       setShowQuotaModal(true);
       return;
     }
     
     // Resetar busca anterior
+    console.log('[SearchLeadsV2] Resetting previous search...');
     resetSearch();
     
     // Iniciar nova busca (página 0)
+    console.log('[SearchLeadsV2] Starting new search...');
     const response = await startSearch(term, location, 'serp');
+    console.log('[SearchLeadsV2] Search response:', response);
     
     if (response) {
       // Incrementar quota após sucesso
