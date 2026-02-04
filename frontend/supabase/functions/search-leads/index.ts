@@ -56,7 +56,7 @@ Deno.serve(async (req) => {
     }
 
     const body: SearchRequest = await req.json();
-    const { query, location, companyId, searchId } = body;
+    const { query, location, companyId, searchId, start = 0 } = body;
 
     // Validate required fields
     if (!query || !location || !companyId || !searchId) {
