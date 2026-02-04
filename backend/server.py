@@ -1083,6 +1083,57 @@ else:
     cors_origins = ["http://localhost:3000", "http://localhost:5173"]
     logger.warning("⚠️ CORS_ORIGINS não configurado - usando apenas localhost")
 
+
+
+# ========== Leads Search Endpoint ==========
+@api_router.post("/leads/search")
+async def search_leads_endpoint(
+    query: str = Form(...),
+    location: str = Form(...),
+    start: int = Form(0),
+    auth_user: dict = Depends(get_authenticated_user)
+):
+    """
+    Busca leads usando SERP API
+    """
+    try:
+        db = get_db()
+        company_id = auth_user["company_id"]
+        
+        # Buscar configurações da empresa
+        settings = await db.get_company_settings(company_id)
+        
+        if not settings or not settings.get('serpapi_key'):
+            raise HTTPException(
+                status_code=400,
+                detail="SERP API key not configured. Please configure in Settings."
+            )
+        
+        serpapi_key = settings['serpapi_key']
+        
+        # Fazer a busca
+        result = await search_leads_serp(
+            query=query,
+            location=location,
+            company_id=company_id,
+            serpapi_key=serpapi_key,
+            supabase=db,
+            start=start
+        )
+        
+        return {
+            "success": True,
+            **result
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error searching leads: {e}")
+        raise handle_error(e, "Erro ao buscar leads")
+
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
