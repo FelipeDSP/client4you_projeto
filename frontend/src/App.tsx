@@ -201,7 +201,9 @@ const App = () => (
             <PageTitleProvider>
               <Toaster />
               <Sonner />
-              <AppRoutes />
+              <Suspense fallback={<PageLoader />}>
+                <AppRoutes />
+              </Suspense>
             </PageTitleProvider>
           </SubscriptionProvider>
         </AuthProvider>
