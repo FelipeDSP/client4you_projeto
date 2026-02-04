@@ -70,16 +70,22 @@ export default function SearchLeads() {
     
     if (result && result.leads && result.leads.length > 0) {
       setCurrentResults(result.leads);
-      setHasMore(result.hasMore);
-      setNextStart(result.nextStart);
+      
+      // LÓGICA INTELIGENTE: Se retornou 20 leads (limite padrão), provavelmente há mais
+      const smartHasMore = result.leads.length === 20;
+      const smartNextStart = result.leads.length === 20 ? 20 : 0;
+      
+      setHasMore(smartHasMore);
+      setNextStart(smartNextStart);
       setCurrentSearchId(result.searchId);
       setCurrentQuery(result.query);
       setCurrentLocation(result.location);
       
       console.log('[SearchLeads] State updated:', {
         leadsCount: result.leads.length,
-        hasMore: result.hasMore,
-        nextStart: result.nextStart
+        hasMore: smartHasMore,
+        nextStart: smartNextStart,
+        note: 'Using smart pagination logic'
       });
       
       // ✅ INCREMENTAR QUOTA APÓS SUCESSO
