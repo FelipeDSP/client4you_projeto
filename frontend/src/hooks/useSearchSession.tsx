@@ -110,6 +110,12 @@ export function useSearchSession() {
         return null;
       }
 
+      if (!data.success) {
+        setError("Search failed");
+        setIsSearching(false);
+        return null;
+      }
+
       console.log(`[useSearchSession] Search completed:`, {
         new: data.new_count,
         duplicates: data.duplicate_count,
@@ -122,23 +128,35 @@ export function useSearchSession() {
       // Atualizar estado
       setResults(data.results || []);
       console.log('[useSearchSession] Results set, length:', data.results?.length || 0);
+      
+      const responseData = {
+        session_id: 'backend-' + Date.now(),
+        results: data.results || [],
+        new_count: data.new_count,
+        duplicate_count: data.duplicate_count,
+        current_page: 1,
+        has_more: data.has_more,
+        total_new: data.new_count,
+        total_duplicates: data.duplicate_count
+      };
+      
       setSession({
-        id: data.session_id,
+        id: responseData.session_id,
         company_id: user.companyId,
         user_id: user.id,
         search_type: searchType,
         query,
         location,
-        current_page: data.current_page,
-        new_leads_count: data.total_new || data.new_count,
-        duplicate_leads_count: data.total_duplicates || data.duplicate_count,
-        total_results_found: (data.total_new || data.new_count) + (data.total_duplicates || data.duplicate_count),
-        status: data.status === 'completed' ? 'completed' : 'active',
-        has_more: data.has_more
+        current_page: responseData.current_page,
+        new_leads_count: responseData.total_new,
+        duplicate_leads_count: responseData.total_duplicates,
+        total_results_found: responseData.total_new + responseData.total_duplicates,
+        status: responseData.has_more ? 'active' : 'completed',
+        has_more: responseData.has_more
       });
 
       setIsSearching(false);
-      return data;
+      return responseData;
 
     } catch (err: any) {
       console.error("Unexpected error in startSearch:", err);
