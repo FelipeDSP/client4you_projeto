@@ -243,30 +243,39 @@ Deno.serve(async (req) => {
       }
 
     } else {
-      // Mock Data Logic (mantida original, ajustada para 50)
+      // Mock Data Logic
       console.log("No SerpAPI key configured, using mock data...");
-      const mockCount = 50; // Mock agora retorna 50
+      const mockCount = 20; // Mock retorna 20 por página
       const categories = [query, `${query} Premium`, `${query} Express`];
       const streets = ["Rua das Flores", "Av. Brasil", "Rua São Paulo", "Av. Paulista", "Rua Augusta"];
 
-      leads = Array.from({ length: mockCount }, (_, i) => {
-        const hasWhatsApp = Math.random() > 0.3;
-        const hasEmail = Math.random() > 0.4;
-        return {
-          name: `${query} ${location} #${i + 1}`,
-          phone: `(11) 9${Math.floor(1000 + Math.random() * 9000)}-${Math.floor(1000 + Math.random() * 9000)}`,
-          has_whatsapp: hasWhatsApp,
-          email: hasEmail ? `contato${i + 1}@empresa.com.br` : null,
-          has_email: hasEmail,
-          address: `${streets[Math.floor(Math.random() * streets.length)]}, ${Math.floor(100 + Math.random() * 2000)} - ${location}`,
-          category: categories[Math.floor(Math.random() * categories.length)],
-          rating: parseFloat((3 + Math.random() * 2).toFixed(1)),
-          reviews_count: Math.floor(10 + Math.random() * 500),
-          website: Math.random() > 0.5 ? `https://www.empresa${i + 1}.com.br` : null,
-          company_id: companyId,
-          search_id: searchId,
-        };
-      });
+      // Simula paginação - máximo de 3 páginas (60 resultados)
+      const maxMockResults = 60;
+      if (start < maxMockResults) {
+        const remaining = maxMockResults - start;
+        const count = Math.min(mockCount, remaining);
+        hasMoreResults = (start + count) < maxMockResults;
+
+        leads = Array.from({ length: count }, (_, i) => {
+          const index = start + i;
+          const hasWhatsApp = Math.random() > 0.3;
+          const hasEmail = Math.random() > 0.4;
+          return {
+            name: `${query} ${location} #${index + 1}`,
+            phone: `(11) 9${Math.floor(1000 + Math.random() * 9000)}-${Math.floor(1000 + Math.random() * 9000)}`,
+            has_whatsapp: hasWhatsApp,
+            email: hasEmail ? `contato${index + 1}@empresa.com.br` : null,
+            has_email: hasEmail,
+            address: `${streets[Math.floor(Math.random() * streets.length)]}, ${Math.floor(100 + Math.random() * 2000)} - ${location}`,
+            category: categories[Math.floor(Math.random() * categories.length)],
+            rating: parseFloat((3 + Math.random() * 2).toFixed(1)),
+            reviews_count: Math.floor(10 + Math.random() * 500),
+            website: Math.random() > 0.5 ? `https://www.empresa${index + 1}.com.br` : null,
+            company_id: companyId,
+            search_id: searchId,
+          };
+        });
+      }
     }
 
     // Insert leads into database (Mantido original com filtro de duplicados por segurança)
