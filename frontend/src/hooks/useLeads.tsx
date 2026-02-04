@@ -144,25 +144,28 @@ export function useLeads() {
       if (error) {
         console.error("Error calling search-leads function:", error);
         setIsSearching(false);
-        return [];
+        return null;
       }
 
       if (data?.error) {
         console.error("Search error:", data.error);
         setIsSearching(false);
-        return [];
+        return null;
       }
 
       // Fetch the newly inserted leads directly from database
+      // Ordena por created_at DESC para pegar os mais recentes (que acabaram de ser inseridos)
       const { data: newLeadsData, error: newLeadsError } = await supabase
         .from("leads")
         .select("*")
-        .eq("search_id", historyData.id);
+        .eq("search_id", searchId)
+        .order("created_at", { ascending: false })
+        .limit(data?.count || 20);
 
       if (newLeadsError) {
         console.error("Error fetching new leads:", newLeadsError);
         setIsSearching(false);
-        return [];
+        return null;
       }
 
       // Map the new leads
@@ -189,11 +192,19 @@ export function useLeads() {
       await fetchData();
 
       setIsSearching(false);
-      return newLeads;
+      
+      return {
+        leads: newLeads,
+        hasMore: data?.hasMore || false,
+        nextStart: data?.nextStart || 0,
+        searchId: searchId!,
+        query,
+        location,
+      };
     } catch (error) {
       console.error("Error in searchLeads:", error);
       setIsSearching(false);
-      return [];
+      return null;
     }
   };
 
