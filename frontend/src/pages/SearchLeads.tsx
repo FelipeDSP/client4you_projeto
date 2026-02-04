@@ -157,6 +157,29 @@ export default function SearchLeads() {
             onSelectionChange={setSelectedLeads}
             onDelete={deleteLead}
           />
+          
+          {/* Botão Carregar Mais */}
+          {hasMore && (
+            <div className="mt-6 flex justify-center">
+              <button
+                onClick={handleLoadMore}
+                disabled={isSearching}
+                className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-all"
+              >
+                {isSearching ? (
+                  <>
+                    <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Carregando...
+                  </>
+                ) : (
+                  <>
+                    <ArrowDown className="h-4 w-4" />
+                    Carregar Mais Resultados
+                  </>
+                )}
+              </button>
+            </div>
+          )}
         </Card>
       )}
 
