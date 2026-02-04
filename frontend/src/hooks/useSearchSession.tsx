@@ -70,15 +70,15 @@ export function useSearchSession() {
       // Obter token de autenticação
       const { data: { session: authSession } } = await supabase.auth.getSession();
 
-      console.log('[useSearchSession] Usando search-leads-v2');
+      console.log('[useSearchSession] Usando search-leads (função funcionando)');
       
-      const { data, error: invokeError } = await supabase.functions.invoke('search-leads-v2', {
+      // Usar função antiga que funciona
+      const { data: searchData, error: invokeError } = await supabase.functions.invoke('search-leads', {
         body: {
-          action: 'create',
           query,
           location,
-          search_type: searchType,
-          company_id: user.companyId
+          companyId: user.companyId,
+          searchId: 'search-' + Date.now()
         },
         headers: authSession?.access_token 
           ? { Authorization: `Bearer ${authSession.access_token}` }
@@ -86,11 +86,59 @@ export function useSearchSession() {
       });
 
       if (invokeError) {
-        console.error("Error invoking search-leads-v2:", invokeError);
+        console.error("Error invoking search-leads:", invokeError);
         setError(invokeError.message || "Failed to start search");
         setIsSearching(false);
         return null;
       }
+
+      if (!searchData || !searchData.success) {
+        console.error("Search error:", searchData);
+        setError("Failed to search");
+        setIsSearching(false);
+        return null;
+      }
+
+      console.log('[useSearchSession] Search completed, fetching results from database...');
+
+      // Buscar os leads que foram salvos no banco
+      const { data: leads, error: leadsError } = await supabase
+        .from('leads')
+        .select('*')
+        .eq('company_id', user.companyId)
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      if (leadsError) {
+        console.error("Error fetching leads:", leadsError);
+      }
+
+      const results = (leads || []).map(lead => ({
+        id: lead.id,
+        name: lead.name,
+        phone: lead.phone,
+        address: lead.address,
+        category: lead.category,
+        rating: lead.rating,
+        reviews_count: lead.reviews_count,
+        website: lead.website,
+        is_duplicate: lead.times_found > 1,
+        times_found: lead.times_found
+      }));
+
+      console.log(`[useSearchSession] Found ${results.length} leads in database`);
+
+      const data = {
+        session_id: 'search-' + Date.now(),
+        results: results,
+        new_count: searchData.count || 0,
+        duplicate_count: 0,
+        current_page: 1,
+        has_more: false,
+        total_new: searchData.count || 0,
+        total_duplicates: 0,
+        status: 'completed'
+      };
 
       if (data?.error) {
         console.error("Search error:", data.error);
