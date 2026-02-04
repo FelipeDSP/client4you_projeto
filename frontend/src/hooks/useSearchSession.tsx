@@ -79,7 +79,8 @@ export function useSearchSession() {
       console.log('[useSearchSession] Calling backend API /api/leads/search');
       
       // Chamar o backend
-      const backendUrl = import.meta.env.REACT_APP_BACKEND_URL || process.env.REACT_APP_BACKEND_URL;
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || import.meta.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
+      console.log('[useSearchSession] Backend URL:', backendUrl);
       
       const formData = new FormData();
       formData.append('query', query);
