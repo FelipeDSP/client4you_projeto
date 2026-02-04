@@ -222,7 +222,7 @@ Deve retornar:
 
 1. **Acesse a aplicação:**
    ```
-   https://status-check-issue.preview.emergentagent.com
+   https://unique-leads-view.preview.emergentagent.com
    ```
 
 2. **Faça login e teste:**
