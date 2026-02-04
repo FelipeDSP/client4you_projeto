@@ -97,6 +97,7 @@ export default function SearchLeads() {
     if (!currentSearchId || !hasMore) return;
     
     console.log('[SearchLeads] Loading more, start:', nextStart);
+    console.log('[SearchLeads] Current results before load:', currentResults.map(r => r.id));
     
     // Chama o hook com paginação
     const result = await searchLeads(currentQuery, currentLocation, nextStart, currentSearchId);
@@ -104,10 +105,25 @@ export default function SearchLeads() {
     console.log('[SearchLeads] LoadMore result:', result);
     
     if (result && result.leads && result.leads.length > 0) {
-      // ADICIONA aos resultados existentes
+      console.log('[SearchLeads] New leads IDs:', result.leads.map(r => r.id));
+      
+      // VALIDAÇÃO ANTI-DUPLICAÇÃO: Verificar se algum lead já existe
+      const existingIds = new Set(currentResults.map(r => r.id));
+      const duplicates = result.leads.filter(r => existingIds.has(r.id));
+      
+      if (duplicates.length > 0) {
+        console.warn('[SearchLeads] ⚠️ DUPLICADOS DETECTADOS:', duplicates.length, duplicates.map(r => r.name));
+      } else {
+        console.log('[SearchLeads] ✓ Sem duplicados! Todos os leads são únicos.');
+      }
+      
+      // Filtrar duplicados (caso existam)
+      const uniqueNewLeads = result.leads.filter(r => !existingIds.has(r.id));
+      
+      // ADICIONA apenas leads únicos aos resultados existentes
       setCurrentResults(prev => {
-        const combined = [...prev, ...result.leads];
-        console.log('[SearchLeads] Combined results:', combined.length);
+        const combined = [...prev, ...uniqueNewLeads];
+        console.log('[SearchLeads] Combined results:', combined.length, 'leads (', uniqueNewLeads.length, 'novos)');
         return combined;
       });
       
@@ -120,7 +136,8 @@ export default function SearchLeads() {
       
       console.log('[SearchLeads] Updated pagination:', {
         newLeadsCount: result.leads.length,
-        totalLeads: currentResults.length + result.leads.length,
+        uniqueNewLeads: uniqueNewLeads.length,
+        totalLeads: currentResults.length + uniqueNewLeads.length,
         hasMore: smartHasMore,
         nextStart: smartNextStart
       });
