@@ -129,8 +129,17 @@ export default function Dashboard() {
             <Users className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-gray-800">{stats.totalLeads}</div>
-            <p className="text-xs text-muted-foreground mt-1">Contatos na base</p>
+            {isLoadingLeads ? (
+              <>
+                <Skeleton className="h-8 w-16 mb-1" />
+                <Skeleton className="h-3 w-24" />
+              </>
+            ) : (
+              <>
+                <div className="text-2xl font-bold text-gray-800">{stats.totalLeads}</div>
+                <p className="text-xs text-muted-foreground mt-1">Contatos na base</p>
+              </>
+            )}
           </CardContent>
         </Card>
 
@@ -140,8 +149,17 @@ export default function Dashboard() {
             <Activity className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-gray-800">{stats.activeCampaigns}</div>
-            <p className="text-xs text-muted-foreground mt-1">Disparando agora</p>
+            {isLoadingCampaigns ? (
+              <>
+                <Skeleton className="h-8 w-12 mb-1" />
+                <Skeleton className="h-3 w-28" />
+              </>
+            ) : (
+              <>
+                <div className="text-2xl font-bold text-gray-800">{stats.activeCampaigns}</div>
+                <p className="text-xs text-muted-foreground mt-1">Disparando agora</p>
+              </>
+            )}
           </CardContent>
         </Card>
 
@@ -151,8 +169,17 @@ export default function Dashboard() {
             <Send className="h-4 w-4 text-purple-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-gray-800">{stats.totalMessagesSent}</div>
-            <p className="text-xs text-muted-foreground mt-1">Total acumulado</p>
+            {isLoadingCampaigns ? (
+              <>
+                <Skeleton className="h-8 w-20 mb-1" />
+                <Skeleton className="h-3 w-24" />
+              </>
+            ) : (
+              <>
+                <div className="text-2xl font-bold text-gray-800">{stats.totalMessagesSent}</div>
+                <p className="text-xs text-muted-foreground mt-1">Total acumulado</p>
+              </>
+            )}
           </CardContent>
         </Card>
 
