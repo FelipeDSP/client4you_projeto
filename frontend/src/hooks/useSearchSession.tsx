@@ -70,39 +70,20 @@ export function useSearchSession() {
       // Obter token de autenticação
       const { data: { session: authSession } } = await supabase.auth.getSession();
 
-      // TEMPORÁRIO: Usar função antiga até resolver auth da v2
-      console.log('[useSearchSession] Usando search-leads (função antiga)');
+      console.log('[useSearchSession] Usando search-leads-v2');
       
-      const { data: legacyData, error: legacyError } = await supabase.functions.invoke('search-leads', {
+      const { data, error: invokeError } = await supabase.functions.invoke('search-leads-v2', {
         body: {
+          action: 'create',
           query,
           location,
-          companyId: user.companyId,
-          searchId: 'search-' + Date.now()
+          search_type: searchType,
+          company_id: user.companyId
         },
         headers: authSession?.access_token 
           ? { Authorization: `Bearer ${authSession.access_token}` }
           : undefined,
       });
-
-      let data, invokeError;
-      
-      // Adaptar resposta da função antiga para novo formato
-      if (legacyData && legacyData.success) {
-        data = {
-          session_id: 'legacy-' + Date.now(),
-          results: [],
-          new_count: legacyData.count || 0,
-          duplicate_count: 0,
-          current_page: 1,
-          has_more: false,
-          total_new: legacyData.count || 0,
-          total_duplicates: 0,
-          status: 'completed'
-        };
-      } else {
-        invokeError = legacyError;
-      }
 
       if (invokeError) {
         console.error("Error invoking search-leads-v2:", invokeError);
