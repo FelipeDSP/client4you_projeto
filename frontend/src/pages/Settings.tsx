@@ -115,6 +115,14 @@ export default function Settings() {
   const [waStatus, setWaStatus] = useState<WAStatus>("LOADING");
   const [qrCode, setQrCode] = useState<string>("");
   const [isActionLoading, setIsActionLoading] = useState(false);
+  
+  // Estado de aceitação dos termos de risco do WhatsApp
+  const [hasAcceptedRisks, setHasAcceptedRisks] = useState<boolean>(() => {
+    // Verifica se já aceitou anteriormente (salvo no localStorage)
+    const saved = localStorage.getItem(`whatsapp_risks_accepted_${user?.id}`);
+    return saved === 'true';
+  });
+  const [riskCheckbox, setRiskCheckbox] = useState(false);
 
   useEffect(() => {
     if (settings?.serpapiKey) setSerpapiKey(settings.serpapiKey);
