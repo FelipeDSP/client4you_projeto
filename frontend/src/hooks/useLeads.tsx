@@ -81,44 +81,60 @@ export function useLeads() {
     fetchData();
   }, [fetchData]);
 
-  const searchLeads = async (query: string, location: string): Promise<Lead[]> => {
+  // Resultado da busca com informações de paginação
+  interface SearchResult {
+    leads: Lead[];
+    hasMore: boolean;
+    nextStart: number;
+    searchId: string;
+    query: string;
+    location: string;
+  }
+
+  const searchLeads = async (query: string, location: string, start: number = 0, existingSearchId?: string): Promise<SearchResult | null> => {
     if (!user?.companyId) {
       console.error("No company ID found");
-      return [];
+      return null;
     }
 
     setIsSearching(true);
 
     try {
-      // Create search history entry
-      const { data: historyData, error: historyError } = await supabase
-        .from("search_history")
-        .insert({
-          query,
-          location,
-          results_count: 0,
-          company_id: user.companyId,
-          user_id: user.id,
-        })
-        .select()
-        .single();
+      let searchId = existingSearchId;
 
-      if (historyError) {
-        console.error("Error creating search history:", historyError);
-        setIsSearching(false);
-        return [];
+      // Se não tem searchId existente, cria novo histórico
+      if (!searchId) {
+        const { data: historyData, error: historyError } = await supabase
+          .from("search_history")
+          .insert({
+            query,
+            location,
+            results_count: 0,
+            company_id: user.companyId,
+            user_id: user.id,
+          })
+          .select()
+          .single();
+
+        if (historyError) {
+          console.error("Error creating search history:", historyError);
+          setIsSearching(false);
+          return null;
+        }
+        searchId = historyData.id;
       }
 
       // Get current session for auth header
       const { data: { session } } = await supabase.auth.getSession();
 
-      // Call Edge Function
+      // Call Edge Function with pagination
       const { data, error } = await supabase.functions.invoke("search-leads", {
         body: {
           query,
           location,
           companyId: user.companyId,
-          searchId: historyData.id,
+          searchId,
+          start,
         },
         headers: session?.access_token 
           ? { Authorization: `Bearer ${session.access_token}` }
