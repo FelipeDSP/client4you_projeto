@@ -157,6 +157,11 @@ export default function SearchLeads() {
               <h3 className="font-semibold text-lg">
                 {filteredLeads.length} {filteredLeads.length === 1 ? 'Lead Encontrado' : 'Leads Encontrados'}
               </h3>
+              {hasMore && (
+                <span className="text-sm text-muted-foreground ml-2">
+                  (Há mais resultados disponíveis)
+                </span>
+              )}
             </div>
           </div>
           
@@ -167,23 +172,28 @@ export default function SearchLeads() {
             onDelete={deleteLead}
           />
           
-          {/* Botão Carregar Mais */}
+          {/* Botão Carregar Mais - Mais Destacado */}
           {hasMore && (
-            <div className="mt-6 flex justify-center">
+            <div className="mt-6 flex flex-col items-center gap-3 py-4 border-t">
+              <div className="text-center">
+                <p className="text-sm text-muted-foreground mb-2">
+                  Mostrando {currentResults.length} leads. Clique para buscar mais resultados.
+                </p>
+              </div>
               <button
                 onClick={handleLoadMore}
                 disabled={isSearching}
-                className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-all"
+                className="px-8 py-3 bg-primary text-white font-semibold rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-all shadow-md hover:shadow-lg"
               >
                 {isSearching ? (
                   <>
-                    <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    Carregando...
+                    <div className="h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Buscando mais leads...
                   </>
                 ) : (
                   <>
-                    <ArrowDown className="h-4 w-4" />
-                    Carregar Mais Resultados
+                    <ArrowDown className="h-5 w-5" />
+                    Carregar Mais 20 Resultados
                   </>
                 )}
               </button>
