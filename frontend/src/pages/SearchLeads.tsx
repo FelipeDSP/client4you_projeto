@@ -96,14 +96,38 @@ export default function SearchLeads() {
   const handleLoadMore = async () => {
     if (!currentSearchId || !hasMore) return;
     
+    console.log('[SearchLeads] Loading more, start:', nextStart);
+    
     // Chama o hook com paginação
     const result = await searchLeads(currentQuery, currentLocation, nextStart, currentSearchId);
     
+    console.log('[SearchLeads] LoadMore result:', result);
+    
     if (result && result.leads && result.leads.length > 0) {
       // ADICIONA aos resultados existentes
-      setCurrentResults(prev => [...prev, ...result.leads]);
-      setHasMore(result.hasMore);
-      setNextStart(result.nextStart);
+      setCurrentResults(prev => {
+        const combined = [...prev, ...result.leads];
+        console.log('[SearchLeads] Combined results:', combined.length);
+        return combined;
+      });
+      
+      // LÓGICA INTELIGENTE: Se retornou 20 leads, provavelmente há mais
+      const smartHasMore = result.leads.length === 20;
+      const smartNextStart = nextStart + result.leads.length;
+      
+      setHasMore(smartHasMore);
+      setNextStart(smartNextStart);
+      
+      console.log('[SearchLeads] Updated pagination:', {
+        newLeadsCount: result.leads.length,
+        totalLeads: currentResults.length + result.leads.length,
+        hasMore: smartHasMore,
+        nextStart: smartNextStart
+      });
+    } else {
+      // Não há mais resultados
+      setHasMore(false);
+      console.log('[SearchLeads] No more results available');
     }
   };
 
