@@ -210,7 +210,19 @@ export default function Dashboard() {
             <CardDescription>Acompanhe o progresso dos disparos atuais.</CardDescription>
           </CardHeader>
           <CardContent className="flex-1">
-            {runningCampaigns.length > 0 ? (
+            {isLoadingCampaigns ? (
+              <div className="space-y-6">
+                {[1, 2].map((i) => (
+                  <div key={i} className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Skeleton className="h-4 w-32" />
+                      <Skeleton className="h-4 w-16" />
+                    </div>
+                    <Skeleton className="h-2 w-full" />
+                  </div>
+                ))}
+              </div>
+            ) : runningCampaigns.length > 0 ? (
               <div className="space-y-6">
                 {runningCampaigns.map(campaign => (
                   <div key={campaign.id} className="space-y-2">
@@ -252,7 +264,18 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent className="flex-1">
             <div className="space-y-6">
-              {recentActivity.length > 0 ? (
+              {isLoadingLeads && isLoadingCampaigns ? (
+                [1, 2, 3].map((i) => (
+                  <div key={i} className="flex gap-4">
+                    <Skeleton className="h-10 w-10 rounded-full flex-shrink-0" />
+                    <div className="space-y-2 flex-1">
+                      <Skeleton className="h-4 w-3/4" />
+                      <Skeleton className="h-3 w-1/2" />
+                      <Skeleton className="h-2 w-20" />
+                    </div>
+                  </div>
+                ))
+              ) : recentActivity.length > 0 ? (
                 recentActivity.map((activity, index) => (
                   <div key={activity.id} className="flex gap-4 relative">
                     {/* Linha vertical conectora (exceto no último item) */}
