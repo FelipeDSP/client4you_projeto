@@ -102,7 +102,7 @@ async def search_leads_serp(
             
             # Verificar se já existe
             existing = supabase.client.table('leads')\
-                .select('id', 'times_found', 'sources')\
+                .select('id, times_found, sources')\
                 .eq('company_id', company_id)\
                 .eq('fingerprint', fingerprint)\
                 .maybe_single()\
