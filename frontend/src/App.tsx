@@ -10,10 +10,13 @@ import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { SubscriptionProvider } from "@/hooks/useSubscription";
 import { PageTitleProvider } from "@/contexts/PageTitleContext";
 
-// Lazy load das páginas para reduzir bundle inicial
+
+// Lazy load das páginas
 const PaymentSuccess = lazy(() => import("./pages/PaymentSuccess"));
+const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
+const UpdatePassword = lazy(() => import("./pages/UpdatePassword"));
 const Login = lazy(() => import("./pages/Login"));
-const Signup = lazy(() => import("./pages/Signup"));
+// REMOVIDO: const Signup = lazy(() => import("./pages/Signup"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const History = lazy(() => import("./pages/History"));
 const Profile = lazy(() => import("./pages/Profile"));
@@ -51,8 +54,6 @@ function ProtectedRoute({ children, requireAdmin = false }: { children: React.Re
     return <Navigate to="/" replace />;
   }
 
-  // Para rotas admin, não fazemos verificação aqui
-  // O próprio componente Admin fará a verificação
   return <>{children}</>;
 }
 
@@ -74,8 +75,6 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-// ... (imports existentes)
-
 const AppRoutes = () => (
   <Routes>
     {/* Landing Page Pública */}
@@ -90,24 +89,33 @@ const AppRoutes = () => (
       }
     />
     <Route
-  path="/sucesso"
+  path="/forgot-password"
   element={
     <PublicRoute>
-      <PaymentSuccess />
+      <ForgotPassword />
     </PublicRoute>
-     }
-    />
+  }
+/>
+
+<Route
+  path="/update-password"
+  element={
+    <ProtectedRoute>
+      <UpdatePassword />
+    </ProtectedRoute>
+  }
+/>
     
     <Route
-      path="/signup"
+      path="/sucesso"
       element={
         <PublicRoute>
-          <Signup />
+          <PaymentSuccess />
         </PublicRoute>
       }
     />
     
-    {/* Rota /pricing removida - agora só na landing page */}
+    {/* ROTA SIGNUP REMOVIDA DAQUI */}
     
     {/* Rotas Protegidas com Layout */}
     <Route
@@ -121,14 +129,14 @@ const AppRoutes = () => (
       }
     />
     <Route
-  path="/search"
-  element={
-    <ProtectedRoute>
-      <MainLayout>
-        <SearchLeads />
-      </MainLayout>
-    </ProtectedRoute>
-  }
+      path="/search"
+      element={
+        <ProtectedRoute>
+          <MainLayout>
+            <SearchLeads />
+          </MainLayout>
+        </ProtectedRoute>
+      }
     />
     <Route
       path="/leads"
@@ -193,8 +201,6 @@ const AppRoutes = () => (
     <Route path="*" element={<NotFound />} />
   </Routes>
 );
-
-// ... (resto do código)
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
