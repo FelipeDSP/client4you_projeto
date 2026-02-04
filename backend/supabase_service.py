@@ -447,5 +447,22 @@ def get_supabase_service() -> SupabaseService:
     """Get or create Supabase service instance"""
     global _supabase_service
     if _supabase_service is None:
+
+    # ========== Company Settings ==========
+    async def get_company_settings(self, company_id: str) -> Optional[Dict[str, Any]]:
+        """Get company settings including SERP API key"""
+        try:
+            result = self.client.table('company_settings')\
+                .select('*')\
+                .eq('company_id', company_id)\
+                .maybe_single()\
+                .execute()
+            
+            return result.data if result.data else None
+        except Exception as e:
+            logger.error(f"Error fetching company settings: {e}")
+            return None
+
+
         _supabase_service = SupabaseService()
     return _supabase_service
