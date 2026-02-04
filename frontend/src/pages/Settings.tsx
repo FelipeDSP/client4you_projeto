@@ -221,6 +221,18 @@ export default function Settings() {
     return 1;
   };
 
+  // Função para aceitar os riscos
+  const handleAcceptRisks = () => {
+    if (riskCheckbox) {
+      setHasAcceptedRisks(true);
+      localStorage.setItem(`whatsapp_risks_accepted_${user?.id}`, 'true');
+      toast({ 
+        title: "Termos aceitos", 
+        description: "Você agora pode configurar a conexão do WhatsApp." 
+      });
+    }
+  };
+
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-10">
       {/* Cabeçalho */}
