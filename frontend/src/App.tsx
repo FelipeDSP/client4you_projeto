@@ -121,7 +121,7 @@ const AppRoutes = () => (
   element={
     <ProtectedRoute>
       <MainLayout>
-        <SearchLeads />
+        <SearchLeadsV2 />
       </MainLayout>
     </ProtectedRoute>
   }
