@@ -310,6 +310,8 @@ Deno.serve(async (req) => {
           success: true, 
           count: uniqueLeads.length,
           usedRealApi: Boolean(serpapiKey),
+          hasMore: hasMoreResults,
+          nextStart: start + uniqueLeads.length,
         }),
         { 
           status: 200, 
@@ -329,6 +331,8 @@ Deno.serve(async (req) => {
         success: true, 
         count: 0,
         usedRealApi: Boolean(serpapiKey),
+        hasMore: false,
+        nextStart: start,
       }),
       { 
         status: 200, 
