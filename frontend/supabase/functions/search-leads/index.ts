@@ -137,93 +137,71 @@ Deno.serve(async (req) => {
 
     const serpapiKey = settings?.serpapi_key;
     let leads: any[] = [];
+    let hasMoreResults = false;
 
     if (serpapiKey) {
-      console.log("Using SerpAPI for search with pagination...");
+      console.log(`Using SerpAPI for search, start=${start}...`);
       
       const searchQuery = `${sanitizedQuery} em ${sanitizedLocation}`;
-      const TARGET_RESULTS = 50; // Meta de 50 resultados
-      let nextStart = 0;
-      let fetchMore = true;
+      const RESULTS_PER_PAGE = 20; // Resultados por página
+      
+      // Busca apenas uma página por vez
+      const serpApiUrl = `https://serpapi.com/search.json?engine=google_maps&q=${encodeURIComponent(searchQuery)}&api_key=${serpapiKey}&hl=pt-br&gl=br&start=${start}`;
+      
+      console.log(`Fetching SerpAPI page start=${start}`);
 
-      // Loop para buscar múltiplas páginas até chegar a 50
-      while (leads.length < TARGET_RESULTS && fetchMore) {
-        
-        // Adicionamos 'start' para controlar a paginação
-        const serpApiUrl = `https://serpapi.com/search.json?engine=google_maps&q=${encodeURIComponent(searchQuery)}&api_key=${serpapiKey}&hl=pt-br&gl=br&start=${nextStart}`;
-        
-        console.log(`Fetching SerpAPI page start=${nextStart}, current leads=${leads.length}`);
+      try {
+        const serpResponse = await fetch(serpApiUrl);
+        const serpData = await serpResponse.json();
 
-        try {
-          const serpResponse = await fetch(serpApiUrl);
-          const serpData = await serpResponse.json();
-
-          if (serpData.error) {
-            console.error("SerpAPI error:", serpData.error);
-            // Se der erro na primeira página, retornamos erro. Se for nas seguintes, seguimos com o que temos.
-            if (leads.length === 0) {
-                const errorMessage = String(serpData.error).toLowerCase();
-                let clientError = "Search service temporarily unavailable";
-                let statusCode = 503;
-                if (errorMessage.includes('api key') || errorMessage.includes('invalid')) {
-                    clientError = "Configuration error"; statusCode = 500;
-                } else if (errorMessage.includes('rate') || errorMessage.includes('limit')) {
-                    clientError = "Rate limit reached"; statusCode = 429;
-                }
-                return new Response(
-                    JSON.stringify({ error: clientError }),
-                    { status: statusCode, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-                );
-            }
-            break; 
+        if (serpData.error) {
+          console.error("SerpAPI error:", serpData.error);
+          const errorMessage = String(serpData.error).toLowerCase();
+          let clientError = "Search service temporarily unavailable";
+          let statusCode = 503;
+          if (errorMessage.includes('api key') || errorMessage.includes('invalid')) {
+            clientError = "Configuration error"; statusCode = 500;
+          } else if (errorMessage.includes('rate') || errorMessage.includes('limit')) {
+            clientError = "Rate limit reached"; statusCode = 429;
           }
-
-          const localResults = serpData.local_results || [];
-          
-          if (localResults.length === 0) {
-            fetchMore = false;
-            break;
-          }
-
-          const newLeads = localResults.map((result: SerpAPIResult) => {
-            return {
-              name: result.title,
-              phone: result.phone || null,
-              has_whatsapp: false, 
-              email: null,
-              has_email: false,
-              address: result.address,
-              category: result.type || query,
-              rating: result.rating || null,
-              reviews_count: result.reviews || 0,
-              website: result.website || null,
-              company_id: companyId,
-              search_id: searchId,
-            };
-          });
-
-          leads = [...leads, ...newLeads];
-
-          // Verifica se tem próxima página na SerpApi
-          if (serpData.serpapi_pagination?.next && leads.length < TARGET_RESULTS) {
-            nextStart += 20; // Google Maps avança de 20 em 20
-          } else {
-            fetchMore = false;
-          }
-
-        } catch (serpError) {
-          console.error("SerpAPI request error:", serpError);
-          break; // Para o loop em caso de erro de rede
+          return new Response(
+            JSON.stringify({ error: clientError }),
+            { status: statusCode, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
         }
+
+        const localResults = serpData.local_results || [];
+        
+        // Verifica se tem mais resultados disponíveis
+        hasMoreResults = Boolean(serpData.serpapi_pagination?.next);
+
+        leads = localResults.map((result: SerpAPIResult) => {
+          return {
+            name: result.title,
+            phone: result.phone || null,
+            has_whatsapp: false, 
+            email: null,
+            has_email: false,
+            address: result.address,
+            category: result.type || query,
+            rating: result.rating || null,
+            reviews_count: result.reviews || 0,
+            website: result.website || null,
+            company_id: companyId,
+            search_id: searchId,
+          };
+        });
+
+      } catch (serpError) {
+        console.error("SerpAPI request error:", serpError);
+        return new Response(
+          JSON.stringify({ error: "Search service error" }),
+          { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
       }
 
-      // Corta se passar de 50
-      if (leads.length > TARGET_RESULTS) {
-        leads = leads.slice(0, TARGET_RESULTS);
-      }
-
-      // Validate WhatsApp logic (mantida original)
-      if (settings?.waha_api_url && settings?.waha_api_key && settings?.waha_session) {
+      // Validate WhatsApp logic
+      if (settings?.waha_api_url && settings?.waha_api_key && settings?.waha_session && leads.length > 0) {
         const wahaSession = settings.waha_session;
         console.log("WAHA Configuration found - validating", leads.filter(l => l.phone).length, "leads with phone numbers");
         
@@ -231,7 +209,6 @@ Deno.serve(async (req) => {
         let whatsappFoundCount = 0;
         let errorCount = 0;
         
-        // Loop de validação sobre TODOS os leads coletados
         for (const lead of leads) {
           if (lead.phone) {
             try {
