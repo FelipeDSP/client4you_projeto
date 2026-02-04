@@ -61,14 +61,34 @@ export default function SearchLeads() {
     // Limpa resultados anteriores enquanto busca
     setCurrentResults([]);
     setHasSearched(true);
+    setHasMore(false);
     
     // Chama o hook e espera a resposta
     const result = await searchLeads(term, location);
     
     if (result && result.leads && result.leads.length > 0) {
       setCurrentResults(result.leads);
+      setHasMore(result.hasMore);
+      setNextStart(result.nextStart);
+      setCurrentSearchId(result.searchId);
+      setCurrentQuery(result.query);
+      setCurrentLocation(result.location);
       // ✅ INCREMENTAR QUOTA APÓS SUCESSO
       await incrementQuota('lead_search');
+    }
+  };
+
+  const handleLoadMore = async () => {
+    if (!currentSearchId || !hasMore) return;
+    
+    // Chama o hook com paginação
+    const result = await searchLeads(currentQuery, currentLocation, nextStart, currentSearchId);
+    
+    if (result && result.leads && result.leads.length > 0) {
+      // ADICIONA aos resultados existentes
+      setCurrentResults(prev => [...prev, ...result.leads]);
+      setHasMore(result.hasMore);
+      setNextStart(result.nextStart);
     }
   };
 
