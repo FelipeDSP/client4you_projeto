@@ -66,6 +66,8 @@ export default function SearchLeads() {
     // Chama o hook e espera a resposta
     const result = await searchLeads(term, location);
     
+    console.log('[SearchLeads] Result from searchLeads:', result);
+    
     if (result && result.leads && result.leads.length > 0) {
       setCurrentResults(result.leads);
       setHasMore(result.hasMore);
@@ -73,6 +75,13 @@ export default function SearchLeads() {
       setCurrentSearchId(result.searchId);
       setCurrentQuery(result.query);
       setCurrentLocation(result.location);
+      
+      console.log('[SearchLeads] State updated:', {
+        leadsCount: result.leads.length,
+        hasMore: result.hasMore,
+        nextStart: result.nextStart
+      });
+      
       // ✅ INCREMENTAR QUOTA APÓS SUCESSO
       await incrementQuota('lead_search');
     }
