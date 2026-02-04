@@ -193,6 +193,19 @@ export default function SearchLeads() {
                 </span>
               )}
             </div>
+            
+            {/* Indicador de Páginas */}
+            {currentResults.length > 0 && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <span className="font-medium">
+                  Página {Math.ceil(currentResults.length / 20)}
+                </span>
+                <span>•</span>
+                <span>
+                  {currentResults.length} leads carregados
+                </span>
+              </div>
+            )}
           </div>
           
           <LeadTable
@@ -205,10 +218,21 @@ export default function SearchLeads() {
           {/* Botão Carregar Mais - Mais Destacado */}
           {hasMore && (
             <div className="mt-6 flex flex-col items-center gap-3 py-4 border-t">
-              <div className="text-center">
-                <p className="text-sm text-muted-foreground mb-2">
+              <div className="text-center space-y-2">
+                <p className="text-sm text-muted-foreground">
                   Mostrando {currentResults.length} leads. Clique para buscar mais resultados.
                 </p>
+                <div className="flex items-center justify-center gap-2">
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: Math.ceil(currentResults.length / 20) }).map((_, i) => (
+                      <div key={i} className="w-2 h-2 rounded-full bg-primary" />
+                    ))}
+                    <div className="w-2 h-2 rounded-full bg-gray-300" />
+                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    Próxima: Página {Math.ceil(currentResults.length / 20) + 1}
+                  </span>
+                </div>
               </div>
               <button
                 onClick={handleLoadMore}
@@ -223,10 +247,22 @@ export default function SearchLeads() {
                 ) : (
                   <>
                     <ArrowDown className="h-5 w-5" />
-                    Carregar Mais 20 Resultados
+                    Carregar Próximos 20 Resultados
                   </>
                 )}
               </button>
+              <p className="text-xs text-muted-foreground">
+                ℹ️ Cada busca retorna leads únicos, sem repetição
+              </p>
+            </div>
+          )}
+          
+          {/* Mensagem quando não há mais resultados */}
+          {!hasMore && currentResults.length >= 20 && (
+            <div className="mt-6 py-4 border-t text-center">
+              <p className="text-sm text-muted-foreground">
+                ✓ Todos os resultados disponíveis foram carregados ({currentResults.length} leads)
+              </p>
             </div>
           )}
         </Card>
