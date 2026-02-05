@@ -88,6 +88,7 @@ export interface Campaign {
   completed_at?: string;
   stats: CampaignStats;
   is_worker_running: boolean;
+  is_actively_sending?: boolean; // Flag para indicar se está enviando ou só aguardando horário
 }
 
 export interface Contact {
