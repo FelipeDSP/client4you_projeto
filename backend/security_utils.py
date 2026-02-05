@@ -209,13 +209,18 @@ async def get_authenticated_user(request: Request) -> dict:
             
             logger.info(f"Profile found: company_id={profile.data.get('company_id')}, role={role}, all_roles={user_roles}")
             
-            return {
+            user_data = {
                 "user_id": user_id,
                 "company_id": profile.data.get("company_id"),
                 "role": role,
                 "roles": user_roles,  # Todas as roles
                 "email": profile.data.get("email") or decoded.get("email")
             }
+            
+            # Armazenar no cache
+            _token_cache[token_hash] = (user_data, current_time + TOKEN_CACHE_TTL)
+            
+            return user_data
         
         except pyjwt.DecodeError as e:
             logger.error(f"JWT decode error: {e}")
