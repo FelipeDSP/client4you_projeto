@@ -553,8 +553,13 @@ async def upload_contacts(
         )
         
         content = await file.read()
+        logger.info(f"📤 Arquivo lido: {len(content)} bytes")
+        
         is_valid, error_msg = validate_file_upload(content, file.filename)
+        logger.info(f"📤 Validação: is_valid={is_valid}, error={error_msg}")
+        
         if not is_valid:
+            logger.error(f"📤 Validação falhou: {error_msg}")
             raise HTTPException(status_code=400, detail=error_msg)
         
         try:
