@@ -38,6 +38,20 @@ async def get_authenticated_user(request: Request) -> dict:
         )
     
     token = auth_header.replace("Bearer ", "")
+    
+    # Verificar cache primeiro
+    token_hash = hash(token)
+    current_time = time.time()
+    
+    if token_hash in _token_cache:
+        user_data, expiry = _token_cache[token_hash]
+        if current_time < expiry:
+            # Cache ainda válido
+            return user_data
+        else:
+            # Cache expirado, remover
+            del _token_cache[token_hash]
+    
     logger.info(f"Validating token for request to {request.url.path}")
     
     try:
