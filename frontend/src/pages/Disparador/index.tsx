@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { CreateCampaignDialog } from "./CreateCampaignDialog";
 import { CampaignCard } from "./CampaignCard";
 import { MessageLogsDialog } from "./MessageLogsDialog";
-import { QuotaLimitModal } from "@/components/QuotaLimitModal";
 import { useCampaigns } from "@/hooks/useCampaigns";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { useQuotas } from "@/hooks/useQuotas";
@@ -15,9 +14,9 @@ import {
   Loader2,
   RefreshCw,
   AlertCircle,
-  Settings,
   Lock,
   Crown,
+  Plus // Importando o ícone Plus
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -33,9 +32,11 @@ export default function Disparador() {
   const { campaigns, isLoading, error, fetchCampaigns } = useCampaigns();
   const { settings, hasWahaConfig, isLoading: isLoadingSettings, refreshSettings } = useCompanySettings();
   const { quota, canUseCampaigns } = useQuotas();
+  
+  // Estado para controlar a visibilidade do modal de criação
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null);
-  const [autoRefresh, setAutoRefresh] = useState(true);
-  const [showQuotaModal, setShowQuotaModal] = useState(false);
+  const [autoRefresh] = useState(true);
 
   const wahaConfig = hasWahaConfig && settings ? {
     url: settings.wahaApiUrl!,
@@ -43,10 +44,9 @@ export default function Disparador() {
     session: settings.wahaSession || "default"
   } : undefined;
 
-  // Refresh settings when component mounts (including navigation back)
   useEffect(() => {
     refreshSettings();
-  }, []); // Empty dependency - runs on mount
+  }, []);
 
   useEffect(() => {
     const hasRunning = campaigns.some((c) => c.status === "running");
@@ -130,7 +130,22 @@ export default function Disparador() {
             <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
             Atualizar
           </Button>
-          <CreateCampaignDialog onCreated={() => fetchCampaigns()} />
+          
+          {/* BOTÃO QUE TINHA SUMIDO */}
+          <Button 
+            onClick={() => setIsCreateOpen(true)} 
+            className="bg-[#F59600] hover:bg-[#e08900] text-white gap-2"
+          >
+            <Plus className="h-4 w-4" />
+            Nova Campanha
+          </Button>
+
+          {/* Dialog Controlado */}
+          <CreateCampaignDialog 
+            open={isCreateOpen} 
+            onOpenChange={setIsCreateOpen}
+            onSuccess={() => fetchCampaigns()}
+          />
         </div>
       </div>
 
@@ -199,7 +214,11 @@ export default function Disparador() {
             <p className="text-muted-foreground mb-4">
               Crie sua primeira campanha para começar a enviar mensagens.
             </p>
-            <CreateCampaignDialog onCreated={() => fetchCampaigns()} />
+            {/* Botão de criar para o estado vazio */}
+            <Button onClick={() => setIsCreateOpen(true)} className="bg-[#F59600] hover:bg-[#e08900] text-white">
+              <Plus className="h-4 w-4 mr-2" />
+              Criar Campanha
+            </Button>
           </CardContent>
         </Card>
       ) : (

@@ -50,7 +50,8 @@ class CampaignSettings(BaseModel):
 
 
 class CampaignMessage(BaseModel):
-    type: MessageType = MessageType.TEXT
+    # Alterado para str para evitar erros de validação estrita (422)
+    type: str = "text" 
     text: str
     media_url: Optional[str] = None
     media_base64: Optional[str] = None

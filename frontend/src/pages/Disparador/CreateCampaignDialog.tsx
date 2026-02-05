@@ -7,14 +7,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCampaigns } from "@/hooks/useCampaigns";
-import { Loader2, Calendar, Clock, MessageSquare, Image as ImageIcon, Check } from "lucide-react";
+import { Loader2, Calendar, Clock, MessageSquare, Image as ImageIcon, Check, UploadCloud, FileSpreadsheet } from "lucide-react";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { Badge } from "@/components/ui/badge"; // <--- IMPORTAÇÃO QUE FALTAVA
+import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface CreateCampaignDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onSuccess?: () => void;
 }
 
 const DAYS_OF_WEEK = [
@@ -27,22 +29,63 @@ const DAYS_OF_WEEK = [
   { value: "6", label: "S", fullName: "Sábado" },
 ];
 
-export function CreateCampaignDialog({ open, onOpenChange }: CreateCampaignDialogProps) {
-  const { createCampaign, isCreating } = useCampaigns();
+export function CreateCampaignDialog({ open, onOpenChange, onSuccess }: CreateCampaignDialogProps) {
+  const { createCampaign, uploadContacts, isCreating } = useCampaigns();
   
   // Estado do Formulário
   const [name, setName] = useState("");
   const [messageType, setMessageType] = useState<"text" | "image" | "document">("text");
   const [messageText, setMessageText] = useState("");
-  const [mediaUrl, setMediaUrl] = useState("");
+  
+  // Arquivos
+  const [mediaFile, setMediaFile] = useState<File | null>(null);
+  const [contactsFile, setContactsFile] = useState<File | null>(null);
+  
+  const [isUploading, setIsUploading] = useState(false);
   
   // Configurações
   const [intervalMin, setIntervalMin] = useState(30);
   const [intervalMax, setIntervalMax] = useState(120);
   const [startTime, setStartTime] = useState("09:00");
   const [endTime, setEndTime] = useState("18:00");
-  const [workingDays, setWorkingDays] = useState<string[]>(["1", "2", "3", "4", "5"]); // Seg-Sex padrão
+  const [workingDays, setWorkingDays] = useState<string[]>(["1", "2", "3", "4", "5"]);
   const [dailyLimit, setDailyLimit] = useState(500);
+
+  const toggleDay = (dayValue: string) => {
+    setWorkingDays(prev => 
+      prev.includes(dayValue)
+        ? prev.filter(d => d !== dayValue)
+        : [...prev, dayValue]
+    );
+  };
+
+  const uploadMedia = async (file: File): Promise<string | null> => {
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
+      const filePath = `${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('campaigns')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage
+        .from('campaigns')
+        .getPublicUrl(filePath);
+
+      return data.publicUrl;
+    } catch (error) {
+      console.error("Erro ao fazer upload:", error);
+      toast({ 
+        title: "Erro no Upload", 
+        description: "Falha ao enviar imagem. Verifique se o bucket 'campaigns' existe e é público.", 
+        variant: "destructive" 
+      });
+      return null;
+    }
+  };
 
   const handleSubmit = async () => {
     // 1. Validações Básicas
@@ -54,8 +97,12 @@ export function CreateCampaignDialog({ open, onOpenChange }: CreateCampaignDialo
       toast({ title: "Erro", description: "O texto da mensagem é obrigatório.", variant: "destructive" });
       return;
     }
-    if ((messageType === 'image' || messageType === 'document') && !mediaUrl.trim()) {
-      toast({ title: "Erro", description: "A URL da mídia é obrigatória.", variant: "destructive" });
+    if ((messageType === 'image' || messageType === 'document') && !mediaFile) {
+      toast({ title: "Erro", description: "Selecione uma imagem/arquivo para enviar.", variant: "destructive" });
+      return;
+    }
+    if (!contactsFile) {
+      toast({ title: "Erro", description: "A planilha de contatos é obrigatória.", variant: "destructive" });
       return;
     }
     if (workingDays.length === 0) {
@@ -64,41 +111,99 @@ export function CreateCampaignDialog({ open, onOpenChange }: CreateCampaignDialo
     }
 
     try {
-      // 2. Montar Payload
+      setIsUploading(true);
+      let finalMediaUrl: string | undefined = undefined;
+
+      // 2. Upload da Mídia (se houver)
+      if (mediaFile && (messageType === 'image' || messageType === 'document')) {
+        const url = await uploadMedia(mediaFile);
+        if (!url) {
+          setIsUploading(false);
+          return;
+        }
+        finalMediaUrl = url;
+      }
+
+      // 3. Montar Payload (Limpo)
+      // Usamos undefined para campos opcionais vazios, assim o JSON.stringify remove a chave
       const campaignData = {
-        name,
+        name: name.trim(),
         message: {
           type: messageType,
-          text: messageText,
-          media_url: mediaUrl || null,
-          media_filename: messageType === 'document' ? 'documento' : null
+          text: messageText || "", // Texto obrigatório, mesmo que vazio
+          media_url: finalMediaUrl || undefined, // undefined remove do JSON
+          media_filename: mediaFile ? mediaFile.name : (messageType === 'document' ? 'documento' : undefined)
         },
         settings: {
-          interval_min: Number(intervalMin),
-          interval_max: Number(intervalMax),
-          start_time: startTime,
-          end_time: endTime,
-          daily_limit: Number(dailyLimit),
-          working_days: workingDays.map(Number)
+          interval_min: Math.floor(Number(intervalMin)),
+          interval_max: Math.floor(Number(intervalMax)),
+          start_time: startTime || "09:00",
+          end_time: endTime || "18:00",
+          daily_limit: Math.floor(Number(dailyLimit)) || 500,
+          working_days: workingDays.map(d => parseInt(d, 10))
         }
       };
 
-      // 3. Enviar
-      await createCampaign(campaignData);
+      console.log("Payload Enviado (v2):", JSON.stringify(campaignData, null, 2));
+
+      // 4. Enviar
+      const newCampaign = await createCampaign(campaignData);
       
-      // 4. Fechar e Limpar
-      onOpenChange(false);
-      resetForm();
+      // 5. Upload dos Contatos (Planilha)
+      if (newCampaign && newCampaign.id) {
+        toast({ title: "Enviando contatos...", description: "Processando sua planilha." });
+        await uploadContacts(newCampaign.id, contactsFile);
+        
+        toast({ 
+          title: "Sucesso!", 
+          description: "Campanha criada e contatos importados.", 
+          className: "bg-green-500 text-white" 
+        });
+        
+        if (onSuccess) onSuccess();
+        onOpenChange(false);
+        resetForm();
+      } else {
+        toast({ title: "Campanha criada", description: "Atualize a página para ver." });
+        if (onSuccess) onSuccess();
+        onOpenChange(false);
+      }
       
-    } catch (error) {
-      console.error(error);
+    } catch (error: any) {
+      console.error("Erro completo:", error);
+      
+      // Extração avançada de erro 422
+      let errorMessage = "Erro ao processar requisição.";
+      if (error?.response?.data?.detail) {
+        // Se for erro de validação do Pydantic, ele vem como um array
+        if (Array.isArray(error.response.data.detail)) {
+          errorMessage = error.response.data.detail
+            .map((err: any) => `${err.loc.join('.')} -> ${err.msg}`)
+            .join(' | ');
+        } else {
+          errorMessage = error.response.data.detail;
+        }
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+
+      console.error("Mensagem Detalhada:", errorMessage);
+      
+      toast({ 
+        title: "Erro ao criar", 
+        description: `Falha: ${errorMessage.substring(0, 100)}${errorMessage.length > 100 ? '...' : ''}`, 
+        variant: "destructive" 
+      });
+    } finally {
+      setIsUploading(false);
     }
   };
 
   const resetForm = () => {
     setName("");
     setMessageText("");
-    setMediaUrl("");
+    setMediaFile(null);
+    setContactsFile(null);
     setWorkingDays(["1", "2", "3", "4", "5"]);
     setStartTime("09:00");
     setEndTime("18:00");
@@ -110,22 +215,38 @@ export function CreateCampaignDialog({ open, onOpenChange }: CreateCampaignDialo
         <DialogHeader>
           <DialogTitle className="text-xl font-bold text-slate-800">Nova Campanha</DialogTitle>
           <DialogDescription>
-            Configure os detalhes do disparo em massa.
+            Importe sua planilha e configure o disparo.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6 py-4">
           
-          {/* Nome da Campanha */}
           <div className="space-y-2">
             <Label htmlFor="name">Nome da Campanha</Label>
             <Input 
               id="name" 
               value={name} 
               onChange={(e) => setName(e.target.value)} 
-              placeholder="Ex: Promoção de Verão" 
+              placeholder="Ex: Leads Janeiro 2025" 
               className="font-medium"
             />
+          </div>
+
+          {/* ÁREA DE IMPORTAÇÃO DE CONTATOS */}
+          <div className="space-y-2 bg-slate-50 p-4 rounded-lg border border-slate-100">
+            <div className="flex items-center gap-2 mb-2">
+              <FileSpreadsheet className="h-5 w-5 text-green-600" />
+              <Label className="text-base font-semibold text-slate-700">Planilha de Contatos</Label>
+            </div>
+            <Input 
+              type="file" 
+              accept=".xlsx,.xls,.csv"
+              onChange={(e) => setContactsFile(e.target.files?.[0] || null)}
+              className="bg-white"
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Formatos aceitos: .xlsx, .xls, .csv (Colunas obrigatórias: Nome, Telefone)
+            </p>
           </div>
 
           <Tabs defaultValue="message" className="w-full">
@@ -138,7 +259,6 @@ export function CreateCampaignDialog({ open, onOpenChange }: CreateCampaignDialo
               </TabsTrigger>
             </TabsList>
 
-            {/* ABA: MENSAGEM */}
             <TabsContent value="message" className="space-y-4 pt-4">
               <div className="space-y-2">
                 <Label>Tipo de Mensagem</Label>
@@ -146,7 +266,7 @@ export function CreateCampaignDialog({ open, onOpenChange }: CreateCampaignDialo
                   <Button 
                     type="button"
                     variant={messageType === 'text' ? 'default' : 'outline'}
-                    className={`flex-1 ${messageType === 'text' ? 'bg-[#F59600] hover:bg-[#d68200]' : ''}`}
+                    className={`flex-1 ${messageType === 'text' ? 'bg-[#F59600] hover:bg-[#d68200] text-white' : ''}`}
                     onClick={() => setMessageType('text')}
                   >
                     <MessageSquare className="mr-2 h-4 w-4" /> Texto
@@ -154,7 +274,7 @@ export function CreateCampaignDialog({ open, onOpenChange }: CreateCampaignDialo
                   <Button 
                     type="button"
                     variant={messageType === 'image' ? 'default' : 'outline'}
-                    className={`flex-1 ${messageType === 'image' ? 'bg-[#F59600] hover:bg-[#d68200]' : ''}`}
+                    className={`flex-1 ${messageType === 'image' ? 'bg-[#F59600] hover:bg-[#d68200] text-white' : ''}`}
                     onClick={() => setMessageType('image')}
                   >
                     <ImageIcon className="mr-2 h-4 w-4" /> Imagem
@@ -162,16 +282,31 @@ export function CreateCampaignDialog({ open, onOpenChange }: CreateCampaignDialo
                 </div>
               </div>
 
+              {/* Upload de Imagem */}
               {messageType !== 'text' && (
                 <div className="space-y-2 animate-in fade-in zoom-in-95 duration-200">
-                  <Label htmlFor="mediaUrl">URL da Mídia (Imagem)</Label>
-                  <Input 
-                    id="mediaUrl" 
-                    value={mediaUrl} 
-                    onChange={(e) => setMediaUrl(e.target.value)} 
-                    placeholder="https://exemplo.com/imagem.jpg" 
-                  />
-                  <p className="text-xs text-muted-foreground">Cole o link direto da imagem.</p>
+                  <Label htmlFor="mediaFile">Upload da Imagem</Label>
+                  <div className="border-2 border-dashed border-slate-200 rounded-lg p-6 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-slate-50 transition-colors relative">
+                    <Input 
+                      id="mediaFile" 
+                      type="file" 
+                      accept="image/*"
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      onChange={(e) => setMediaFile(e.target.files?.[0] || null)} 
+                    />
+                    {mediaFile ? (
+                      <div className="flex items-center gap-2 text-green-600">
+                        <Check className="h-5 w-5" />
+                        <span className="font-medium text-sm">{mediaFile.name}</span>
+                      </div>
+                    ) : (
+                      <>
+                        <UploadCloud className="h-8 w-8 text-slate-400 mb-2" />
+                        <span className="text-sm text-slate-600 font-medium">Clique para selecionar uma imagem</span>
+                        <span className="text-xs text-slate-400 mt-1">JPG, PNG (Máx 5MB)</span>
+                      </>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -197,10 +332,7 @@ export function CreateCampaignDialog({ open, onOpenChange }: CreateCampaignDialo
               </div>
             </TabsContent>
 
-            {/* ABA: CONFIGURAÇÕES */}
             <TabsContent value="settings" className="space-y-5 pt-4">
-              
-              {/* Intervalo */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Intervalo Mínimo (seg)</Label>
@@ -222,7 +354,6 @@ export function CreateCampaignDialog({ open, onOpenChange }: CreateCampaignDialo
                 </div>
               </div>
 
-              {/* Horário */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label className="flex items-center gap-2"><Clock className="h-3 w-3" /> Início</Label>
@@ -242,7 +373,6 @@ export function CreateCampaignDialog({ open, onOpenChange }: CreateCampaignDialo
                 </div>
               </div>
 
-              {/* Dias da Semana */}
               <div className="space-y-3">
                 <Label className="flex items-center gap-2"><Calendar className="h-3 w-3" /> Dias de Funcionamento</Label>
                 <ToggleGroup type="multiple" value={workingDays} onValueChange={setWorkingDays} className="justify-start gap-2">
@@ -285,12 +415,13 @@ export function CreateCampaignDialog({ open, onOpenChange }: CreateCampaignDialo
           </Button>
           <Button 
             onClick={handleSubmit} 
-            disabled={isCreating}
-            className="bg-[#F59600] hover:bg-[#e08900] text-white"
+            disabled={isCreating || isUploading}
+            className="bg-[#F59600] hover:bg-[#e08900] text-white font-semibold"
           >
-            {isCreating ? (
+            {isCreating || isUploading ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Criando...
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> 
+                {isUploading ? "Enviando..." : "Criar Campanha"}
               </>
             ) : (
               <>

@@ -368,7 +368,7 @@ async def create_campaign(
             "user_id": auth_user["user_id"],
             "name": campaign.name,
             "status": "draft",
-            "message_type": campaign.message.type.value,
+            "message_type": campaign.message.type,
             "message_text": campaign.message.text,
             "media_url": campaign.message.media_url,
             "media_filename": campaign.message.media_filename,
