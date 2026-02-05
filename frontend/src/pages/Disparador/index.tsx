@@ -49,10 +49,13 @@ export default function Disparador() {
   }, []);
 
   useEffect(() => {
-    const hasRunning = campaigns.some((c) => c.status === "running");
+    // Só faz polling se tem campanha REALMENTE ENVIANDO (não só aguardando horário)
+    const hasActivelySending = campaigns.some((c) => 
+      c.status === "running" && c.is_actively_sending === true
+    );
     
-    if (autoRefresh && hasRunning && canUseCampaigns) {
-      // Reduzido de 5s para 30s para economizar requests do Supabase
+    if (autoRefresh && hasActivelySending && canUseCampaigns) {
+      // Polling a cada 30s apenas quando há envio ativo
       const interval = setInterval(() => {
         fetchCampaigns();
       }, 30000); // 30 segundos
