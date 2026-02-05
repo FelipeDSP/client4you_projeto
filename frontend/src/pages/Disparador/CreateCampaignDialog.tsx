@@ -7,8 +7,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCampaigns } from "@/hooks/useCampaigns";
-import { Loader2, Calendar, Clock, MessageSquare, Image as ImageIcon, FileText, Check } from "lucide-react";
+import { Loader2, Calendar, Clock, MessageSquare, Image as ImageIcon, Check } from "lucide-react";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Badge } from "@/components/ui/badge"; // <--- IMPORTAÇÃO QUE FALTAVA
 import { toast } from "@/hooks/use-toast";
 
 interface CreateCampaignDialogProps {
@@ -63,7 +64,7 @@ export function CreateCampaignDialog({ open, onOpenChange }: CreateCampaignDialo
     }
 
     try {
-      // 2. Montar Payload (Compatível com backend/models.py)
+      // 2. Montar Payload
       const campaignData = {
         name,
         message: {
@@ -78,7 +79,6 @@ export function CreateCampaignDialog({ open, onOpenChange }: CreateCampaignDialo
           start_time: startTime,
           end_time: endTime,
           daily_limit: Number(dailyLimit),
-          // Converte array de strings ["1", "2"] para inteiros [1, 2]
           working_days: workingDays.map(Number)
         }
       };
@@ -92,7 +92,6 @@ export function CreateCampaignDialog({ open, onOpenChange }: CreateCampaignDialo
       
     } catch (error) {
       console.error(error);
-      // Toast de erro já é tratado no hook geralmente, mas garantimos aqui
     }
   };
 
@@ -160,15 +159,6 @@ export function CreateCampaignDialog({ open, onOpenChange }: CreateCampaignDialo
                   >
                     <ImageIcon className="mr-2 h-4 w-4" /> Imagem
                   </Button>
-                  {/* Documento removido temporariamente para simplificar, ou descomente se necessário */}
-                  {/* <Button 
-                    type="button"
-                    variant={messageType === 'document' ? 'default' : 'outline'}
-                    className={`flex-1 ${messageType === 'document' ? 'bg-[#F59600] hover:bg-[#d68200]' : ''}`}
-                    onClick={() => setMessageType('document')}
-                  >
-                    <FileText className="mr-2 h-4 w-4" /> Arquivo
-                  </Button> */}
                 </div>
               </div>
 

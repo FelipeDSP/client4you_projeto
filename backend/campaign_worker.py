@@ -4,6 +4,7 @@ import random
 from datetime import datetime, time, timedelta
 from typing import Optional, Dict, Any
 from zoneinfo import ZoneInfo
+import pytz # Importante para conversão segura
 
 from models import (
     CampaignStatus, ContactStatus, MessageType, CampaignSettings
@@ -23,9 +24,10 @@ WAIT_CHECK_INTERVAL = 60  # seconds
 MAX_WAIT_CYCLES = 1440  # 24 hours (1440 minutes)
 
 
-def get_campaign_timezone(campaign_data: dict) -> ZoneInfo:
-    """Get timezone for campaign (default to Brazil/São Paulo)"""
-    tz_name = campaign_data.get("timezone", "America/Sao_Paulo")
+def get_campaign_timezone(company_settings: dict) -> ZoneInfo:
+    """Get timezone for campaign based on company settings"""
+    # Pega o timezone configurado na empresa ou usa SP como padrão
+    tz_name = company_settings.get("timezone", "America/Sao_Paulo")
     try:
         return ZoneInfo(tz_name)
     except Exception:
@@ -61,32 +63,45 @@ def sanitize_error_message(error_msg: str, max_length: int = 200) -> str:
 
 def is_within_working_hours(settings: dict, campaign_tz: ZoneInfo) -> bool:
     """Check if current time is within working hours - timezone aware"""
+    # Pega a hora atual no fuso da empresa
     now = datetime.now(campaign_tz)
     
     # Check working days (0 = Monday, 6 = Sunday)
     working_days = settings.get("working_days", [0, 1, 2, 3, 4])
+    
+    # Python weekday(): 0=Mon, 6=Sun
+    # Se o frontend enviar 0=Sun, 1=Mon, precisamos converter ou padronizar.
+    # Assumindo que o Frontend agora envia padrão Python (0=Mon...):
     if now.weekday() not in working_days:
+        # Debug log
+        # logger.debug(f"Hoje ({now.weekday()}) não é dia de envio: {working_days}")
         return False
     
     # Check time range
-    start_time = settings.get("start_time")
-    end_time = settings.get("end_time")
+    start_time_str = settings.get("start_time")
+    end_time_str = settings.get("end_time")
     
-    if start_time and end_time:
+    if start_time_str and end_time_str:
         try:
-            start = datetime.strptime(start_time, "%H:%M").time()
-            end = datetime.strptime(end_time, "%H:%M").time()
+            start = datetime.strptime(start_time_str, "%H:%M").time()
+            end = datetime.strptime(end_time_str, "%H:%M").time()
             current_time = now.time()
             
             if start <= end:
                 # Normal hours (e.g., 09:00 to 18:00)
-                return start <= current_time <= end
+                is_time = start <= current_time <= end
             else:
                 # Crosses midnight (e.g., 22:00 to 02:00)
-                return current_time >= start or current_time <= end
+                is_time = current_time >= start or current_time <= end
+            
+            if not is_time:
+                # logger.debug(f"Fora do horário: Agora {current_time}, Limites {start}-{end}")
+                pass
+            return is_time
+
         except ValueError as e:
-            logger.warning(f"Invalid time format: {e}")
-            return True
+            logger.warning(f"Invalid time format in settings: {e}")
+            return True # Fail safe: allow sending
     
     return True
 
@@ -103,15 +118,20 @@ async def process_campaign(
     campaign_tz = None
     
     try:
-        # Fetch campaign data once at start
+        # 1. Fetch campaign data once at start
         campaign_data = await db.get_campaign(campaign_id)
         if not campaign_data:
             logger.error(f"Campaign {campaign_id} not found")
             return
         
-        # Get timezone for this campaign
-        campaign_tz = get_campaign_timezone(campaign_data)
-        logger.info(f"Campaign {campaign_id} using timezone: {campaign_tz}")
+        # 2. Fetch Company Settings (Timezone)
+        company_id = campaign_data.get('company_id')
+        # Usa o novo método que criamos no supabase_service
+        company_settings = await db.get_company_settings_with_timezone(company_id)
+        
+        # 3. Define timezone da campanha
+        campaign_tz = get_campaign_timezone(company_settings)
+        logger.info(f"Campaign {campaign_id} (Company {company_id}) using timezone: {campaign_tz}")
         
         # Cache settings that don't change
         settings = {
@@ -142,17 +162,20 @@ async def process_campaign(
             
             pending_count = status_result.data.get("pending_count", 0)
             
-            # Check working hours
+            # 4. Check working hours (Timezone Aware)
             if not is_within_working_hours(settings, campaign_tz):
                 wait_cycles += 1
                 
-                # Timeout after 24h waiting
+                # Timeout after 24h waiting (prevent zombies)
                 if wait_cycles >= MAX_WAIT_CYCLES:
                     logger.warning(f"Campaign {campaign_id} waited 24h outside working hours - pausing")
                     await db.update_campaign(campaign_id, {"status": "paused"})
                     break
                 
-                logger.info(f"Campaign {campaign_id} outside working hours, waiting... ({wait_cycles}/{MAX_WAIT_CYCLES})")
+                # Log only every 60 cycles (1 hour) to reduce noise
+                if wait_cycles % 60 == 1:
+                    logger.info(f"Campaign {campaign_id} outside working hours ({campaign_tz}), waiting... ({wait_cycles}/{MAX_WAIT_CYCLES})")
+                
                 await asyncio.sleep(WAIT_CHECK_INTERVAL)
                 continue
             
@@ -163,14 +186,14 @@ async def process_campaign(
             if settings.get("daily_limit"):
                 daily_count = await db.count_messages_sent_today(campaign_id)
                 if daily_count >= settings["daily_limit"]:
-                    logger.info(f"Campaign {campaign_id} reached daily limit - waiting for next day")
+                    logger.info(f"Campaign {campaign_id} reached daily limit ({daily_count}) - waiting for next day")
                     
-                    # Calculate time until midnight
+                    # Calculate time until midnight in CAMPAIGN TIMEZONE
                     now = datetime.now(campaign_tz)
                     tomorrow = now.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
                     seconds_until_tomorrow = (tomorrow - now).total_seconds()
                     
-                    # Wait in chunks, checking status periodically
+                    # Wait in chunks
                     chunks = int(seconds_until_tomorrow / WAIT_CHECK_INTERVAL)
                     for _ in range(max(chunks, 1)):
                         await asyncio.sleep(WAIT_CHECK_INTERVAL)
@@ -200,10 +223,8 @@ async def process_campaign(
                 
                 # ENVIAR EMAIL DE CONCLUSÃO
                 try:
-                    # Buscar dados da campanha e usuário
                     campaign_final = await db.get_campaign(campaign_id)
                     if campaign_final:
-                        # Buscar email do usuário
                         user_result = db.client.table('profiles')\
                             .select('email, full_name')\
                             .eq('id', campaign_final.get('user_id'))\
@@ -224,12 +245,11 @@ async def process_campaign(
                             logger.info(f"📧 Email de conclusão enviado para {user_result.data.get('email')}")
                 except Exception as e:
                     logger.error(f"❌ Erro ao enviar email de conclusão: {e}")
-                    # Não falhar o worker se email falhar
                 
                 break
             
-            # Prepare message with variables (campaign_data still needed for message)
-            # Re-fetch only message fields (lightweight)
+            # Prepare message with variables
+            # Re-fetch only message fields
             message_result = db.client.table('campaigns')\
                 .select('message_text, message_type, media_url, media_filename, sent_count, error_count')\
                 .eq('id', campaign_id)\
@@ -249,6 +269,7 @@ async def process_campaign(
                 "email": contact_data.get("email") or "",
                 "categoria": contact_data.get("category") or "",
                 "category": contact_data.get("category") or "",
+                "empresa": "Sua Empresa", # Fallback default
                 **(extra_data if isinstance(extra_data, dict) else {})
             }
             
@@ -259,6 +280,7 @@ async def process_campaign(
             message_type = message_result.data.get("message_type", "text")
             result: Dict[str, Any]
             
+            # DISPARO EFETIVO NO WAHA
             if message_type == "text":
                 result = await waha_service.send_text_message(
                     contact_data["phone"],
@@ -281,7 +303,8 @@ async def process_campaign(
                 result = {"success": False, "error": "Unknown message type"}
             
             # Update contact status
-            now = datetime.now(campaign_tz).isoformat()
+            now_iso = datetime.now(campaign_tz).isoformat()
+            
             if result.get("success"):
                 new_status = "sent"
                 error_msg = None
@@ -296,7 +319,6 @@ async def process_campaign(
                 logger.info(f"Message sent to {contact_data['phone']} successfully")
             else:
                 new_status = "error"
-                # Sanitize error message before saving
                 raw_error = result.get("error", "Unknown error")
                 error_msg = sanitize_error_message(raw_error)
                 
@@ -314,7 +336,7 @@ async def process_campaign(
             await db.update_contact(contact_data["id"], {
                 "status": new_status,
                 "error_message": error_msg,
-                "sent_at": now
+                "sent_at": now_iso
             })
             
             # Log message
@@ -326,11 +348,9 @@ async def process_campaign(
                 "status": new_status,
                 "error_message": error_msg,
                 "message_sent": final_message,
-                "sent_at": now
+                "sent_at": now_iso
             }
             await db.create_message_log(log_data)
-            
-            logger.info(f"Message sent to {contact_data['phone']}: {new_status}")
             
             # Wait for random interval only if there are more contacts
             if pending_count > 0:
@@ -355,7 +375,6 @@ async def process_campaign(
                 "status": "paused"
             })
             
-            # Create notification for user
             campaign = await db.get_campaign(campaign_id)
             if campaign:
                 await db.create_notification(
@@ -383,23 +402,16 @@ async def start_campaign_worker(
 ) -> tuple[bool, Optional[str]]:
     """
     Start a campaign worker task - thread-safe with atomic check
-    
-    Returns:
-        (success, error_message)
     """
     async with _campaigns_lock:
-        # Check and start are atomic
         if campaign_id in running_campaigns:
-            # Check if task is still alive
             task = running_campaigns[campaign_id]
             if not task.done():
                 return False, "Campanha já está em execução"
             else:
-                # Task died but wasn't cleaned - remove it
                 del running_campaigns[campaign_id]
                 logger.warning(f"Cleaned up dead task for campaign {campaign_id}")
         
-        # Start new task
         task = asyncio.create_task(
             process_campaign(db, campaign_id, waha_service)
         )
@@ -420,7 +432,6 @@ async def stop_campaign_worker(campaign_id: str) -> bool:
         task = running_campaigns[campaign_id]
         task.cancel()
     
-    # Wait for task to finish outside the lock
     try:
         await task
     except asyncio.CancelledError:
@@ -428,7 +439,6 @@ async def stop_campaign_worker(campaign_id: str) -> bool:
     except Exception as e:
         logger.error(f"Error while stopping campaign {campaign_id}: {e}")
     
-    # Remove from tracking
     async with _campaigns_lock:
         if campaign_id in running_campaigns:
             del running_campaigns[campaign_id]
@@ -439,5 +449,4 @@ async def stop_campaign_worker(campaign_id: str) -> bool:
 
 def is_campaign_running(campaign_id: str) -> bool:
     """Check if a campaign worker is running"""
-    # Simple check without lock (read-only is atomic in Python)
     return campaign_id in running_campaigns and not running_campaigns[campaign_id].done()

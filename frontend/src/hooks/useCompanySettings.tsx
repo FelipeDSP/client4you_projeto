@@ -10,6 +10,7 @@ export interface CompanySettings {
   wahaApiUrl: string | null;
   wahaApiKey: string | null;
   wahaSession: string | null;
+  timezone: string; // NOVO CAMPO
   createdAt: string;
   updatedAt: string;
 }
@@ -29,31 +30,56 @@ export function useCompanySettings() {
     }
 
     try {
-      const { data, error } = await supabase
+      // 1. Busca configurações gerais (API Keys, etc)
+      const { data: settingsData, error: settingsError } = await supabase
         .from("company_settings")
         .select("*")
         .eq("company_id", user.companyId)
         .maybeSingle();
 
-      if (error) {
-        console.error("Error fetching company settings:", error);
-        setSettings(null);
-      } else if (data) {
+      // 2. Busca dados da empresa (timezone)
+      const { data: companyData, error: companyError } = await supabase
+        .from("companies")
+        .select("timezone")
+        .eq("id", user.companyId)
+        .single();
+
+      if (settingsError) {
+        console.error("Error fetching settings:", settingsError);
+      } 
+      
+      // Monta o objeto final combinando as duas tabelas
+      if (settingsData) {
         setSettings({
-          id: data.id,
-          companyId: data.company_id,
-          serpapiKey: data.serpapi_key,
-          wahaApiUrl: data.waha_api_url,
-          wahaApiKey: data.waha_api_key,
-          wahaSession: data.waha_session,
-          createdAt: data.created_at,
-          updatedAt: data.updated_at,
+          id: settingsData.id,
+          companyId: settingsData.company_id,
+          serpapiKey: settingsData.serpapi_key,
+          wahaApiUrl: settingsData.waha_api_url,
+          wahaApiKey: settingsData.waha_api_key,
+          wahaSession: settingsData.waha_session,
+          timezone: companyData?.timezone || 'America/Sao_Paulo', // Valor padrão seguro
+          createdAt: settingsData.created_at,
+          updatedAt: settingsData.updated_at,
+        });
+      } else if (companyData) {
+        // Caso raro: tem empresa mas não tem settings criado ainda
+        setSettings({
+          id: "", // Placeholder
+          companyId: user.companyId,
+          serpapiKey: null,
+          wahaApiUrl: null,
+          wahaApiKey: null,
+          wahaSession: "default",
+          timezone: companyData.timezone || 'America/Sao_Paulo',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
         });
       } else {
         setSettings(null);
       }
+
     } catch (error) {
-      console.error("Error fetching settings:", error);
+      console.error("Unexpected error:", error);
       setSettings(null);
     } finally {
       setIsLoading(false);
@@ -69,6 +95,7 @@ export function useCompanySettings() {
     wahaApiUrl?: string;
     wahaApiKey?: string;
     wahaSession?: string;
+    timezone?: string; // NOVO CAMPO OPCIONAL
   }) => {
     if (!user?.companyId) {
       toast({
@@ -82,16 +109,18 @@ export function useCompanySettings() {
     setIsSaving(true);
 
     try {
+      // 1. Atualiza company_settings (API Keys)
       const settingsData = {
         company_id: user.companyId,
-        serpapi_key: newSettings.serpapiKey || null,
-        waha_api_url: newSettings.wahaApiUrl || null,
-        waha_api_key: newSettings.wahaApiKey || null,
-        waha_session: newSettings.wahaSession || 'default',
+        serpapi_key: newSettings.serpapiKey !== undefined ? newSettings.serpapiKey : settings?.serpapiKey,
+        waha_api_url: newSettings.wahaApiUrl !== undefined ? newSettings.wahaApiUrl : settings?.wahaApiUrl,
+        waha_api_key: newSettings.wahaApiKey !== undefined ? newSettings.wahaApiKey : settings?.wahaApiKey,
+        waha_session: newSettings.wahaSession !== undefined ? newSettings.wahaSession : (settings?.wahaSession || 'default'),
+        updated_at: new Date().toISOString(),
       };
 
       if (settings?.id) {
-        // Update existing
+        // Update existing settings
         const { error } = await supabase
           .from("company_settings")
           .update({
@@ -99,17 +128,28 @@ export function useCompanySettings() {
             waha_api_url: settingsData.waha_api_url,
             waha_api_key: settingsData.waha_api_key,
             waha_session: settingsData.waha_session,
+            updated_at: settingsData.updated_at
           })
           .eq("id", settings.id);
 
         if (error) throw error;
       } else {
-        // Insert new
+        // Insert new settings
         const { error } = await supabase
           .from("company_settings")
           .insert(settingsData);
 
         if (error) throw error;
+      }
+
+      // 2. Atualiza Timezone na tabela companies (se foi enviado)
+      if (newSettings.timezone && newSettings.timezone !== settings?.timezone) {
+        const { error: companyError } = await supabase
+          .from("companies")
+          .update({ timezone: newSettings.timezone })
+          .eq("id", user.companyId);
+          
+        if (companyError) throw companyError;
       }
 
       await fetchSettings();

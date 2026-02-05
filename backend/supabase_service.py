@@ -306,11 +306,11 @@ class SupabaseService:
     async def create_notification(
         self, 
         user_id: str, 
-        company_id: str,
-        notification_type: str,
-        title: str,
-        message: str,
-        link: Optional[str] = None,
+        company_id: str, 
+        notification_type: str, 
+        title: str, 
+        message: str, 
+        link: Optional[str] = None, 
         metadata: Optional[Dict[str, Any]] = None
     ) -> Optional[str]:
         """Create a notification"""
@@ -452,6 +452,29 @@ class SupabaseService:
         except Exception as e:
             logger.error(f"Error fetching company settings: {e}")
             return None
+
+    # ========== NOVO MÉTODO PARA TIMEZONE ==========
+    async def get_company_settings_with_timezone(self, company_id: str) -> Dict[str, Any]:
+        """
+        Busca configurações da empresa incluindo o timezone da tabela 'companies'.
+        Retorna um dicionário com keys seguras.
+        """
+        try:
+            # Busca timezone na tabela companies
+            company_result = self.client.table('companies')\
+                .select('timezone')\
+                .eq('id', company_id)\
+                .limit(1)\
+                .execute()
+            
+            timezone = "America/Sao_Paulo"
+            if company_result.data:
+                timezone = company_result.data[0].get('timezone', "America/Sao_Paulo")
+            
+            return {"timezone": timezone}
+        except Exception as e:
+            logger.error(f"Error fetching company timezone: {e}")
+            return {"timezone": "America/Sao_Paulo"}
 
 
 # Global instance

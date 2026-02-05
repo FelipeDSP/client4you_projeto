@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   Globe, 
   MessageCircle, 
@@ -36,6 +37,16 @@ import { supabase } from "@/integrations/supabase/client";
 
 // URL do backend a partir de variável de ambiente
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || import.meta.env.REACT_APP_BACKEND_URL || '';
+
+// Lista de Timezones
+const TIMEZONES = [
+  { value: "America/Sao_Paulo", label: "Horário de Brasília (SP/RJ/MG...)" },
+  { value: "America/Manaus", label: "Horário do Amazonas (Manaus)" },
+  { value: "America/Rio_Branco", label: "Horário do Acre (Rio Branco)" },
+  { value: "America/Cuiaba", label: "Horário do Mato Grosso (Cuiabá)" },
+  { value: "America/Noronha", label: "Fernando de Noronha" },
+  { value: "UTC", label: "UTC (Universal)" },
+];
 
 // Helper para fazer requisições autenticadas
 const createAuthenticatedApi = () => ({
@@ -104,12 +115,13 @@ export default function Settings() {
     setPageTitle("Configurações", SettingsIcon);
   }, [setPageTitle]);
 
-  const { settings, saveSettings, hasSerpapiKey } = useCompanySettings();
+  const { settings, saveSettings, hasSerpapiKey, isSaving } = useCompanySettings();
   const { user } = useAuth();
   const { toast } = useToast();
 
   const [serpapiKey, setSerpapiKey] = useState("");
   const [isSavingSerp, setIsSavingSerp] = useState(false);
+  const [timezone, setTimezone] = useState("America/Sao_Paulo");
   
   // Estados do Painel WhatsApp
   const [waStatus, setWaStatus] = useState<WAStatus>("LOADING");
@@ -118,14 +130,16 @@ export default function Settings() {
   
   // Estado de aceitação dos termos de risco do WhatsApp
   const [hasAcceptedRisks, setHasAcceptedRisks] = useState<boolean>(() => {
-    // Verifica se já aceitou anteriormente (salvo no localStorage)
     const saved = localStorage.getItem(`whatsapp_risks_accepted_${user?.id}`);
     return saved === 'true';
   });
   const [riskCheckbox, setRiskCheckbox] = useState(false);
 
   useEffect(() => {
-    if (settings?.serpapiKey) setSerpapiKey(settings.serpapiKey);
+    if (settings) {
+        if (settings.serpapiKey) setSerpapiKey(settings.serpapiKey);
+        if (settings.timezone) setTimezone(settings.timezone);
+    }
   }, [settings]);
 
   // Polling de Status do WhatsApp
@@ -212,6 +226,10 @@ export default function Settings() {
     }
   };
 
+  const handleSaveGeneral = async () => {
+    await saveSettings({ timezone });
+  };
+
   // Determinar qual passo está ativo no guia
   const getCurrentStep = () => {
     if (waStatus === "DISCONNECTED") return 1;
@@ -238,12 +256,16 @@ export default function Settings() {
       {/* Cabeçalho */}
       <div>
         <h2 className="text-3xl font-bold tracking-tight">Configurações</h2>
-        <p className="text-muted-foreground">Gerencie conexões e integrações do sistema.</p>
+        <p className="text-muted-foreground">Gerencie conexões e preferências da sua conta.</p>
       </div>
 
       {/* Tabs de Configuração */}
-      <Tabs defaultValue="whatsapp" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2 lg:w-[400px]">
+      <Tabs defaultValue="general" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-3 lg:w-[600px]">
+          <TabsTrigger value="general" className="gap-2">
+            <SettingsIcon className="h-4 w-4" />
+            Geral
+          </TabsTrigger>
           <TabsTrigger value="whatsapp" className="gap-2">
             <MessageCircle className="h-4 w-4" />
             WhatsApp
@@ -253,6 +275,46 @@ export default function Settings() {
             Integrações
           </TabsTrigger>
         </TabsList>
+
+        {/* ========== TAB GERAL (NOVO) ========== */}
+        <TabsContent value="general" className="space-y-6">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Preferências da Conta</CardTitle>
+                    <CardDescription>Ajuste as configurações regionais da sua empresa.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium">Fuso Horário</label>
+                        <Select value={timezone} onValueChange={setTimezone}>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Selecione seu fuso horário" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {TIMEZONES.map((tz) => (
+                                    <SelectItem key={tz.value} value={tz.value}>
+                                        {tz.label}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                            As campanhas e horários de disparo seguirão este fuso horário.
+                        </p>
+                    </div>
+
+                    <Button onClick={handleSaveGeneral} disabled={isSaving}>
+                        {isSaving ? (
+                            <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Salvando...
+                            </>
+                        ) : (
+                            'Salvar Preferências'
+                        )}
+                    </Button>
+                </CardContent>
+            </Card>
+        </TabsContent>
 
         {/* ========== TAB WHATSAPP ========== */}
         <TabsContent value="whatsapp" className="space-y-6">

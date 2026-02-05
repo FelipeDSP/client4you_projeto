@@ -46,3 +46,4 @@ mmh3
 pyroaring>=1.0.0
 sortedcontainers==2.4.0
 strictyaml>=1.7.0
+pytz>=2024.1
