@@ -147,7 +147,11 @@ export function CreateCampaignDialog({ open, onOpenChange, onSuccess }: CreateCa
       console.log("Payload Enviado (v2):", JSON.stringify(campaignData, null, 2));
 
       // 4. Enviar
-      const newCampaign = await createCampaign(campaignData);
+      const newCampaign = await createCampaign(
+        campaignData.name,
+        campaignData.message,
+        campaignData.settings
+      );
       
       // 5. Upload dos Contatos (Planilha)
       if (newCampaign && newCampaign.id) {
