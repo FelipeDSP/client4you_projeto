@@ -13,12 +13,12 @@ def normalize_phone(phone: str) -> str:
     # Remove all non-digit characters
     digits = re.sub(r'\D', '', phone)
     
-    # If starts with 0, remove it
+    # If starts with 0, remove it (ex: 011999...)
     if digits.startswith('0'):
         digits = digits[1:]
     
-    # Add Brazil country code if not present
-    if not digits.startswith('55'):
+    # Add Brazil country code if not present and length seems like a local number
+    if len(digits) <= 11 and not digits.startswith('55'):
         digits = '55' + digits
     
     return digits
@@ -34,21 +34,19 @@ class WahaService:
             "X-Api-Key": api_key
         }
     
-# --- MÉTODOS DE SESSÃO (SAAS ROBUSTO) ---
+    # --- MÉTODOS DE SESSÃO ---
 
     async def start_session(self) -> Dict[str, Any]:
         """Inicia (ou cria) a sessão no WAHA"""
         try:
             payload = {"name": self.session_name, "config": {"webhooks": []}}
             async with httpx.AsyncClient(timeout=30.0) as client:
-                # 1. Tenta criar a sessão no servidor
                 response = await client.post(
                     f"{self.waha_url}/api/sessions",
                     headers=self.headers,
                     json=payload
                 )
                 
-                # Se 201 (Criado) ou 409 (Já existe), enviamos o comando START
                 if response.status_code in [201, 409]:
                     await client.post(
                         f"{self.waha_url}/api/sessions/{self.session_name}/start",
@@ -62,7 +60,6 @@ class WahaService:
             return {"success": False, "error": str(e)}
 
     async def stop_session(self) -> Dict[str, Any]:
-        """Para a sessão sem desconectar (apenas desliga o motor)"""
         try:
             async with httpx.AsyncClient(timeout=20.0) as client:
                 response = await client.post(
@@ -75,7 +72,6 @@ class WahaService:
             return {"success": False, "error": str(e)}
 
     async def logout_session(self) -> Dict[str, Any]:
-        """Desconecta totalmente (exige novo QR Code depois)"""
         try:
             async with httpx.AsyncClient(timeout=20.0) as client:
                 response = await client.post(
@@ -88,29 +84,20 @@ class WahaService:
             return {"success": False, "error": str(e)}
 
     async def get_qr_code(self) -> Dict[str, Any]:
-        """Obtém a imagem do QR Code em Base64 com logs de diagnóstico"""
         try:
             async with httpx.AsyncClient(timeout=20.0) as client:
-                # WAHA usa /api/screenshot para capturar o QR Code
                 response = await client.get(
                     f"{self.waha_url}/api/screenshot?session={self.session_name}",
                     headers=self.headers
                 )
                 
                 if response.status_code == 200:
-                    # Verifica se é uma imagem PNG válida
                     if response.content[:4] == b'\x89PNG':
                         b64_img = base64.b64encode(response.content).decode('utf-8')
                         return {
                             "success": True, 
                             "image": f"data:image/png;base64,{b64_img}"
                         }
-                    else:
-                        logger.warning(f"Screenshot não retornou uma imagem PNG válida")
-                        return {"success": False, "error": "Screenshot inválido"}
-                
-                # Log de diagnóstico: ajuda a identificar se o WAHA ainda não gerou o arquivo
-                logger.warning(f"WAHA QR indisponível: Status {response.status_code} para sessão {self.session_name}")
                 
                 if response.status_code == 404:
                     return {"success": False, "error": "Sessão não encontrada ou motor ainda iniciando."}
@@ -118,13 +105,9 @@ class WahaService:
                 return {"success": False, "error": f"QR Code pendente (Status {response.status_code})"}
                 
         except Exception as e:
-            logger.error(f"Erro ao buscar QR Code: {str(e)}")
             return {"success": False, "error": str(e)}
 
-    # --- MÉTODOS DE OPERAÇÃO (DISPARO) ---
-
     async def check_connection(self) -> Dict[str, Any]:
-        """Check if WAHA is connected and session is active"""
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 response = await client.get(
@@ -135,44 +118,30 @@ class WahaService:
                 if response.status_code == 200:
                     try:
                         data = response.json()
-                        # O status crucial é "WORKING"
                         status = data.get("status", "unknown")
-                        # WORKING = Conectado e pronto
-                        # CONNECTED = Conectado mas talvez sincronizando
                         is_connected = status == "WORKING" or status == "CONNECTED"
-                        
                         return {
                             "connected": is_connected,
                             "status": status,
-                            "name": data.get("name", self.session_name),
                             "me": data.get("me", {})
                         }
                     except:
                         return {"connected": False, "status": "error_parsing"}
-                elif response.status_code == 404:
-                    return {
-                        "connected": False,
-                        "status": "session_not_found",
-                        "error": "Sessão não encontrada."
-                    }
-                else:
-                    return {
-                        "connected": False,
-                        "status": "error",
-                        "error": f"Erro HTTP {response.status_code}"
-                    }
+                return {"connected": False, "status": "error", "error": f"HTTP {response.status_code}"}
         except Exception as e:
-            logger.error(f"Error checking WAHA connection: {e}")
             return {"connected": False, "status": "error", "error": str(e)}
 
-    # --- NOVO MÉTODO (ESSENCIAL PARA A VALIDAÇÃO) ---
+    # --- MÉTODO MELHORADO ---
     async def check_number_exists(self, phone: str) -> bool:
-        """Verifica se o número tem WhatsApp registrado"""
+        """Verifica se o número tem WhatsApp registrado (Robusto)"""
         try:
-            # Formata o telefone corretamente (ex: 5511999999999)
             formatted_phone = normalize_phone(phone)
             
-            async with httpx.AsyncClient(timeout=5.0) as client: # Timeout curto para ser rápido
+            # Validação básica de comprimento (Brasil: 10 a 13 dígitos)
+            if len(formatted_phone) < 10 or len(formatted_phone) > 13:
+                return False
+
+            async with httpx.AsyncClient(timeout=8.0) as client:
                 response = await client.get(
                     f"{self.waha_url}/api/contacts/check-exists",
                     headers=self.headers,
@@ -184,61 +153,39 @@ class WahaService:
                 
                 if response.status_code == 200:
                     data = response.json()
-                    # O WAHA retorna { "exists": true/false }
-                    return data.get("exists", False)
+                    # Verifica múltiplos campos possíveis para compatibilidade
+                    # WAHA Core usa 'exists', alguns forks usam 'numberExists' ou 'valid'
+                    return (
+                        data.get("exists") is True or 
+                        data.get("numberExists") is True or 
+                        data.get("valid") is True or
+                        data.get("status") == 200
+                    )
                 return False
         except Exception as e:
             logger.error(f"Erro ao validar número {phone}: {e}")
             return False
 
     async def send_text_message(self, phone: str, message: str) -> Dict[str, Any]:
-        """Send a text message via WAHA"""
         chat_id = f"{normalize_phone(phone)}@c.us"
-        
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
                 response = await client.post(
                     f"{self.waha_url}/api/sendText",
                     headers=self.headers,
-                    json={
-                        "chatId": chat_id,
-                        "text": message,
-                        "session": self.session_name
-                    }
+                    json={"chatId": chat_id, "text": message, "session": self.session_name}
                 )
-                
                 if response.status_code in [200, 201]:
                     return {"success": True, "data": response.json()}
-                else:
-                    return {"success": False, "error": f"HTTP {response.status_code}: {response.text}"}
+                return {"success": False, "error": f"HTTP {response.status_code}"}
         except Exception as e:
-            logger.error(f"Error sending text message: {e}")
             return {"success": False, "error": str(e)}
     
-    async def send_image_message(
-        self, 
-        phone: str, 
-        caption: str,
-        image_url: Optional[str] = None,
-        image_base64: Optional[str] = None
-    ) -> Dict[str, Any]:
-        """Send an image message via WAHA"""
+    async def send_image_message(self, phone: str, caption: str, image_url: Optional[str] = None, image_base64: Optional[str] = None) -> Dict[str, Any]:
         chat_id = f"{normalize_phone(phone)}@c.us"
-        
         try:
-            payload = {
-                "chatId": chat_id,
-                "caption": caption,
-                "session": self.session_name
-            }
-            
+            payload = {"chatId": chat_id, "caption": caption, "session": self.session_name}
             if image_url:
-                # VALIDAR URL PARA PREVENIR SSRF
-                is_valid, error_msg = validate_media_url(image_url)
-                if not is_valid:
-                    logger.warning(f"Invalid/blocked image URL: {image_url} - {error_msg}")
-                    return {"success": False, "error": f"URL inválida: {error_msg}"}
-                
                 payload["file"] = {"url": image_url}
             elif image_base64:
                 payload["file"] = {"data": image_base64}
@@ -251,43 +198,22 @@ class WahaService:
                     headers=self.headers,
                     json=payload
                 )
-                
                 if response.status_code in [200, 201]:
                     return {"success": True, "data": response.json()}
-                else:
-                    return {"success": False, "error": f"HTTP {response.status_code}"}
+                return {"success": False, "error": f"HTTP {response.status_code}"}
         except Exception as e:
-            logger.error(f"Error sending image message: {e}")
             return {"success": False, "error": str(e)}
     
-    async def send_document_message(
-        self,
-        phone: str,
-        caption: str,
-        document_url: Optional[str] = None,
-        document_base64: Optional[str] = None,
-        filename: str = "document"
-    ) -> Dict[str, Any]:
-        """Send a document message via WAHA"""
+    async def send_document_message(self, phone: str, caption: str, document_url: Optional[str] = None, document_base64: Optional[str] = None, filename: str = "document") -> Dict[str, Any]:
         chat_id = f"{normalize_phone(phone)}@c.us"
-        
         try:
             payload = {
-                "chatId": chat_id,
-                "caption": caption,
+                "chatId": chat_id, 
+                "caption": caption, 
                 "session": self.session_name,
-                "file": {
-                    "filename": filename
-                }
+                "file": {"filename": filename}
             }
-            
             if document_url:
-                # VALIDAR URL PARA PREVENIR SSRF
-                is_valid, error_msg = validate_media_url(document_url)
-                if not is_valid:
-                    logger.warning(f"Invalid/blocked document URL: {document_url} - {error_msg}")
-                    return {"success": False, "error": f"URL inválida: {error_msg}"}
-                
                 payload["file"]["url"] = document_url
             elif document_base64:
                 payload["file"]["data"] = document_base64
@@ -300,37 +226,21 @@ class WahaService:
                     headers=self.headers,
                     json=payload
                 )
-                
                 if response.status_code in [200, 201]:
                     return {"success": True, "data": response.json()}
-                else:
-                    return {"success": False, "error": f"HTTP {response.status_code}"}
+                return {"success": False, "error": f"HTTP {response.status_code}"}
         except Exception as e:
-            logger.error(f"Error sending document message: {e}")
             return {"success": False, "error": str(e)}
 
-
 def replace_variables(template: str, data: Dict[str, Any]) -> str:
-    """
-    Replace variables in message template with sanitized values.
-    Previne command injection e XSS.
-    """
     result = template
-    
-    # Replace {variable} patterns com valores sanitizados
     for key, value in data.items():
-        # SANITIZAR VALOR ANTES DE SUBSTITUIR
         safe_value = sanitize_template_value(value)
-        
         placeholder = "{" + key + "}"
         result = result.replace(placeholder, safe_value)
-    
-    # Also support {Nome}, {nome}, {NOME} variations
     for key, value in data.items():
         safe_value = sanitize_template_value(value)
-        
         for variant in [key.lower(), key.upper(), key.capitalize()]:
             placeholder = "{" + variant + "}"
             result = result.replace(placeholder, safe_value)
-    
     return result

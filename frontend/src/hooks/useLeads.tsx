@@ -20,7 +20,6 @@ export function useLeads() {
     }
 
     try {
-      // Fetch leads
       const { data: leadsData, error: leadsError } = await supabase
         .from("leads")
         .select("*")
@@ -50,7 +49,6 @@ export function useLeads() {
         setLeads(mappedLeads);
       }
 
-      // Fetch search history
       const { data: historyData, error: historyError } = await supabase
         .from("search_history")
         .select("*")
@@ -81,7 +79,6 @@ export function useLeads() {
     fetchData();
   }, [fetchData]);
 
-  // Resultado da busca com informações de paginação
   interface SearchResult {
     leads: Lead[];
     hasMore: boolean;
@@ -102,7 +99,6 @@ export function useLeads() {
     try {
       let searchId = existingSearchId;
 
-      // Se não tem searchId existente, cria novo histórico
       if (!searchId) {
         const { data: historyData, error: historyError } = await supabase
           .from("search_history")
@@ -124,10 +120,8 @@ export function useLeads() {
         searchId = historyData.id;
       }
 
-      // Get current session for auth header
       const { data: { session } } = await supabase.auth.getSession();
 
-      // Call Edge Function with pagination
       const { data, error } = await supabase.functions.invoke("search-leads", {
         body: {
           query,
@@ -153,7 +147,6 @@ export function useLeads() {
         return null;
       }
 
-      // Fetch the newly inserted leads directly from database
       const { data: newLeadsData, error: newLeadsError } = await supabase
         .from("leads")
         .select("*")
@@ -167,7 +160,6 @@ export function useLeads() {
         return null;
       }
 
-      // Map the new leads
       const newLeads: Lead[] = (newLeadsData || []).map((lead) => ({
         id: lead.id,
         name: lead.name,
@@ -187,9 +179,7 @@ export function useLeads() {
         companyId: lead.company_id,
       }));
 
-      // Refresh all data to update the UI
       await fetchData();
-
       setIsSearching(false);
       
       return {
@@ -207,14 +197,12 @@ export function useLeads() {
     }
   };
 
-  // --- NOVA FUNÇÃO DE VALIDAÇÃO ---
+  // 🔥 NOVA FUNÇÃO RESTAURADA: Conecta com o backend Python para validar 🔥
   const validateLeads = async (leadIds: string[]) => {
-    if (leadIds.length === 0) return;
+    if (leadIds.length === 0) return [];
 
     try {
-      // Pega a URL da API do Vite env
       const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
-      
       const { data: { session } } = await supabase.auth.getSession();
       
       const response = await fetch(`${backendUrl}/api/leads/validate`, {
@@ -226,11 +214,14 @@ export function useLeads() {
         body: JSON.stringify({ lead_ids: leadIds }),
       });
 
-      if (!response.ok) throw new Error("Falha na validação");
+      if (!response.ok) {
+        console.warn("Validation endpoint error:", response.status);
+        return [];
+      }
 
       const data = await response.json();
       
-      // Atualiza o estado local com os novos status
+      // Atualiza o estado local imediatamente
       if (data.updated && data.updated.length > 0) {
         setLeads(prev => prev.map(lead => {
           const update = data.updated.find((u: any) => u.id === lead.id);
@@ -239,36 +230,25 @@ export function useLeads() {
           }
           return lead;
         }));
-        return data.updated; // Retorna os atualizados para quem chamou
+        return data.updated;
       }
       return [];
     } catch (error) {
-      console.error("Erro ao validar leads:", error);
+      console.error("Error validating leads:", error);
       return [];
     }
   };
 
   const deleteLead = async (id: string) => {
     const { error } = await supabase.from("leads").delete().eq("id", id);
-    if (error) {
-      console.error("Error deleting lead:", error);
-      return;
-    }
+    if (error) { console.error("Error deleting lead:", error); return; }
     setLeads((prev) => prev.filter((l) => l.id !== id));
   };
 
   const clearAllLeads = async () => {
     if (!user?.companyId) return;
-
-    const { error } = await supabase
-      .from("leads")
-      .delete()
-      .eq("company_id", user.companyId);
-
-    if (error) {
-      console.error("Error clearing leads:", error);
-      return;
-    }
+    const { error } = await supabase.from("leads").delete().eq("company_id", user.companyId);
+    if (error) { console.error("Error clearing leads:", error); return; }
     setLeads([]);
   };
 
@@ -278,35 +258,15 @@ export function useLeads() {
 
   const deleteSearchHistory = async (searchId: string) => {
     await supabase.from("leads").delete().eq("search_id", searchId);
-    const { error } = await supabase.from("search_history").delete().eq("id", searchId);
-
-    if (error) {
-      console.error("Error deleting search history:", error);
-      return;
-    }
-
+    await supabase.from("search_history").delete().eq("id", searchId);
     setSearchHistory((prev) => prev.filter((h) => h.id !== searchId));
     setLeads((prev) => prev.filter((l) => l.searchId !== searchId));
   };
 
   const clearAllHistory = async () => {
     if (!user?.companyId) return;
-
-    await supabase
-      .from("leads")
-      .delete()
-      .eq("company_id", user.companyId);
-
-    const { error } = await supabase
-      .from("search_history")
-      .delete()
-      .eq("company_id", user.companyId);
-
-    if (error) {
-      console.error("Error clearing history:", error);
-      return;
-    }
-
+    await supabase.from("leads").delete().eq("company_id", user.companyId);
+    await supabase.from("search_history").delete().eq("company_id", user.companyId);
     setSearchHistory([]);
     setLeads([]);
   };
@@ -317,7 +277,7 @@ export function useLeads() {
     isSearching,
     isLoading,
     searchLeads,
-    validateLeads, // Exportando a nova função
+    validateLeads, // 🔥 EXPORTAR A FUNÇÃO
     deleteLead,
     clearAllLeads,
     getLeadsBySearchId,
