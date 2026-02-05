@@ -52,9 +52,10 @@ export default function Disparador() {
     const hasRunning = campaigns.some((c) => c.status === "running");
     
     if (autoRefresh && hasRunning && canUseCampaigns) {
+      // Reduzido de 5s para 30s para economizar requests do Supabase
       const interval = setInterval(() => {
         fetchCampaigns();
-      }, 5000);
+      }, 30000); // 30 segundos
       return () => clearInterval(interval);
     }
   }, [autoRefresh, campaigns, fetchCampaigns, canUseCampaigns]);
