@@ -11,7 +11,8 @@ import { useQuotas } from "@/hooks/useQuotas";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { usePageTitle } from "@/contexts/PageTitleContext";
 import { Lead } from "@/types";
-import { Search, ArrowDown } from "lucide-react";
+import { Search, ArrowDown, CheckCircle2, Loader2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast"; // Corrigido import do Toast
 
 export default function SearchLeads() {
   const { setPageTitle } = usePageTitle();
@@ -20,9 +21,11 @@ export default function SearchLeads() {
     setPageTitle("Buscar Leads", Search);
   }, [setPageTitle]);
 
-  // Estado LOCAL para mostrar APENAS o que foi buscado agora
   const [currentResults, setCurrentResults] = useState<Lead[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
+  
+  // Estado de Validação (NOVO)
+  const [isValidating, setIsValidating] = useState(false);
   
   // Estado para paginação
   const [hasMore, setHasMore] = useState(false);
@@ -34,23 +37,49 @@ export default function SearchLeads() {
   const [filters, setFilters] = useState<LeadFilterState>(defaultFilters);
   const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
   
-  // Quota Management
   const { quota, checkQuota, incrementQuota } = useQuotas();
   const [showQuotaModal, setShowQuotaModal] = useState(false);
   
-  // Company Settings (SERP API)
   const { settings, isLoading: isLoadingSettings, hasSerpapiKey, refreshSettings } = useCompanySettings();
   const hasSerpApi = hasSerpapiKey;
   
-  const { deleteLead, searchLeads, isSearching } = useLeads();
+  // IMPORTANTE: validateLeads adicionado aqui
+  const { deleteLead, searchLeads, isSearching, validateLeads } = useLeads();
+  const { toast } = useToast();
 
-  // Refresh settings when component mounts (including navigation back)
   useEffect(() => {
     refreshSettings();
-  }, []); // Empty dependency - runs on mount
+  }, []);
+
+  // --- NOVA FUNÇÃO: Valida leads e atualiza a UI ---
+  const handleValidation = async (leadsToValidate: Lead[]) => {
+    if (leadsToValidate.length === 0) return;
+    
+    setIsValidating(true);
+    // Extrai apenas os IDs para enviar ao backend
+    const ids = leadsToValidate.map(l => l.id);
+    
+    // Chama o hook que conecta ao backend
+    const updated = await validateLeads(ids);
+    
+    if (updated && updated.length > 0) {
+      // Atualiza a lista atual com os badges de WhatsApp (mescla com o estado anterior)
+      setCurrentResults(prev => prev.map(lead => {
+        const isUpdated = updated.find((u: any) => u.id === lead.id);
+        // Se foi atualizado pelo backend como "tem whats", marca como true
+        return isUpdated ? { ...lead, hasWhatsApp: true } : lead;
+      }));
+      
+      toast({
+        title: "Validação concluída",
+        description: `${updated.length} números com WhatsApp identificados.`,
+        className: "border-l-4 border-green-500"
+      });
+    }
+    setIsValidating(false);
+  };
 
   const handleSearch = async (term: string, location: string) => {
-    // ✅ VERIFICAR QUOTA ANTES DE BUSCAR
     const quotaCheck = await checkQuota('lead_search');
     
     if (!quotaCheck.allowed) {
@@ -58,12 +87,11 @@ export default function SearchLeads() {
       return;
     }
     
-    // Limpa resultados anteriores enquanto busca
     setCurrentResults([]);
     setHasSearched(true);
     setHasMore(false);
+    setIsValidating(false); // Reseta estado de validação
     
-    // Chama o hook e espera a resposta
     const result = await searchLeads(term, location);
     
     console.log('[SearchLeads] Result from searchLeads:', result);
@@ -71,7 +99,6 @@ export default function SearchLeads() {
     if (result && result.leads && result.leads.length > 0) {
       setCurrentResults(result.leads);
       
-      // LÓGICA INTELIGENTE: Se retornou 20 leads (limite padrão), provavelmente há mais
       const smartHasMore = result.leads.length === 20;
       const smartNextStart = result.leads.length === 20 ? 20 : 0;
       
@@ -81,74 +108,37 @@ export default function SearchLeads() {
       setCurrentQuery(result.query);
       setCurrentLocation(result.location);
       
-      console.log('[SearchLeads] State updated:', {
-        leadsCount: result.leads.length,
-        hasMore: smartHasMore,
-        nextStart: smartNextStart,
-        note: 'Using smart pagination logic'
-      });
-      
-      // ✅ INCREMENTAR QUOTA APÓS SUCESSO
       await incrementQuota('lead_search');
+
+      // 🔥 CHAMA A VALIDAÇÃO AUTOMÁTICA AQUI (para os primeiros 20)
+      handleValidation(result.leads);
     }
   };
 
   const handleLoadMore = async () => {
     if (!currentSearchId || !hasMore) return;
     
-    console.log('[SearchLeads] Loading more, start:', nextStart);
-    console.log('[SearchLeads] Current results before load:', currentResults.map(r => r.id));
-    
-    // Chama o hook com paginação
     const result = await searchLeads(currentQuery, currentLocation, nextStart, currentSearchId);
     
-    console.log('[SearchLeads] LoadMore result:', result);
-    
     if (result && result.leads && result.leads.length > 0) {
-      console.log('[SearchLeads] New leads IDs:', result.leads.map(r => r.id));
-      
-      // VALIDAÇÃO ANTI-DUPLICAÇÃO: Verificar se algum lead já existe
       const existingIds = new Set(currentResults.map(r => r.id));
-      const duplicates = result.leads.filter(r => existingIds.has(r.id));
-      
-      if (duplicates.length > 0) {
-        console.warn('[SearchLeads] ⚠️ DUPLICADOS DETECTADOS:', duplicates.length, duplicates.map(r => r.name));
-      } else {
-        console.log('[SearchLeads] ✓ Sem duplicados! Todos os leads são únicos.');
-      }
-      
-      // Filtrar duplicados (caso existam)
       const uniqueNewLeads = result.leads.filter(r => !existingIds.has(r.id));
       
-      // ADICIONA apenas leads únicos aos resultados existentes
-      setCurrentResults(prev => {
-        const combined = [...prev, ...uniqueNewLeads];
-        console.log('[SearchLeads] Combined results:', combined.length, 'leads (', uniqueNewLeads.length, 'novos)');
-        return combined;
-      });
+      setCurrentResults(prev => [...prev, ...uniqueNewLeads]);
       
-      // LÓGICA INTELIGENTE: Se retornou 20 leads, provavelmente há mais
       const smartHasMore = result.leads.length === 20;
       const smartNextStart = nextStart + result.leads.length;
       
       setHasMore(smartHasMore);
       setNextStart(smartNextStart);
-      
-      console.log('[SearchLeads] Updated pagination:', {
-        newLeadsCount: result.leads.length,
-        uniqueNewLeads: uniqueNewLeads.length,
-        totalLeads: currentResults.length + uniqueNewLeads.length,
-        hasMore: smartHasMore,
-        nextStart: smartNextStart
-      });
+
+      // 🔥 VALIDA TAMBÉM OS NOVOS RESULTADOS (para os próximos 20)
+      handleValidation(uniqueNewLeads);
     } else {
-      // Não há mais resultados
       setHasMore(false);
-      console.log('[SearchLeads] No more results available');
     }
   };
 
-  // Filtra apenas os resultados ATUAIS
   const filteredLeads = filterLeads(currentResults, filters);
 
   return (
@@ -169,12 +159,10 @@ export default function SearchLeads() {
         )}
       </div>
 
-      {/* Alert de configuração SERP API */}
       {!isLoadingSettings && !hasSerpApi && (
         <ConfigurationAlert type="serp" />
       )}
 
-      {/* Área de Busca */}
       <Card className="p-6 bg-white shadow-sm border-none rounded-xl">
         <div className="space-y-6">
           <LeadSearch 
@@ -195,7 +183,6 @@ export default function SearchLeads() {
         </div>
       </Card>
 
-      {/* Tabela de Resultados */}
       {hasSearched && currentResults.length > 0 && (
         <Card className="p-6 bg-white shadow-sm border-none rounded-xl animate-in fade-in slide-in-from-bottom-4 duration-500">
           <div className="flex items-center justify-between mb-4">
@@ -204,14 +191,25 @@ export default function SearchLeads() {
               <h3 className="font-semibold text-lg">
                 {filteredLeads.length} {filteredLeads.length === 1 ? 'Lead Encontrado' : 'Leads Encontrados'}
               </h3>
+              
+              {/* STATUS DA VALIDAÇÃO (Visual Feedback) */}
+              {isValidating ? (
+                <span className="flex items-center gap-1 text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded-full animate-pulse ml-2 border border-orange-100">
+                  <Loader2 className="h-3 w-3 animate-spin" /> Validando WhatsApp...
+                </span>
+              ) : (
+                <span className="flex items-center gap-1 text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full ml-2 border border-green-100 transition-all duration-500 animate-in fade-in">
+                  <CheckCircle2 className="h-3 w-3" /> Validação Concluída
+                </span>
+              )}
+              
               {hasMore && (
-                <span className="text-sm text-muted-foreground ml-2">
+                <span className="text-sm text-muted-foreground ml-2 hidden sm:inline">
                   (Há mais resultados disponíveis)
                 </span>
               )}
             </div>
             
-            {/* Indicador de Páginas */}
             {currentResults.length > 0 && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <span className="font-medium">
@@ -232,7 +230,6 @@ export default function SearchLeads() {
             onDelete={deleteLead}
           />
           
-          {/* Botão Carregar Mais - Mais Destacado */}
           {hasMore && (
             <div className="mt-6 flex flex-col items-center gap-3 py-4 border-t">
               <div className="text-center space-y-2">
@@ -274,7 +271,6 @@ export default function SearchLeads() {
             </div>
           )}
           
-          {/* Mensagem quando não há mais resultados */}
           {!hasMore && currentResults.length >= 20 && (
             <div className="mt-6 py-4 border-t text-center">
               <p className="text-sm text-muted-foreground">
@@ -293,7 +289,6 @@ export default function SearchLeads() {
         </Card>
       )}
 
-      {/* Modal de Limite */}
       <QuotaLimitModal 
         open={showQuotaModal} 
         onClose={() => setShowQuotaModal(false)}

@@ -154,7 +154,6 @@ export function useLeads() {
       }
 
       // Fetch the newly inserted leads directly from database
-      // Ordena por created_at DESC para pegar os mais recentes (que acabaram de ser inseridos)
       const { data: newLeadsData, error: newLeadsError } = await supabase
         .from("leads")
         .select("*")
@@ -208,6 +207,47 @@ export function useLeads() {
     }
   };
 
+  // --- NOVA FUNÇÃO DE VALIDAÇÃO ---
+  const validateLeads = async (leadIds: string[]) => {
+    if (leadIds.length === 0) return;
+
+    try {
+      // Pega a URL da API do Vite env
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
+      
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      const response = await fetch(`${backendUrl}/api/leads/validate`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify({ lead_ids: leadIds }),
+      });
+
+      if (!response.ok) throw new Error("Falha na validação");
+
+      const data = await response.json();
+      
+      // Atualiza o estado local com os novos status
+      if (data.updated && data.updated.length > 0) {
+        setLeads(prev => prev.map(lead => {
+          const update = data.updated.find((u: any) => u.id === lead.id);
+          if (update) {
+            return { ...lead, hasWhatsApp: true };
+          }
+          return lead;
+        }));
+        return data.updated; // Retorna os atualizados para quem chamou
+      }
+      return [];
+    } catch (error) {
+      console.error("Erro ao validar leads:", error);
+      return [];
+    }
+  };
+
   const deleteLead = async (id: string) => {
     const { error } = await supabase.from("leads").delete().eq("id", id);
     if (error) {
@@ -237,10 +277,7 @@ export function useLeads() {
   };
 
   const deleteSearchHistory = async (searchId: string) => {
-    // Delete associated leads first
     await supabase.from("leads").delete().eq("search_id", searchId);
-
-    // Delete search history
     const { error } = await supabase.from("search_history").delete().eq("id", searchId);
 
     if (error) {
@@ -255,13 +292,11 @@ export function useLeads() {
   const clearAllHistory = async () => {
     if (!user?.companyId) return;
 
-    // Delete all leads with searchId
     await supabase
       .from("leads")
       .delete()
       .eq("company_id", user.companyId);
 
-    // Delete all search history
     const { error } = await supabase
       .from("search_history")
       .delete()
@@ -282,6 +317,7 @@ export function useLeads() {
     isSearching,
     isLoading,
     searchLeads,
+    validateLeads, // Exportando a nova função
     deleteLead,
     clearAllLeads,
     getLeadsBySearchId,

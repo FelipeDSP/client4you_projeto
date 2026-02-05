@@ -13,6 +13,7 @@ from datetime import datetime
 import pandas as pd
 import io
 import uuid
+from pydantic import BaseModel  # Importante para o novo endpoint
 
 from models import (
     Campaign, CampaignCreate, CampaignUpdate, CampaignStatus, CampaignStats, CampaignWithStats,
@@ -32,15 +33,12 @@ from security_utils import (
     validate_campaign_ownership,
     validate_quota_for_action
 )
-from kiwify_webhook import webhook_router  # <--- NOVO
-from admin_endpoints import admin_router  # <--- NOVO: Admin endpoints
-
-from security_endpoints import security_router  # <--- NOVO: Security endpoints
+from kiwify_webhook import webhook_router
+from admin_endpoints import admin_router
+from security_endpoints import security_router
 
 # --- CORREÇÃO DO LOAD DOTENV ---
-# Pega o diretório atual (backend)
 CURRENT_DIR = Path(__file__).parent
-# Procura o .env na pasta backend OU na pasta raiz (uma acima)
 dotenv_path = CURRENT_DIR / '.env'
 if not dotenv_path.exists():
     dotenv_path = CURRENT_DIR.parent / '.env'
@@ -77,18 +75,15 @@ async def get_session_name_for_company(company_id: str, company_name: str = None
     """
     Define o nome da sessão do WhatsApp de forma segura.
     Formato: nome_empresa_id (ex: "acme_corp_efdaca5d")
-    Retorna sempre uma string válida, nunca falha.
     """
     import re
     
     try:
         db = get_db()
-        # Tenta buscar configuração legada (se existir no banco)
         config = await db.get_waha_config(company_id)
         if config and config.get("session_name"):
             return config.get("session_name")
         
-        # Se não tem nome da empresa, busca do banco
         if not company_name:
             try:
                 company_result = db.client.table('companies')\
@@ -102,25 +97,18 @@ async def get_session_name_for_company(company_id: str, company_name: str = None
                 logger.debug(f"Não encontrou nome da empresa: {e}")
         
     except Exception as e:
-        # Se der erro no banco, apenas loga e usa o fallback
         logger.warning(f"Usando sessão padrão devido a erro ou config ausente: {e}")
     
-    # Criar nome legível para a sessão
     if company_name:
-        # Normaliza o nome: remove acentos, caracteres especiais, lowercase
-        # Limita a 30 caracteres para não ficar muito longo
         safe_name = re.sub(r'[^a-zA-Z0-9]', '_', company_name.lower())
         safe_name = re.sub(r'_+', '_', safe_name).strip('_')[:30]
-        # Usa apenas os primeiros 8 caracteres do UUID para ficar mais curto
         short_id = company_id.split('-')[0] if company_id else 'unknown'
         return f"{safe_name}_{short_id}"
     
-    # Fallback seguro: Padrão automático para SaaS
     return f"company_{company_id}"
 
 
 def calculate_campaign_stats(campaign: dict) -> CampaignStats:
-    """Calculate campaign statistics"""
     total = campaign.get("total_contacts", 0)
     sent = campaign.get("sent_count", 0)
     errors = campaign.get("error_count", 0)
@@ -138,7 +126,6 @@ def calculate_campaign_stats(campaign: dict) -> CampaignStats:
 
 
 def campaign_to_response(campaign_data: dict) -> dict:
-    """Convert database campaign to response format"""
     return {
         "id": campaign_data["id"],
         "user_id": campaign_data.get("user_id"),
@@ -175,21 +162,22 @@ def campaign_to_response(campaign_data: dict) -> dict:
 async def root():
     return {"message": "Lead Dispatcher API", "version": "2.2.0", "mode": "SaaS Hybrid"}
 
+# ========== NEW: Health Check ==========
+@api_router.get("/health")
+async def health_check():
+    return {"status": "healthy", "timestamp": datetime.now().isoformat()}
 
-# ========== WhatsApp Management (New SaaS Endpoints) ==========
-# SEGURANÇA: Todos os endpoints WhatsApp agora requerem autenticação
+
+# ========== WhatsApp Management ==========
 
 @api_router.get("/whatsapp/status")
 async def get_whatsapp_status(
     request: Request,
     auth_user: dict = Depends(get_authenticated_user)
 ):
-    """Verifica o estado detalhado da sessão para o Painel de Gerenciamento"""
-    # SEGURANÇA: Usa company_id do token autenticado, não de parâmetro
     company_id = auth_user.get("company_id")
-    
     if not company_id:
-        return {"status": "DISCONNECTED", "connected": False, "error": "Company ID não encontrado no perfil"}
+        return {"status": "DISCONNECTED", "connected": False, "error": "Company ID não encontrado"}
 
     waha_url = os.getenv('WAHA_DEFAULT_URL')
     waha_key = os.getenv('WAHA_MASTER_KEY')
@@ -202,10 +190,6 @@ async def get_whatsapp_status(
     
     conn = await waha.check_connection()
     
-    # Mapeamento para o Frontend saber exatamente o que exibir
-    # WORKING/CONNECTED -> Painel Ativo
-    # SCAN_QR_CODE -> Exibir QR Code
-    # STARTING -> Exibir Loader de "Iniciando motor..."
     status_map = {
         "STOPPED": "DISCONNECTED",
         "STARTING": "STARTING",
@@ -231,7 +215,6 @@ async def start_whatsapp_session(
     request: Request,
     auth_user: dict = Depends(get_authenticated_user)
 ):
-    """Cria e Inicia o motor da sessão (sem deslogar)"""
     company_id = auth_user.get("company_id")
     if not company_id:
         raise HTTPException(status_code=400, detail="Company ID não encontrado")
@@ -241,8 +224,6 @@ async def start_whatsapp_session(
     session_name = await get_session_name_for_company(company_id)
 
     waha = WahaService(waha_url, waha_key, session_name)
-    
-    # Inicia o motor no WAHA
     result = await waha.start_session()
     if not result.get("success"):
         raise HTTPException(status_code=500, detail=result.get("error"))
@@ -254,7 +235,6 @@ async def stop_whatsapp_session(
     request: Request,
     auth_user: dict = Depends(get_authenticated_user)
 ):
-    """Apenas para o motor da sessão (mantém o login se houver)"""
     company_id = auth_user.get("company_id")
     if not company_id:
         raise HTTPException(status_code=400, detail="Company ID não encontrado")
@@ -272,7 +252,6 @@ async def logout_whatsapp_session(
     request: Request,
     auth_user: dict = Depends(get_authenticated_user)
 ):
-    """Desconecta o WhatsApp e exige novo QR Code"""
     company_id = auth_user.get("company_id")
     if not company_id:
         raise HTTPException(status_code=400, detail="Company ID não encontrado")
@@ -290,7 +269,6 @@ async def get_whatsapp_qr(
     request: Request,
     auth_user: dict = Depends(get_authenticated_user)
 ):
-    """Endpoint dedicado apenas para buscar o QR Code atual"""
     company_id = auth_user.get("company_id")
     if not company_id:
         raise HTTPException(status_code=400, detail="Company ID não encontrado")
@@ -303,19 +281,80 @@ async def get_whatsapp_qr(
     return await waha.get_qr_code()
 
 
+# ========== NEW: Lead Validation Endpoint ==========
+
+class ValidateLeadsRequest(BaseModel):
+    lead_ids: List[str]
+
+@api_router.post("/leads/validate")
+async def validate_leads_batch(
+    request: Request,
+    payload: ValidateLeadsRequest,
+    auth_user: dict = Depends(get_authenticated_user)
+):
+    """
+    Valida uma lista de leads no WAHA para saber se têm WhatsApp.
+    Atualiza o banco de dados automaticamente.
+    """
+    try:
+        db = get_db()
+        company_id = auth_user["company_id"]
+        
+        # 1. Configurar WAHA
+        waha_url = os.getenv('WAHA_DEFAULT_URL')
+        waha_key = os.getenv('WAHA_MASTER_KEY')
+        session_name = await get_session_name_for_company(company_id)
+        waha = WahaService(waha_url, waha_key, session_name)
+        
+        # 2. Verificar conexão
+        conn = await waha.check_connection()
+        if not conn.get("connected"):
+            return {"updated": [], "warning": "WhatsApp desconectado"}
+
+        # 3. Buscar os leads no banco
+        leads_response = db.client.table("leads")\
+            .select("id, phone, has_whatsapp")\
+            .in_("id", payload.lead_ids)\
+            .eq("company_id", company_id)\
+            .execute()
+            
+        leads = leads_response.data or []
+        updated_leads = []
+        
+        # 4. Validar cada um
+        for lead in leads:
+            phone = lead.get("phone")
+            
+            if phone:
+                has_whatsapp = await waha.check_number_exists(phone)
+                
+                # Atualiza se encontrou WhatsApp
+                if has_whatsapp:
+                    db.client.table("leads")\
+                        .update({"has_whatsapp": True})\
+                        .eq("id", lead["id"])\
+                        .execute()
+                    
+                    updated_leads.append({"id": lead["id"], "has_whatsapp": True})
+        
+        return {"updated": updated_leads}
+
+    except Exception as e:
+        logger.error(f"Error validating leads: {e}")
+        # Não falha a requisição inteira se o Waha der erro, apenas retorna vazio
+        return {"updated": [], "error": str(e)}
+
+
 # ========== Campaign Endpoints ==========
 @api_router.post("/campaigns")
-@limiter.limit("50/hour")  # Rate limit: 50 criações por hora
+@limiter.limit("50/hour")
 async def create_campaign(
     request: Request,
     campaign: CampaignCreate,
     auth_user: dict = Depends(get_authenticated_user)
 ):
-    """Create a new campaign - com autenticação e validação de quota"""
     try:
         db = get_db()
-        
-        # VALIDAR QUOTA E PLANO (requer Intermediário ou Avançado para campanhas)
         await validate_quota_for_action(
             user_id=auth_user["user_id"],
             action="create_campaign",
@@ -323,7 +362,6 @@ async def create_campaign(
             db=db
         )
         
-        # USA company_id e user_id DO TOKEN (não do cliente)
         campaign_data = {
             "id": str(uuid.uuid4()),
             "company_id": auth_user["company_id"],
@@ -347,11 +385,9 @@ async def create_campaign(
         }
         
         result = await db.create_campaign(campaign_data)
-        
         if not result:
             raise HTTPException(status_code=500, detail="Erro ao criar campanha")
         
-        # Incrementar contador de quota
         await db.increment_quota(auth_user["user_id"], "create_campaign")
         
         return campaign_to_response(result)
@@ -369,11 +405,8 @@ async def list_campaigns(
     limit: int = 50,
     skip: int = 0
 ):
-    """List all campaigns - apenas da empresa do usuário autenticado"""
     try:
         db = get_db()
-        
-        # USA company_id DO TOKEN (não do query param)
         company_id = auth_user["company_id"]
         campaigns_data = await db.get_campaigns_by_company(company_id, limit, skip)
         
@@ -385,7 +418,6 @@ async def list_campaigns(
             campaigns_with_stats.append(campaign_dict)
         
         return {"campaigns": campaigns_with_stats}
-    
     except HTTPException:
         raise
     except Exception as e:
@@ -397,25 +429,19 @@ async def get_campaign(
     campaign_id: str,
     auth_user: dict = Depends(get_authenticated_user)
 ):
-    """Get campaign details - com validação de ownership"""
     try:
         db = get_db()
-        
-        # VALIDAR OWNERSHIP (previne IDOR)
         campaign_data = await validate_campaign_ownership(
             campaign_id, 
             auth_user["company_id"],
             db
         )
-        
         stats = calculate_campaign_stats(campaign_data)
-        
         return {
             "campaign": campaign_to_response(campaign_data),
             "stats": stats,
             "is_worker_running": is_campaign_running(campaign_id)
         }
-    
     except HTTPException:
         raise
     except Exception as e:
@@ -428,11 +454,8 @@ async def update_campaign(
     update: CampaignUpdate,
     auth_user: dict = Depends(get_authenticated_user)
 ):
-    """Update campaign - com validação de ownership"""
     try:
         db = get_db()
-        
-        # VALIDAR OWNERSHIP (previne IDOR)
         campaign_data = await validate_campaign_ownership(
             campaign_id,
             auth_user["company_id"],
@@ -440,16 +463,13 @@ async def update_campaign(
         )
         
         update_dict = {}
-        
         if update.name is not None:
             update_dict["name"] = update.name
-        
         if update.message is not None:
             update_dict["message_type"] = update.message.type.value
             update_dict["message_text"] = update.message.text
             update_dict["media_url"] = update.message.media_url
             update_dict["media_filename"] = update.message.media_filename
-        
         if update.settings is not None:
             update_dict["interval_min"] = update.settings.interval_min
             update_dict["interval_max"] = update.settings.interval_max
@@ -464,7 +484,6 @@ async def update_campaign(
                 return campaign_to_response(updated)
         
         return campaign_to_response(campaign_data)
-    
     except HTTPException:
         raise
     except Exception as e:
@@ -476,43 +495,28 @@ async def delete_campaign(
     campaign_id: str,
     auth_user: dict = Depends(get_authenticated_user)
 ):
-    """Delete campaign - com validação de ownership"""
     try:
         db = get_db()
-        
-        # VALIDAR OWNERSHIP (previne IDOR)
         await validate_campaign_ownership(
             campaign_id,
             auth_user["company_id"],
             db
         )
-        
-        # Stop worker if running
         await stop_campaign_worker(campaign_id)
-        
-        # Delete contacts
         await db.delete_contacts_by_campaign(campaign_id)
-        
-        # Delete message logs
         await db.delete_message_logs_by_campaign(campaign_id)
-        
-        # Delete campaign
         result = await db.delete_campaign(campaign_id)
-        
         if not result:
             raise HTTPException(status_code=404, detail="Campanha não encontrada")
-        
         return {"success": True, "message": "Campanha excluída com sucesso"}
-    
     except HTTPException:
         raise
     except Exception as e:
         raise handle_error(e, "Erro ao deletar campanha")
 
 
-# ========== Upload & Contacts ==========
 @api_router.post("/campaigns/{campaign_id}/upload")
-@limiter.limit("10/hour")  # Rate limit: 10 uploads por hora
+@limiter.limit("10/hour")
 async def upload_contacts(
     request: Request,
     campaign_id: str,
@@ -521,32 +525,23 @@ async def upload_contacts(
     name_column: str = Form(default="Nome"),
     auth_user: dict = Depends(get_authenticated_user)
 ):
-    """Upload contacts from Excel/CSV file - com validação de segurança"""
     try:
         db = get_db()
-        
-        # VALIDAR OWNERSHIP
         campaign_data = await validate_campaign_ownership(
             campaign_id,
             auth_user["company_id"],
             db
         )
         
-        # Read file
         content = await file.read()
-        
-        # VALIDAR ARQUIVO (tamanho, tipo, etc)
         is_valid, error_msg = validate_file_upload(content, file.filename)
         if not is_valid:
             raise HTTPException(status_code=400, detail=error_msg)
         
         try:
-            # Try to read as Excel first, then CSV
             if file.filename.endswith('.xlsx') or file.filename.endswith('.xls'):
-                # Usar openpyxl com data_only=True para prevenir execução de fórmulas
                 df = pd.read_excel(io.BytesIO(content), engine='openpyxl')
             else:
-                # Try different encodings for CSV
                 try:
                     df = pd.read_csv(io.BytesIO(content), encoding='utf-8')
                 except UnicodeDecodeError:
@@ -554,10 +549,7 @@ async def upload_contacts(
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"Erro ao ler arquivo: formato inválido")
         
-        # Normalize column names (remove spaces, lowercase)
         df.columns = df.columns.str.strip()
-        
-        # Find matching columns (case-insensitive)
         phone_col = None
         name_col = None
         
@@ -574,32 +566,25 @@ async def upload_contacts(
                 detail=f"Coluna de telefone não encontrada. Colunas disponíveis: {list(df.columns)}"
             )
         
-        # Delete existing contacts for this campaign
         await db.delete_contacts_by_campaign(campaign_id)
         
-        # Process contacts
         contacts = []
         skipped = 0
         
         for _, row in df.iterrows():
             phone = str(row[phone_col]).strip() if pd.notna(row[phone_col]) else ""
-            
-            # Skip empty phones
             if not phone or phone == "nan":
                 skipped += 1
                 continue
             
-            # SANITIZAR NOME (previne CSV injection)
             raw_name = str(row[name_col]).strip() if name_col and pd.notna(row.get(name_col)) else "Sem nome"
             name = sanitize_csv_value(raw_name)
             
-            # Build extra data from other columns com sanitização
             extra_data = {}
             for col in df.columns:
                 if col not in [phone_col, name_col]:
                     value = row[col]
                     if pd.notna(value):
-                        # SANITIZAR CADA VALOR
                         extra_data[col] = sanitize_csv_value(value)
             
             contact = {
@@ -614,11 +599,9 @@ async def upload_contacts(
             }
             contacts.append(contact)
         
-        # Insert contacts
         if contacts:
             await db.create_contacts(contacts)
         
-        # Update campaign counts
         await db.update_campaign(campaign_id, {
             "total_contacts": len(contacts),
             "pending_count": len(contacts),
@@ -635,7 +618,6 @@ async def upload_contacts(
             "phone_column_used": phone_col,
             "name_column_used": name_col
         }
-    
     except HTTPException:
         raise
     except Exception as e:
@@ -650,58 +632,40 @@ async def get_campaign_contacts(
     limit: int = 100,
     skip: int = 0
 ):
-    """Get contacts for a campaign - com validação de ownership"""
     try:
         db = get_db()
-        
-        # VALIDAR OWNERSHIP (previne IDOR)
         await validate_campaign_ownership(
             campaign_id,
             auth_user["company_id"],
             db
         )
-        
         contacts_data = await db.get_contacts_by_campaign(campaign_id, status, limit, skip)
         total = await db.count_contacts(campaign_id, status)
-        
-        return {
-            "contacts": contacts_data,
-            "total": total,
-            "limit": limit,
-            "skip": skip
-        }
-    
+        return {"contacts": contacts_data, "total": total, "limit": limit, "skip": skip}
     except HTTPException:
         raise
     except Exception as e:
         raise handle_error(e, "Erro ao buscar contatos")
 
 
-# ========== Campaign Control (UPDATED FOR SAAS) ==========
 @api_router.post("/campaigns/{campaign_id}/start")
-@limiter.limit("30/hour")  # Rate limit: 30 starts por hora
+@limiter.limit("30/hour")
 async def start_campaign(
     request: Request,
     campaign_id: str, 
     background_tasks: BackgroundTasks,
     auth_user: dict = Depends(get_authenticated_user),
-    # Parameters now optional to support backward compatibility + new env vars
     waha_url: Optional[str] = None,
     waha_api_key: Optional[str] = None,
     waha_session: Optional[str] = "default"
 ):
-    """Start campaign message dispatch - com validação de ownership e quota"""
     try:
         db = get_db()
-        
-        # VALIDAR OWNERSHIP
         campaign_data = await validate_campaign_ownership(
             campaign_id,
             auth_user["company_id"],
             db
         )
-        
-        # VALIDAR QUOTA (requer Intermediário ou Avançado)
         await validate_quota_for_action(
             user_id=auth_user["user_id"],
             action="start_campaign",
@@ -709,12 +673,9 @@ async def start_campaign(
             db=db
         )
         
-        # Check if has contacts
         if campaign_data.get("total_contacts", 0) == 0:
             raise HTTPException(status_code=400, detail="Campanha não tem contatos. Faça upload primeiro.")
         
-        # --- CONFIGURAÇÃO INTELIGENTE (SaaS) ---
-        # 1. Prioridade: Variáveis de Ambiente (Global) > Parâmetros da Requisição (Fallback)
         final_waha_url = os.getenv('WAHA_DEFAULT_URL') or waha_url
         final_waha_key = os.getenv('WAHA_MASTER_KEY') or waha_api_key
         
@@ -724,19 +685,13 @@ async def start_campaign(
                 detail="Erro de configuração: WAHA_DEFAULT_URL não configurada no servidor."
             )
         
-        # 2. Determina a Sessão Automaticamente
-        # Usa company_id DO TOKEN, não do body
         target_company_id = auth_user["company_id"]
-
-        # Se o frontend mandou um session específico (legado), usa. Senão, calcula.
         if waha_session and waha_session != "default":
             final_session = waha_session
         else:
             final_session = await get_session_name_for_company(target_company_id)
 
-        # 3. Cria serviço e Verifica Conexão
         waha = WahaService(final_waha_url, final_waha_key, final_session)
-        
         connection = await waha.check_connection()
         if not connection.get("connected"):
             raise HTTPException(
@@ -744,24 +699,18 @@ async def start_campaign(
                 detail="WhatsApp desconectado. Vá em Configurações e clique em 'Gerar QR Code'."
             )
         
-        # Update campaign status BEFORE starting worker
         await db.update_campaign(campaign_id, {
             "status": "running",
             "started_at": datetime.utcnow().isoformat()
         })
         
-        # Start worker with atomic check (thread-safe)
         success, error = await start_campaign_worker(db, campaign_id, waha)
         if not success:
-            # Revert status if failed to start
             await db.update_campaign(campaign_id, {"status": "ready"})
             raise HTTPException(status_code=400, detail=error or "Campanha já em execução")
         
-        # Incrementar quota
         await db.increment_quota(auth_user["user_id"], "start_campaign")
-        
         return {"success": True, "message": "Campanha iniciada com sucesso"}
-    
     except HTTPException:
         raise
     except Exception as e:
@@ -773,25 +722,16 @@ async def pause_campaign(
     campaign_id: str,
     auth_user: dict = Depends(get_authenticated_user)
 ):
-    """Pause campaign - com validação de ownership"""
     try:
         db = get_db()
-        
-        # VALIDAR OWNERSHIP
-        campaign_data = await validate_campaign_ownership(
+        await validate_campaign_ownership(
             campaign_id,
             auth_user["company_id"],
             db
         )
-        
-        # Stop worker
         await stop_campaign_worker(campaign_id)
-        
-        # Update status
         await db.update_campaign(campaign_id, {"status": "paused"})
-        
         return {"success": True, "message": "Campanha pausada"}
-    
     except HTTPException:
         raise
     except Exception as e:
@@ -803,25 +743,16 @@ async def cancel_campaign(
     campaign_id: str,
     auth_user: dict = Depends(get_authenticated_user)
 ):
-    """Cancel campaign - com validação de ownership"""
     try:
         db = get_db()
-        
-        # VALIDAR OWNERSHIP
-        campaign_data = await validate_campaign_ownership(
+        await validate_campaign_ownership(
             campaign_id,
             auth_user["company_id"],
             db
         )
-        
-        # Stop worker
         await stop_campaign_worker(campaign_id)
-        
-        # Update status
         await db.update_campaign(campaign_id, {"status": "cancelled"})
-        
         return {"success": True, "message": "Campanha cancelada"}
-    
     except HTTPException:
         raise
     except Exception as e:
@@ -833,26 +764,16 @@ async def reset_campaign(
     campaign_id: str,
     auth_user: dict = Depends(get_authenticated_user)
 ):
-    """Reset campaign - com validação de ownership"""
     try:
         db = get_db()
-        
-        # VALIDAR OWNERSHIP
-        campaign_data = await validate_campaign_ownership(
+        await validate_campaign_ownership(
             campaign_id,
             auth_user["company_id"],
             db
         )
-        
-        # Stop worker if running
         await stop_campaign_worker(campaign_id)
-        
-        # Reset all contacts to pending
         await db.reset_contacts_status(campaign_id)
-        
-        # Update campaign counts
         total = await db.count_contacts(campaign_id)
-        
         await db.update_campaign(campaign_id, {
             "status": "ready",
             "total_contacts": total,
@@ -862,19 +783,14 @@ async def reset_campaign(
             "started_at": None,
             "completed_at": None
         })
-        
-        # Clear message logs
         await db.delete_message_logs_by_campaign(campaign_id)
-        
         return {"success": True, "message": "Campanha resetada"}
-    
     except HTTPException:
         raise
     except Exception as e:
         raise handle_error(e, "Erro ao resetar campanha")
 
 
-# ========== Message Logs ==========
 @api_router.get("/campaigns/{campaign_id}/logs")
 async def get_message_logs(
     campaign_id: str,
@@ -883,67 +799,44 @@ async def get_message_logs(
     limit: int = 100,
     skip: int = 0
 ):
-    """Get message logs for a campaign - com validação de ownership"""
     try:
         db = get_db()
-        
-        # VALIDAR OWNERSHIP (previne IDOR)
         await validate_campaign_ownership(
             campaign_id,
             auth_user["company_id"],
             db
         )
-        
         logs_data = await db.get_message_logs(campaign_id, status, limit, skip)
         total = await db.count_message_logs(campaign_id, status)
-        
-        return {
-            "logs": logs_data,
-            "total": total,
-            "limit": limit,
-            "skip": skip
-        }
-    
+        return {"logs": logs_data, "total": total, "limit": limit, "skip": skip}
     except HTTPException:
         raise
     except Exception as e:
         raise handle_error(e, "Erro ao buscar logs de mensagens")
 
 
-# ========== Dashboard Stats ==========
 @api_router.get("/dashboard/stats")
 async def get_dashboard_stats(auth_user: dict = Depends(get_authenticated_user)):
-    """Get dashboard statistics - apenas da empresa do usuário"""
     try:
         db = get_db()
-        
-        # USA company_id DO TOKEN
         stats = await db.get_dashboard_stats(auth_user["company_id"])
-        
         return stats
-    
     except HTTPException:
         raise
     except Exception as e:
         raise handle_error(e, "Erro ao buscar estatísticas")
 
 
-# ========== Notifications Endpoints ==========
 @api_router.get("/notifications")
 async def get_notifications(
     auth_user: dict = Depends(get_authenticated_user),
     limit: int = 50,
     unread_only: bool = False
 ):
-    """Get user notifications - apenas do usuário autenticado"""
     try:
         db = get_db()
-        
-        # USA user_id DO TOKEN
         notifications = await db.get_notifications(auth_user["user_id"], limit, unread_only)
-        
         return {"notifications": notifications}
-    
     except HTTPException:
         raise
     except Exception as e:
@@ -952,15 +845,10 @@ async def get_notifications(
 
 @api_router.get("/notifications/unread-count")
 async def get_unread_count(auth_user: dict = Depends(get_authenticated_user)):
-    """Get unread notification count - do usuário autenticado"""
     try:
         db = get_db()
-        
-        # USA user_id DO TOKEN
         count = await db.get_unread_notification_count(auth_user["user_id"])
-        
         return {"unread_count": count}
-    
     except HTTPException:
         raise
     except Exception as e:
@@ -972,16 +860,12 @@ async def mark_notification_read(
     notification_id: str,
     auth_user: dict = Depends(get_authenticated_user)
 ):
-    """Mark notification as read"""
     try:
         db = get_db()
         success = await db.mark_notification_read(notification_id)
-        
         if not success:
             raise HTTPException(status_code=404, detail="Notificação não encontrada")
-        
         return {"success": True}
-    
     except HTTPException:
         raise
     except Exception as e:
@@ -990,36 +874,24 @@ async def mark_notification_read(
 
 @api_router.put("/notifications/mark-all-read")
 async def mark_all_read(auth_user: dict = Depends(get_authenticated_user)):
-    """Mark all notifications as read - do usuário autenticado"""
     try:
         db = get_db()
-        
-        # USA user_id DO TOKEN
         success = await db.mark_all_notifications_read(auth_user["user_id"])
-        
         return {"success": success}
-    
     except HTTPException:
         raise
     except Exception as e:
         raise handle_error(e, "Erro ao marcar todas as notificações como lidas")
 
 
-# ========== Quotas Endpoints ==========
 @api_router.get("/quotas/me")
 async def get_my_quota(auth_user: dict = Depends(get_authenticated_user)):
-    """Get current user quota"""
     try:
         db = get_db()
-        
-        # USA user_id DO TOKEN
         quota = await db.get_user_quota(auth_user["user_id"])
-        
         if not quota:
             raise HTTPException(status_code=404, detail="Quota não encontrada")
-        
         return quota
-    
     except HTTPException:
         raise
     except Exception as e:
@@ -1031,15 +903,10 @@ async def check_quota_endpoint(
     action: str,
     auth_user: dict = Depends(get_authenticated_user)
 ):
-    """Check if user can perform action"""
     try:
         db = get_db()
-        
-        # USA user_id DO TOKEN
         result = await db.check_quota(auth_user["user_id"], action)
-        
         return result
-    
     except HTTPException:
         raise
     except Exception as e:
@@ -1052,15 +919,10 @@ async def increment_quota_endpoint(
     amount: int = 1,
     auth_user: dict = Depends(get_authenticated_user)
 ):
-    """Increment quota usage"""
     try:
         db = get_db()
-        
-        # USA user_id DO TOKEN
         success = await db.increment_quota(auth_user["user_id"], action, amount)
-        
         return {"success": success}
-    
     except HTTPException:
         raise
     except Exception as e:
@@ -1069,16 +931,14 @@ async def increment_quota_endpoint(
 
 # Include the router in the main app
 app.include_router(api_router)
-app.include_router(webhook_router)  # <--- NOVO: Webhook Kiwify
-app.include_router(admin_router)    # <--- NOVO: Admin endpoints
-app.include_router(security_router)  # <--- NOVO: Security endpoints
+app.include_router(webhook_router)
+app.include_router(admin_router)
+app.include_router(security_router)
 
-# SEGURANÇA: Configuração CORS com whitelist
 cors_origins_str = os.environ.get('CORS_ORIGINS', '')
 if cors_origins_str and cors_origins_str != '*':
     cors_origins = [origin.strip() for origin in cors_origins_str.split(',') if origin.strip()]
 else:
-    # Fallback para desenvolvimento (NÃO usar em produção)
     cors_origins = ["http://localhost:3000", "http://localhost:5173"]
     logger.warning("⚠️ CORS_ORIGINS não configurado - usando apenas localhost")
 
@@ -1090,7 +950,6 @@ app.add_middleware(
     allow_headers=["Authorization", "Content-Type", "X-Requested-With", "Accept"],
 )
 
-# SEGURANÇA: Middleware para headers de segurança
 @app.middleware("http")
 async def add_security_headers(request: Request, call_next):
     response = await call_next(request)
