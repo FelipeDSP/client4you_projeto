@@ -541,6 +541,10 @@ async def upload_contacts(
     auth_user: dict = Depends(get_authenticated_user)
 ):
     try:
+        logger.info(f"📤 Upload iniciado para campanha: {campaign_id}")
+        logger.info(f"📤 Arquivo: {file.filename if file else 'NONE'}")
+        logger.info(f"📤 Colunas: phone={phone_column}, name={name_column}")
+        
         db = get_db()
         campaign_data = await validate_campaign_ownership(
             campaign_id,
