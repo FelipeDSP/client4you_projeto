@@ -11,8 +11,7 @@ import { useQuotas } from "@/hooks/useQuotas";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { usePageTitle } from "@/contexts/PageTitleContext";
 import { Lead } from "@/types";
-import { Search, ArrowDown, CheckCircle2, Loader2 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast"; // Corrigido import do Toast
+import { Search, ArrowDown } from "lucide-react";
 
 export default function SearchLeads() {
   const { setPageTitle } = usePageTitle();
@@ -23,9 +22,6 @@ export default function SearchLeads() {
 
   const [currentResults, setCurrentResults] = useState<Lead[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
-  
-  // Estado de Validação (NOVO)
-  const [isValidating, setIsValidating] = useState(false);
   
   // Estado para paginação
   const [hasMore, setHasMore] = useState(false);
@@ -43,41 +39,12 @@ export default function SearchLeads() {
   const { settings, isLoading: isLoadingSettings, hasSerpapiKey, refreshSettings } = useCompanySettings();
   const hasSerpApi = hasSerpapiKey;
   
-  // IMPORTANTE: validateLeads adicionado aqui
-  const { deleteLead, searchLeads, isSearching, validateLeads } = useLeads();
-  const { toast } = useToast();
+  // Voltamos ao básico: apenas searchLeads
+  const { deleteLead, searchLeads, isSearching } = useLeads();
 
   useEffect(() => {
     refreshSettings();
   }, []);
-
-  // --- NOVA FUNÇÃO: Valida leads e atualiza a UI ---
-  const handleValidation = async (leadsToValidate: Lead[]) => {
-    if (leadsToValidate.length === 0) return;
-    
-    setIsValidating(true);
-    // Extrai apenas os IDs para enviar ao backend
-    const ids = leadsToValidate.map(l => l.id);
-    
-    // Chama o hook que conecta ao backend
-    const updated = await validateLeads(ids);
-    
-    if (updated && updated.length > 0) {
-      // Atualiza a lista atual com os badges de WhatsApp (mescla com o estado anterior)
-      setCurrentResults(prev => prev.map(lead => {
-        const isUpdated = updated.find((u: any) => u.id === lead.id);
-        // Se foi atualizado pelo backend como "tem whats", marca como true
-        return isUpdated ? { ...lead, hasWhatsApp: true } : lead;
-      }));
-      
-      toast({
-        title: "Validação concluída",
-        description: `${updated.length} números com WhatsApp identificados.`,
-        className: "border-l-4 border-green-500"
-      });
-    }
-    setIsValidating(false);
-  };
 
   const handleSearch = async (term: string, location: string) => {
     const quotaCheck = await checkQuota('lead_search');
@@ -90,13 +57,11 @@ export default function SearchLeads() {
     setCurrentResults([]);
     setHasSearched(true);
     setHasMore(false);
-    setIsValidating(false); // Reseta estado de validação
     
     const result = await searchLeads(term, location);
     
-    console.log('[SearchLeads] Result from searchLeads:', result);
-    
     if (result && result.leads && result.leads.length > 0) {
+      // Os leads já vêm validados do backend!
       setCurrentResults(result.leads);
       
       const smartHasMore = result.leads.length === 20;
@@ -109,9 +74,6 @@ export default function SearchLeads() {
       setCurrentLocation(result.location);
       
       await incrementQuota('lead_search');
-
-      // 🔥 CHAMA A VALIDAÇÃO AUTOMÁTICA AQUI (para os primeiros 20)
-      handleValidation(result.leads);
     }
   };
 
@@ -131,9 +93,6 @@ export default function SearchLeads() {
       
       setHasMore(smartHasMore);
       setNextStart(smartNextStart);
-
-      // 🔥 VALIDA TAMBÉM OS NOVOS RESULTADOS (para os próximos 20)
-      handleValidation(uniqueNewLeads);
     } else {
       setHasMore(false);
     }
@@ -191,20 +150,8 @@ export default function SearchLeads() {
               <h3 className="font-semibold text-lg">
                 {filteredLeads.length} {filteredLeads.length === 1 ? 'Lead Encontrado' : 'Leads Encontrados'}
               </h3>
-              
-              {/* STATUS DA VALIDAÇÃO (Visual Feedback) */}
-              {isValidating ? (
-                <span className="flex items-center gap-1 text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded-full animate-pulse ml-2 border border-orange-100">
-                  <Loader2 className="h-3 w-3 animate-spin" /> Validando WhatsApp...
-                </span>
-              ) : (
-                <span className="flex items-center gap-1 text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full ml-2 border border-green-100 transition-all duration-500 animate-in fade-in">
-                  <CheckCircle2 className="h-3 w-3" /> Validação Concluída
-                </span>
-              )}
-              
               {hasMore && (
-                <span className="text-sm text-muted-foreground ml-2 hidden sm:inline">
+                <span className="text-sm text-muted-foreground ml-2">
                   (Há mais resultados disponíveis)
                 </span>
               )}
@@ -232,22 +179,6 @@ export default function SearchLeads() {
           
           {hasMore && (
             <div className="mt-6 flex flex-col items-center gap-3 py-4 border-t">
-              <div className="text-center space-y-2">
-                <p className="text-sm text-muted-foreground">
-                  Mostrando {currentResults.length} leads. Clique para buscar mais resultados.
-                </p>
-                <div className="flex items-center justify-center gap-2">
-                  <div className="flex items-center gap-1">
-                    {Array.from({ length: Math.ceil(currentResults.length / 20) }).map((_, i) => (
-                      <div key={i} className="w-2 h-2 rounded-full bg-primary" />
-                    ))}
-                    <div className="w-2 h-2 rounded-full bg-gray-300" />
-                  </div>
-                  <span className="text-xs text-muted-foreground">
-                    Próxima: Página {Math.ceil(currentResults.length / 20) + 1}
-                  </span>
-                </div>
-              </div>
               <button
                 onClick={handleLoadMore}
                 disabled={isSearching}
@@ -265,17 +196,6 @@ export default function SearchLeads() {
                   </>
                 )}
               </button>
-              <p className="text-xs text-muted-foreground">
-                ℹ️ Cada busca retorna leads únicos, sem repetição
-              </p>
-            </div>
-          )}
-          
-          {!hasMore && currentResults.length >= 20 && (
-            <div className="mt-6 py-4 border-t text-center">
-              <p className="text-sm text-muted-foreground">
-                ✓ Todos os resultados disponíveis foram carregados ({currentResults.length} leads)
-              </p>
             </div>
           )}
         </Card>
@@ -284,7 +204,7 @@ export default function SearchLeads() {
       {hasSearched && currentResults.length === 0 && !isSearching && (
         <Card className="p-12 bg-white shadow-sm border-none rounded-xl text-center">
           <p className="text-muted-foreground">
-            Nenhum lead encontrado para essa busca. Tente outros termos.
+            Nenhum lead encontrado para essa busca.
           </p>
         </Card>
       )}

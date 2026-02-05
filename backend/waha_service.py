@@ -164,7 +164,33 @@ class WahaService:
         except Exception as e:
             logger.error(f"Error checking WAHA connection: {e}")
             return {"connected": False, "status": "error", "error": str(e)}
-    
+
+    # --- NOVO MÉTODO (ESSENCIAL PARA A VALIDAÇÃO) ---
+    async def check_number_exists(self, phone: str) -> bool:
+        """Verifica se o número tem WhatsApp registrado"""
+        try:
+            # Formata o telefone corretamente (ex: 5511999999999)
+            formatted_phone = normalize_phone(phone)
+            
+            async with httpx.AsyncClient(timeout=5.0) as client: # Timeout curto para ser rápido
+                response = await client.get(
+                    f"{self.waha_url}/api/contacts/check-exists",
+                    headers=self.headers,
+                    params={
+                        "phone": formatted_phone,
+                        "session": self.session_name
+                    }
+                )
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    # O WAHA retorna { "exists": true/false }
+                    return data.get("exists", False)
+                return False
+        except Exception as e:
+            logger.error(f"Erro ao validar número {phone}: {e}")
+            return False
+
     async def send_text_message(self, phone: str, message: str) -> Dict[str, Any]:
         """Send a text message via WAHA"""
         chat_id = f"{normalize_phone(phone)}@c.us"
