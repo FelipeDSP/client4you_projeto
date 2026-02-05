@@ -190,40 +190,29 @@ class WahaService:
             
             payload = {"chatId": chat_id, "caption": caption, "session": self.session_name}
             
-            # WORKAROUND: Baixar imagem e enviar como base64 (melhor compatibilidade com WAHA GOWS)
-            if image_url and not image_base64:
-                try:
-                    logger.info(f"📸 Baixando imagem da URL para enviar como base64...")
-                    async with httpx.AsyncClient(timeout=60.0) as img_client:
-                        img_response = await img_client.get(image_url)
-                        if img_response.status_code == 200:
-                            import base64
-                            image_bytes = img_response.content
-                            image_base64_data = base64.b64encode(image_bytes).decode('utf-8')
-                            
-                            # Detectar mimetype pela extensão
-                            mimetype = "image/png"
-                            if image_url.lower().endswith('.jpg') or image_url.lower().endswith('.jpeg'):
-                                mimetype = "image/jpeg"
-                            elif image_url.lower().endswith('.gif'):
-                                mimetype = "image/gif"
-                            
-                            payload["file"] = {
-                                "mimetype": mimetype,
-                                "data": f"data:{mimetype};base64,{image_base64_data}"
-                            }
-                            logger.info(f"📸 Imagem convertida para base64: {len(image_bytes)} bytes")
-                        else:
-                            logger.error(f"📸 Falha ao baixar imagem: {img_response.status_code}")
-                            payload["file"] = {"url": image_url}  # Fallback para URL
-                except Exception as download_error:
-                    logger.warning(f"📸 Erro ao baixar imagem, usando URL: {download_error}")
-                    payload["file"] = {"url": image_url}  # Fallback para URL
+            if image_url:
+                # Detectar mimetype pela extensão da URL
+                mimetype = "image/png"
+                if image_url.lower().endswith('.jpg') or image_url.lower().endswith('.jpeg'):
+                    mimetype = "image/jpeg"
+                elif image_url.lower().endswith('.gif'):
+                    mimetype = "image/gif"
+                elif image_url.lower().endswith('.webp'):
+                    mimetype = "image/webp"
+                
+                # IMPORTANTE: WAHA GOWS precisa do mimetype no payload
+                payload["file"] = {
+                    "url": image_url,
+                    "mimetype": mimetype
+                }
+                logger.info(f"📸 Mimetype detectado: {mimetype}")
             elif image_base64:
                 payload["file"] = {"data": image_base64}
             else:
                 logger.error("📸 Nenhuma imagem fornecida!")
                 return {"success": False, "error": "No image provided"}
+            
+            logger.info(f"📸 Payload: {payload}")
             
             async with httpx.AsyncClient(timeout=60.0) as client:
                 response = await client.post(
