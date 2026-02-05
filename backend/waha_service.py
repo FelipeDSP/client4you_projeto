@@ -184,13 +184,20 @@ class WahaService:
     async def send_image_message(self, phone: str, caption: str, image_url: Optional[str] = None, image_base64: Optional[str] = None) -> Dict[str, Any]:
         chat_id = f"{normalize_phone(phone)}@c.us"
         try:
+            logger.info(f"📸 Enviando imagem para {phone}")
+            logger.info(f"📸 URL da imagem: {image_url}")
+            logger.info(f"📸 Caption: {caption[:50]}...")
+            
             payload = {"chatId": chat_id, "caption": caption, "session": self.session_name}
             if image_url:
                 payload["file"] = {"url": image_url}
             elif image_base64:
                 payload["file"] = {"data": image_base64}
             else:
+                logger.error("📸 Nenhuma imagem fornecida!")
                 return {"success": False, "error": "No image provided"}
+            
+            logger.info(f"📸 Payload: {payload}")
             
             async with httpx.AsyncClient(timeout=60.0) as client:
                 response = await client.post(
@@ -198,10 +205,17 @@ class WahaService:
                     headers=self.headers,
                     json=payload
                 )
+                logger.info(f"📸 Resposta WAHA: status={response.status_code}")
+                
                 if response.status_code in [200, 201]:
+                    logger.info(f"📸 Imagem enviada com sucesso!")
                     return {"success": True, "data": response.json()}
-                return {"success": False, "error": f"HTTP {response.status_code}"}
+                else:
+                    error_body = response.text
+                    logger.error(f"📸 Erro ao enviar imagem: {response.status_code} - {error_body}")
+                    return {"success": False, "error": f"HTTP {response.status_code}: {error_body}"}
         except Exception as e:
+            logger.error(f"📸 Exceção ao enviar imagem: {e}")
             return {"success": False, "error": str(e)}
     
     async def send_document_message(self, phone: str, caption: str, document_url: Optional[str] = None, document_base64: Optional[str] = None, filename: str = "document") -> Dict[str, Any]:
