@@ -6,6 +6,7 @@ import logging
 import ipaddress
 import re
 import html
+import time
 from typing import Optional, Dict, Any
 from urllib.parse import urlparse
 from fastapi import HTTPException, Request, Depends
@@ -13,6 +14,9 @@ from supabase import create_client
 
 logger = logging.getLogger(__name__)
 
+# Cache para tokens validados (token_hash -> (user_data, expiry_time))
+_token_cache: Dict[str, tuple[dict, float]] = {}
+TOKEN_CACHE_TTL = 300  # 5 minutos
 
 # ========== AUTHENTICATION ==========
 
