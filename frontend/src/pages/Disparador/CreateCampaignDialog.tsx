@@ -1,357 +1,311 @@
 import { useState } from "react";
-import { Plus, Loader2, Upload, Info } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Slider } from "@/components/ui/slider";
-import { Switch } from "@/components/ui/switch";
-import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { useCampaigns, CampaignMessage, CampaignSettings, MessageType } from "@/hooks/useCampaigns";
-
-const DAYS_OF_WEEK = [
-  { value: 0, label: "Seg" },
-  { value: 1, label: "Ter" },
-  { value: 2, label: "Qua" },
-  { value: 3, label: "Qui" },
-  { value: 4, label: "Sex" },
-  { value: 5, label: "Sáb" },
-  { value: 6, label: "Dom" },
-];
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useCampaigns } from "@/hooks/useCampaigns";
+import { Loader2, Calendar, Clock, MessageSquare, Image as ImageIcon, FileText, Check } from "lucide-react";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { toast } from "@/hooks/use-toast";
 
 interface CreateCampaignDialogProps {
-  onCreated: (campaignId: string) => void;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }
 
-export function CreateCampaignDialog({ onCreated }: CreateCampaignDialogProps) {
-  const { createCampaign, uploadContacts } = useCampaigns();
-  const [open, setOpen] = useState(false);
-  const [isCreating, setIsCreating] = useState(false);
+const DAYS_OF_WEEK = [
+  { value: "0", label: "D", fullName: "Domingo" },
+  { value: "1", label: "S", fullName: "Segunda" },
+  { value: "2", label: "T", fullName: "Terça" },
+  { value: "3", label: "Q", fullName: "Quarta" },
+  { value: "4", label: "Q", fullName: "Quinta" },
+  { value: "5", label: "S", fullName: "Sexta" },
+  { value: "6", label: "S", fullName: "Sábado" },
+];
+
+export function CreateCampaignDialog({ open, onOpenChange }: CreateCampaignDialogProps) {
+  const { createCampaign, isCreating } = useCampaigns();
   
-  // Form state
+  // Estado do Formulário
   const [name, setName] = useState("");
-  const [messageType, setMessageType] = useState<MessageType>("text");
+  const [messageType, setMessageType] = useState<"text" | "image" | "document">("text");
   const [messageText, setMessageText] = useState("");
-  const [mediaFile, setMediaFile] = useState<File | null>(null);
-  const [contactsFile, setContactsFile] = useState<File | null>(null);
+  const [mediaUrl, setMediaUrl] = useState("");
   
-  // Settings
+  // Configurações
   const [intervalMin, setIntervalMin] = useState(30);
-  const [intervalMax, setIntervalMax] = useState(60);
-  const [useSchedule, setUseSchedule] = useState(false);
+  const [intervalMax, setIntervalMax] = useState(120);
   const [startTime, setStartTime] = useState("09:00");
   const [endTime, setEndTime] = useState("18:00");
-  const [useDailyLimit, setUseDailyLimit] = useState(false);
-  const [dailyLimit, setDailyLimit] = useState(100);
-  const [workingDays, setWorkingDays] = useState([0, 1, 2, 3, 4]);
+  const [workingDays, setWorkingDays] = useState<string[]>(["1", "2", "3", "4", "5"]); // Seg-Sex padrão
+  const [dailyLimit, setDailyLimit] = useState(500);
 
-  const handleCreate = async () => {
-    if (!name || !messageText || !contactsFile) return;
-
-    setIsCreating(true);
+  const handleSubmit = async () => {
+    // 1. Validações Básicas
+    if (!name.trim()) {
+      toast({ title: "Erro", description: "O nome da campanha é obrigatório.", variant: "destructive" });
+      return;
+    }
+    if (messageType === 'text' && !messageText.trim()) {
+      toast({ title: "Erro", description: "O texto da mensagem é obrigatório.", variant: "destructive" });
+      return;
+    }
+    if ((messageType === 'image' || messageType === 'document') && !mediaUrl.trim()) {
+      toast({ title: "Erro", description: "A URL da mídia é obrigatória.", variant: "destructive" });
+      return;
+    }
+    if (workingDays.length === 0) {
+      toast({ title: "Erro", description: "Selecione pelo menos um dia de funcionamento.", variant: "destructive" });
+      return;
+    }
 
     try {
-      const message: CampaignMessage = {
-        type: messageType,
-        text: messageText,
+      // 2. Montar Payload (Compatível com backend/models.py)
+      const campaignData = {
+        name,
+        message: {
+          type: messageType,
+          text: messageText,
+          media_url: mediaUrl || null,
+          media_filename: messageType === 'document' ? 'documento' : null
+        },
+        settings: {
+          interval_min: Number(intervalMin),
+          interval_max: Number(intervalMax),
+          start_time: startTime,
+          end_time: endTime,
+          daily_limit: Number(dailyLimit),
+          // Converte array de strings ["1", "2"] para inteiros [1, 2]
+          working_days: workingDays.map(Number)
+        }
       };
 
-      // Handle media file if present
-      if (mediaFile && messageType !== "text") {
-        const reader = new FileReader();
-        const base64 = await new Promise<string>((resolve) => {
-          reader.onload = () => resolve(reader.result as string);
-          reader.readAsDataURL(mediaFile);
-        });
-        message.media_base64 = base64.split(",")[1]; // Remove data URL prefix
-        message.media_filename = mediaFile.name;
-      }
-
-      const settings: CampaignSettings = {
-        interval_min: intervalMin,
-        interval_max: intervalMax,
-        working_days: workingDays,
-        ...(useSchedule && { start_time: startTime, end_time: endTime }),
-        ...(useDailyLimit && { daily_limit: dailyLimit }),
-      };
-
-      const campaign = await createCampaign(name, message, settings);
-
-      if (campaign) {
-        // Upload contacts
-        await uploadContacts(campaign.id, contactsFile);
-        onCreated(campaign.id);
-        setOpen(false);
-        resetForm();
-      }
-    } finally {
-      setIsCreating(false);
+      // 3. Enviar
+      await createCampaign(campaignData);
+      
+      // 4. Fechar e Limpar
+      onOpenChange(false);
+      resetForm();
+      
+    } catch (error) {
+      console.error(error);
+      // Toast de erro já é tratado no hook geralmente, mas garantimos aqui
     }
   };
 
   const resetForm = () => {
     setName("");
-    setMessageType("text");
     setMessageText("");
-    setMediaFile(null);
-    setContactsFile(null);
-    setIntervalMin(30);
-    setIntervalMax(60);
-    setUseSchedule(false);
-    setUseDailyLimit(false);
-  };
-
-  const toggleWorkingDay = (day: number) => {
-    setWorkingDays((prev) =>
-      prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]
-    );
+    setMediaUrl("");
+    setWorkingDays(["1", "2", "3", "4", "5"]);
+    setStartTime("09:00");
+    setEndTime("18:00");
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button>
-          <Plus className="mr-2 h-4 w-4" />
-          Nova Campanha
-        </Button>
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Criar Nova Campanha</DialogTitle>
+          <DialogTitle className="text-xl font-bold text-slate-800">Nova Campanha</DialogTitle>
           <DialogDescription>
-            Configure sua campanha de disparo de mensagens.
+            Configure os detalhes do disparo em massa.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6 py-4">
-          {/* Campaign Name */}
+          
+          {/* Nome da Campanha */}
           <div className="space-y-2">
             <Label htmlFor="name">Nome da Campanha</Label>
-            <Input
-              id="name"
-              placeholder="Ex: Promoção Janeiro 2025"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
+            <Input 
+              id="name" 
+              value={name} 
+              onChange={(e) => setName(e.target.value)} 
+              placeholder="Ex: Promoção de Verão" 
+              className="font-medium"
             />
           </div>
 
-          {/* Contacts File */}
-          <div className="space-y-2">
-            <Label>Planilha de Contatos</Label>
-            <div className="flex items-center gap-2">
-              <Input
-                type="file"
-                accept=".xlsx,.xls,.csv"
-                onChange={(e) => setContactsFile(e.target.files?.[0] || null)}
-              />
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Aceita arquivos Excel (.xlsx, .xls) ou CSV. A planilha deve ter colunas "Nome" e "Telefone".
-            </p>
-          </div>
+          <Tabs defaultValue="message" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="message" className="flex items-center gap-2">
+                <MessageSquare className="h-4 w-4" /> Mensagem
+              </TabsTrigger>
+              <TabsTrigger value="settings" className="flex items-center gap-2">
+                <Clock className="h-4 w-4" /> Configurações
+              </TabsTrigger>
+            </TabsList>
 
-          {/* Message Type */}
-          <div className="space-y-2">
-            <Label>Tipo de Mensagem</Label>
-            <Select value={messageType} onValueChange={(v) => setMessageType(v as MessageType)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="text">Texto</SelectItem>
-                <SelectItem value="image">Imagem com Legenda</SelectItem>
-                <SelectItem value="document">Documento</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Media File */}
-          {messageType !== "text" && (
-            <div className="space-y-2">
-              <Label>Arquivo de Mídia</Label>
-              <Input
-                type="file"
-                accept={messageType === "image" ? "image/*" : "*/*"}
-                onChange={(e) => setMediaFile(e.target.files?.[0] || null)}
-              />
-            </div>
-          )}
-
-          {/* Message Text */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <Label htmlFor="message">Mensagem</Label>
-              <Tooltip>
-                <TooltipTrigger>
-                  <Info className="h-4 w-4 text-muted-foreground" />
-                </TooltipTrigger>
-                <TooltipContent className="max-w-xs">
-                  <p>Use variáveis para personalizar:</p>
-                  <ul className="text-xs mt-1">
-                    <li><code>{'{nome}'}</code> - Nome do contato</li>
-                    <li><code>{'{telefone}'}</code> - Telefone</li>
-                    <li><code>{'{categoria}'}</code> - Categoria</li>
-                    <li><code>{'{email}'}</code> - Email</li>
-                  </ul>
-                </TooltipContent>
-              </Tooltip>
-            </div>
-            <Textarea
-              id="message"
-              placeholder="Olá {nome}! Temos uma oferta especial para você..."
-              value={messageText}
-              onChange={(e) => setMessageText(e.target.value)}
-              rows={4}
-            />
-          </div>
-
-          {/* Interval Settings */}
-          <div className="space-y-4">
-            <Label>Intervalo entre Mensagens</Label>
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>Mínimo: {intervalMin}s</span>
-                <span>Máximo: {intervalMax}s</span>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Slider
-                    value={[intervalMin]}
-                    onValueChange={([v]) => setIntervalMin(v)}
-                    min={5}
-                    max={300}
-                    step={5}
-                  />
-                </div>
-                <div>
-                  <Slider
-                    value={[intervalMax]}
-                    onValueChange={([v]) => setIntervalMax(Math.max(v, intervalMin))}
-                    min={5}
-                    max={300}
-                    step={5}
-                  />
+            {/* ABA: MENSAGEM */}
+            <TabsContent value="message" className="space-y-4 pt-4">
+              <div className="space-y-2">
+                <Label>Tipo de Mensagem</Label>
+                <div className="flex gap-2">
+                  <Button 
+                    type="button"
+                    variant={messageType === 'text' ? 'default' : 'outline'}
+                    className={`flex-1 ${messageType === 'text' ? 'bg-[#F59600] hover:bg-[#d68200]' : ''}`}
+                    onClick={() => setMessageType('text')}
+                  >
+                    <MessageSquare className="mr-2 h-4 w-4" /> Texto
+                  </Button>
+                  <Button 
+                    type="button"
+                    variant={messageType === 'image' ? 'default' : 'outline'}
+                    className={`flex-1 ${messageType === 'image' ? 'bg-[#F59600] hover:bg-[#d68200]' : ''}`}
+                    onClick={() => setMessageType('image')}
+                  >
+                    <ImageIcon className="mr-2 h-4 w-4" /> Imagem
+                  </Button>
+                  {/* Documento removido temporariamente para simplificar, ou descomente se necessário */}
+                  {/* <Button 
+                    type="button"
+                    variant={messageType === 'document' ? 'default' : 'outline'}
+                    className={`flex-1 ${messageType === 'document' ? 'bg-[#F59600] hover:bg-[#d68200]' : ''}`}
+                    onClick={() => setMessageType('document')}
+                  >
+                    <FileText className="mr-2 h-4 w-4" /> Arquivo
+                  </Button> */}
                 </div>
               </div>
-            </div>
-          </div>
 
-          {/* Schedule Settings */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="use-schedule">Horário de Funcionamento</Label>
-              <Switch
-                id="use-schedule"
-                checked={useSchedule}
-                onCheckedChange={setUseSchedule}
-              />
-            </div>
-            {useSchedule && (
+              {messageType !== 'text' && (
+                <div className="space-y-2 animate-in fade-in zoom-in-95 duration-200">
+                  <Label htmlFor="mediaUrl">URL da Mídia (Imagem)</Label>
+                  <Input 
+                    id="mediaUrl" 
+                    value={mediaUrl} 
+                    onChange={(e) => setMediaUrl(e.target.value)} 
+                    placeholder="https://exemplo.com/imagem.jpg" 
+                  />
+                  <p className="text-xs text-muted-foreground">Cole o link direto da imagem.</p>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <Label htmlFor="message">
+                  {messageType === 'text' ? 'Conteúdo da Mensagem' : 'Legenda da Imagem'}
+                </Label>
+                <Textarea 
+                  id="message" 
+                  value={messageText} 
+                  onChange={(e) => setMessageText(e.target.value)} 
+                  placeholder="Olá {Nome}, tudo bem? Temos uma oferta..." 
+                  className="h-32 resize-none"
+                />
+                <div className="flex gap-2">
+                  <Badge variant="outline" className="cursor-pointer hover:bg-slate-100" onClick={() => setMessageText(prev => prev + " {Nome}")}>
+                    {`{Nome}`}
+                  </Badge>
+                  <Badge variant="outline" className="cursor-pointer hover:bg-slate-100" onClick={() => setMessageText(prev => prev + " {Empresa}")}>
+                    {`{Empresa}`}
+                  </Badge>
+                </div>
+              </div>
+            </TabsContent>
+
+            {/* ABA: CONFIGURAÇÕES */}
+            <TabsContent value="settings" className="space-y-5 pt-4">
+              
+              {/* Intervalo */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="start-time">Início</Label>
-                  <Input
-                    id="start-time"
-                    type="time"
-                    value={startTime}
+                  <Label>Intervalo Mínimo (seg)</Label>
+                  <Input 
+                    type="number" 
+                    value={intervalMin} 
+                    onChange={(e) => setIntervalMin(Number(e.target.value))}
+                    min={10}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Intervalo Máximo (seg)</Label>
+                  <Input 
+                    type="number" 
+                    value={intervalMax} 
+                    onChange={(e) => setIntervalMax(Number(e.target.value))}
+                    min={15}
+                  />
+                </div>
+              </div>
+
+              {/* Horário */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2"><Clock className="h-3 w-3" /> Início</Label>
+                  <Input 
+                    type="time" 
+                    value={startTime} 
                     onChange={(e) => setStartTime(e.target.value)}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="end-time">Fim</Label>
-                  <Input
-                    id="end-time"
-                    type="time"
-                    value={endTime}
+                  <Label className="flex items-center gap-2"><Clock className="h-3 w-3" /> Fim</Label>
+                  <Input 
+                    type="time" 
+                    value={endTime} 
                     onChange={(e) => setEndTime(e.target.value)}
                   />
                 </div>
               </div>
-            )}
-          </div>
 
-          {/* Working Days */}
-          <div className="space-y-2">
-            <Label>Dias de Funcionamento</Label>
-            <div className="flex gap-2">
-              {DAYS_OF_WEEK.map((day) => (
-                <div key={day.value} className="flex items-center gap-1">
-                  <Checkbox
-                    id={`day-${day.value}`}
-                    checked={workingDays.includes(day.value)}
-                    onCheckedChange={() => toggleWorkingDay(day.value)}
-                  />
-                  <Label htmlFor={`day-${day.value}`} className="text-sm">
-                    {day.label}
-                  </Label>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Daily Limit */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="use-limit">Limite Diário</Label>
-              <Switch
-                id="use-limit"
-                checked={useDailyLimit}
-                onCheckedChange={setUseDailyLimit}
-              />
-            </div>
-            {useDailyLimit && (
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>Máximo por dia: {dailyLimit} mensagens</span>
-                </div>
-                <Slider
-                  value={[dailyLimit]}
-                  onValueChange={([v]) => setDailyLimit(v)}
-                  min={10}
-                  max={500}
-                  step={10}
-                />
+              {/* Dias da Semana */}
+              <div className="space-y-3">
+                <Label className="flex items-center gap-2"><Calendar className="h-3 w-3" /> Dias de Funcionamento</Label>
+                <ToggleGroup type="multiple" value={workingDays} onValueChange={setWorkingDays} className="justify-start gap-2">
+                  {DAYS_OF_WEEK.map((day) => (
+                    <ToggleGroupItem 
+                      key={day.value} 
+                      value={day.value}
+                      aria-label={day.fullName}
+                      className="h-9 w-9 rounded-full border border-slate-200 data-[state=on]:bg-[#054173] data-[state=on]:text-white data-[state=on]:border-[#054173]"
+                    >
+                      {day.label}
+                    </ToggleGroupItem>
+                  ))}
+                </ToggleGroup>
+                <p className="text-xs text-muted-foreground">Selecione os dias que o robô deve operar.</p>
               </div>
-            )}
-          </div>
+
+              <div className="space-y-2 pt-2 border-t">
+                <Label>Limite Diário de Envios</Label>
+                <Select value={String(dailyLimit)} onValueChange={(v) => setDailyLimit(Number(v))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="100">100 mensagens (Seguro)</SelectItem>
+                    <SelectItem value="500">500 mensagens (Recomendado)</SelectItem>
+                    <SelectItem value="1000">1000 mensagens</SelectItem>
+                    <SelectItem value="2000">2000 mensagens (Alto Risco)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+            </TabsContent>
+          </Tabs>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)}>
+        <DialogFooter className="gap-2 sm:gap-0">
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>
             Cancelar
           </Button>
-          <Button
-            onClick={handleCreate}
-            disabled={isCreating || !name || !messageText || !contactsFile}
+          <Button 
+            onClick={handleSubmit} 
+            disabled={isCreating}
+            className="bg-[#F59600] hover:bg-[#e08900] text-white"
           >
             {isCreating ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Criando...
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Criando...
               </>
             ) : (
-              "Criar Campanha"
+              <>
+                <Check className="mr-2 h-4 w-4" /> Criar Campanha
+              </>
             )}
           </Button>
         </DialogFooter>
