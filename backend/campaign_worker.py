@@ -166,21 +166,31 @@ async def process_campaign(
             if not is_within_working_hours(settings, campaign_tz):
                 wait_cycles += 1
                 
+                # Marcar campanha como "aguardando horário" para reduzir polling do frontend
+                if wait_cycles == 1:
+                    # Primeira vez fora do horário, atualizar flag
+                    await db.update_campaign(campaign_id, {"is_actively_sending": False})
+                
                 # Timeout after 24h waiting (prevent zombies)
                 if wait_cycles >= MAX_WAIT_CYCLES:
                     logger.warning(f"Campaign {campaign_id} waited 24h outside working hours - pausing")
-                    await db.update_campaign(campaign_id, {"status": "paused"})
+                    await db.update_campaign(campaign_id, {"status": "paused", "is_actively_sending": False})
                     break
                 
                 # Log only every 60 cycles (1 hour) to reduce noise
                 if wait_cycles % 60 == 1:
                     logger.info(f"Campaign {campaign_id} outside working hours ({campaign_tz}), waiting... ({wait_cycles}/{MAX_WAIT_CYCLES})")
                 
-                await asyncio.sleep(WAIT_CHECK_INTERVAL)
+                # Aumentar intervalo de verificação para 5 minutos quando está só esperando
+                await asyncio.sleep(300)  # 5 minutos ao invés de 60 segundos
                 continue
             
             # Reset wait cycles when inside working hours
             wait_cycles = 0
+            
+            # Marcar campanha como "enviando ativamente"
+            if pending_count > 0:
+                await db.update_campaign(campaign_id, {"is_actively_sending": True})
             
             # Check daily limit
             if settings.get("daily_limit"):
