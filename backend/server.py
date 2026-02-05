@@ -354,6 +354,10 @@ async def create_campaign(
     auth_user: dict = Depends(get_authenticated_user)
 ):
     try:
+        logger.info(f"📝 Criando campanha: {campaign.name}")
+        logger.info(f"📝 Message type: {campaign.message.type}")
+        logger.info(f"📝 Settings: interval={campaign.settings.interval_min}-{campaign.settings.interval_max}")
+        
         db = get_db()
         await validate_quota_for_action(
             user_id=auth_user["user_id"],
