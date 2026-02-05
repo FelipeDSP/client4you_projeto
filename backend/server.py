@@ -563,14 +563,17 @@ async def upload_contacts(
             raise HTTPException(status_code=400, detail=error_msg)
         
         try:
+            logger.info(f"📤 Processando arquivo Excel/CSV...")
             if file.filename.endswith('.xlsx') or file.filename.endswith('.xls'):
                 df = pd.read_excel(io.BytesIO(content), engine='openpyxl')
             else:
                 try:
-                    df = pd.read_csv(io.BytesIO(content), encoding='utf-8')
+                    df = pd.read_excel(io.BytesIO(content), encoding='utf-8')
                 except UnicodeDecodeError:
                     df = pd.read_csv(io.BytesIO(content), encoding='latin-1')
+            logger.info(f"📤 Arquivo lido com sucesso. {len(df)} linhas, {len(df.columns)} colunas")
         except Exception as e:
+            logger.error(f"📤 Erro ao ler arquivo: {e}")
             raise HTTPException(status_code=400, detail=f"Erro ao ler arquivo: formato inválido")
         
         df.columns = df.columns.str.strip()
