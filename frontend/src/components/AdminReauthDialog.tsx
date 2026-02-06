@@ -22,7 +22,7 @@ interface AdminReauthDialogProps {
   onCancel: () => void;
 }
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:8001";
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "";
 
 export function AdminReauthDialog({ open, onSuccess, onCancel }: AdminReauthDialogProps) {
   const [password, setPassword] = useState("");
