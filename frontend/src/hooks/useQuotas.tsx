@@ -6,7 +6,7 @@ export interface UserQuota {
   id: string;
   user_id: string;
   company_id: string;
-  plan_type: 'demo' | 'free' | 'pro' | 'enterprise';
+  plan_type: 'basico' | 'intermediario' | 'avancado' | 'suspended';
   plan_name: string;
   leads_limit: number;
   leads_used: number;
@@ -16,6 +16,8 @@ export interface UserQuota {
   messages_sent: number;
   reset_date: string;
   plan_expires_at?: string;
+  subscription_status?: 'active' | 'suspended' | 'canceled' | 'inactive';
+  cancellation_reason?: string;
   created_at: string;
   updated_at: string;
 }
