@@ -448,7 +448,7 @@ export default function Admin() {
       // Cria quota para o usuário via backend
       const planConfig = QUOTA_PLANS.find(p => p.id === newUserPlan) || QUOTA_PLANS[2];
       
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8001';
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || '';
       const { data: { session } } = await supabase.auth.getSession();
       
       if (session?.access_token) {
@@ -497,7 +497,7 @@ export default function Admin() {
     
     try {
       // Buscar quota via backend (bypassa RLS com service_role)
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8001';
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || '';
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session?.access_token) {
@@ -551,7 +551,7 @@ export default function Admin() {
       const planConfig = QUOTA_PLANS.find(p => p.id === editQuotaPlan);
       
       // Usar endpoint do backend
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8001';
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || '';
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session?.access_token) {
