@@ -362,13 +362,13 @@ async def kiwify_webhook(
             }
         
         elif payload.event_type in ['order.refunded', 'subscription.canceled']:
-            # REEMBOLSO/CANCELAMENTO
-            await downgrade_user_to_demo(
+            # REEMBOLSO/CANCELAMENTO - SUSPENDER CONTA
+            await downgrade_user_to_suspended(
                 user_id=user_id,
                 reason=f'Evento: {payload.event_type}'
             )
             await log_webhook_event(payload.event_type, payload_dict, 'success')
-            return {"status": "success", "message": "User downgraded"}
+            return {"status": "success", "message": "User suspended"}
         
         else:
             return {"status": "ignored", "message": f"Unknown event: {payload.event_type}"}
