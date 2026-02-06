@@ -187,7 +187,6 @@ async def upgrade_user_to_plan(user_id: str, plan: str, subscription_id: str, or
             'plan_expires_at': valid_until,
             'subscription_id': subscription_id,
             'order_id': order_id,
-            'subscription_status': 'active',
             'updated_at': datetime.now().isoformat()
         }
         
@@ -206,6 +205,7 @@ async def downgrade_user_to_suspended(user_id: str, reason: str):
     try:
         db = SupabaseService()
         
+        # Usar plan_type='suspended' como marcador (não temos coluna subscription_status)
         db.client.table('user_quotas').update({
             'plan_type': 'suspended',
             'plan_name': 'Conta Suspensa',
@@ -213,8 +213,6 @@ async def downgrade_user_to_suspended(user_id: str, reason: str):
             'campaigns_limit': 0,
             'messages_limit': 0,
             'subscription_id': None,
-            'subscription_status': 'suspended',
-            'cancellation_reason': reason,
             'updated_at': datetime.now().isoformat()
         }).eq('user_id', user_id).execute()
         
