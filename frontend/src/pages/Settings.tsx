@@ -111,7 +111,6 @@ export default function Settings() {
 
   const [serpapiKey, setSerpapiKey] = useState("");
   const [isSavingSerp, setIsSavingSerp] = useState(false);
-  const [timezone, setTimezone] = useState("America/Sao_Paulo");
   
   // Estados do Painel WhatsApp
   const [waStatus, setWaStatus] = useState<WAStatus>("LOADING");
@@ -128,7 +127,6 @@ export default function Settings() {
   useEffect(() => {
     if (settings) {
         if (settings.serpapiKey) setSerpapiKey(settings.serpapiKey);
-        if (settings.timezone) setTimezone(settings.timezone);
     }
   }, [settings]);
 
