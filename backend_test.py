@@ -265,6 +265,7 @@ class Client4YouAPITester:
         self.test_health_endpoints()
         self.test_unauthenticated_access()
         self.test_plan_based_access_simulation()
+        self.test_new_campaign_endpoints()
         self.test_cors_and_security_headers()
         self.test_api_structure()
         
