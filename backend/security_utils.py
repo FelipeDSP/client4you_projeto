@@ -525,7 +525,10 @@ async def validate_quota_for_action(
     
     Raises:
         HTTPException 403: Quota insuficiente ou plano inadequado
+        HTTPException 402: Plano expirado
     """
+    from datetime import datetime
+    
     if not db:
         from supabase_service import get_supabase_service
         db = get_supabase_service()
@@ -537,6 +540,34 @@ async def validate_quota_for_action(
             status_code=403,
             detail="Quota não encontrada. Entre em contato com o suporte."
         )
+    
+    # VERIFICAR SE O PLANO EXPIROU
+    plan_expires_at = quota.get("plan_expires_at")
+    if plan_expires_at:
+        try:
+            # Parse da data de expiração
+            if isinstance(plan_expires_at, str):
+                # Remover timezone info se presente para simplificar
+                expiration_str = plan_expires_at.replace('Z', '+00:00')
+                if '+' in expiration_str:
+                    expiration_str = expiration_str.split('+')[0]
+                expiration_date = datetime.fromisoformat(expiration_str)
+            else:
+                expiration_date = plan_expires_at
+            
+            now = datetime.utcnow()
+            
+            if expiration_date < now:
+                logger.warning(f"Plano expirado para usuário {user_id}. Expirou em: {plan_expires_at}")
+                raise HTTPException(
+                    status_code=402,
+                    detail="Seu plano expirou. Renove sua assinatura para continuar usando a plataforma."
+                )
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.warning(f"Erro ao verificar expiração do plano: {e}")
+            # Em caso de erro de parse, não bloqueia
     
     # Verificar plano se necessário
     if required_plan:
