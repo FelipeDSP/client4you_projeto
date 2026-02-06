@@ -4,6 +4,7 @@ import { LeadFilters, LeadFilterState, defaultFilters, filterLeads } from "@/com
 import { LeadTable } from "@/components/LeadTable";
 import { Card } from "@/components/ui/card";
 import { ExportButton } from "@/components/ExportButton";
+import { CreateCampaignFromLeads } from "@/components/CreateCampaignFromLeads";
 import { QuotaLimitModal } from "@/components/QuotaLimitModal";
 import { ConfigurationAlert } from "@/components/ConfigurationAlert";
 import { useLeads } from "@/hooks/useLeads";
