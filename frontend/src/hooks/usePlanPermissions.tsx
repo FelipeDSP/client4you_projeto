@@ -86,9 +86,10 @@ export function usePlanPermissions() {
       };
     }
 
-    // Verificar se conta está suspensa
-    const subscriptionStatus = quota.subscription_status?.toLowerCase();
-    const isSuspended = subscriptionStatus === 'suspended' || subscriptionStatus === 'canceled';
+    const planType = (quota.plan_type?.toLowerCase() || 'basico') as PlanType;
+    
+    // Verificar se conta está suspensa (usando plan_type como marcador)
+    const isSuspended = planType === 'suspended';
     
     if (isSuspended) {
       return {
@@ -102,7 +103,6 @@ export function usePlanPermissions() {
       };
     }
 
-    const planType = (quota.plan_type?.toLowerCase() || 'basico') as PlanType;
     // Se o plano for 'demo', tratar como suspenso (plano não existe mais)
     if (planType === 'demo' as any) {
       return {
