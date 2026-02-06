@@ -13,6 +13,11 @@ export interface AdminUser {
   companyName: string | null;
   roles: AppRole[];
   createdAt: string;
+  // Dados de quota/plano
+  quotaPlanType: string | null;
+  quotaPlanName: string | null;
+  quotaStatus: string | null;
+  quotaExpiresAt: string | null;
 }
 
 export interface Company {
