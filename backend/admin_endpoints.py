@@ -24,6 +24,259 @@ class CleanupOrphansResponse(BaseModel):
     orphan_emails: list[str]
 
 
+class SuspendUserRequest(BaseModel):
+    reason: Optional[str] = "Suspenso pelo administrador"
+
+
+class ActivateUserRequest(BaseModel):
+    plan_type: str = "basico"
+    plan_name: str = "Plano Básico"
+    days_valid: int = 30
+
+
+@admin_router.post("/users/{user_id}/suspend")
+async def suspend_user_account(
+    request: Request,
+    user_id: str,
+    suspend_data: SuspendUserRequest,
+    auth_user: dict = Depends(require_role("super_admin"))
+):
+    """
+    Suspende a conta de um usuário (bloqueia acesso a todas as funcionalidades)
+    
+    IMPORTANTE: Requer role super_admin
+    """
+    try:
+        # Prevenir auto-suspensão
+        if user_id == auth_user["user_id"]:
+            raise HTTPException(
+                status_code=400,
+                detail="Você não pode suspender sua própria conta"
+            )
+        
+        db = get_supabase_service()
+        audit = get_audit_service()
+        
+        # Buscar dados do usuário
+        profile = db.client.table('profiles')\
+            .select('email')\
+            .eq('id', user_id)\
+            .single()\
+            .execute()
+        
+        if not profile.data:
+            raise HTTPException(status_code=404, detail="Usuário não encontrado")
+        
+        target_email = profile.data.get('email')
+        
+        # Suspender conta
+        from datetime import datetime
+        db.client.table('user_quotas').upsert({
+            'user_id': user_id,
+            'plan_type': 'suspended',
+            'plan_name': 'Conta Suspensa',
+            'leads_limit': 0,
+            'campaigns_limit': 0,
+            'messages_limit': 0,
+            'subscription_status': 'suspended',
+            'cancellation_reason': suspend_data.reason,
+            'updated_at': datetime.now().isoformat()
+        }, on_conflict='user_id').execute()
+        
+        # Log de auditoria
+        await audit.log_action(
+            user_id=auth_user['user_id'],
+            user_email=auth_user['email'],
+            action='user_suspended',
+            target_type='user',
+            target_id=user_id,
+            target_email=target_email,
+            details={'reason': suspend_data.reason},
+            ip_address=request.client.host if request.client else None,
+            user_agent=request.headers.get('user-agent')
+        )
+        
+        logger.info(f"Admin {auth_user['email']} suspendeu usuário {target_email}")
+        
+        return {
+            "success": True,
+            "message": f"Conta de {target_email} suspensa com sucesso",
+            "user_id": user_id,
+            "status": "suspended"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro ao suspender usuário: {e}")
+        raise HTTPException(status_code=500, detail=f"Erro ao suspender: {str(e)}")
+
+
+@admin_router.post("/users/{user_id}/activate")
+async def activate_user_account(
+    request: Request,
+    user_id: str,
+    activate_data: ActivateUserRequest,
+    auth_user: dict = Depends(require_role("super_admin"))
+):
+    """
+    Ativa/reativa a conta de um usuário com um plano específico
+    
+    IMPORTANTE: Requer role super_admin
+    """
+    try:
+        db = get_supabase_service()
+        audit = get_audit_service()
+        
+        # Buscar dados do usuário
+        profile = db.client.table('profiles')\
+            .select('email, company_id')\
+            .eq('id', user_id)\
+            .single()\
+            .execute()
+        
+        if not profile.data:
+            raise HTTPException(status_code=404, detail="Usuário não encontrado")
+        
+        target_email = profile.data.get('email')
+        company_id = profile.data.get('company_id')
+        
+        # Validar plano
+        valid_plans = ['basico', 'intermediario', 'avancado']
+        plan_type = activate_data.plan_type.lower()
+        if plan_type not in valid_plans:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Plano inválido. Use: {', '.join(valid_plans)}"
+            )
+        
+        # Configurar limites por plano
+        plan_configs = {
+            'basico': {'leads_limit': -1, 'campaigns_limit': 0, 'messages_limit': 0},
+            'intermediario': {'leads_limit': -1, 'campaigns_limit': -1, 'messages_limit': -1},
+            'avancado': {'leads_limit': -1, 'campaigns_limit': -1, 'messages_limit': -1},
+        }
+        
+        from datetime import datetime, timedelta
+        expires_at = (datetime.now() + timedelta(days=activate_data.days_valid)).isoformat()
+        
+        # Ativar conta
+        db.client.table('user_quotas').upsert({
+            'user_id': user_id,
+            'company_id': company_id,
+            'plan_type': plan_type,
+            'plan_name': activate_data.plan_name,
+            'leads_limit': plan_configs[plan_type]['leads_limit'],
+            'campaigns_limit': plan_configs[plan_type]['campaigns_limit'],
+            'messages_limit': plan_configs[plan_type]['messages_limit'],
+            'leads_used': 0,
+            'campaigns_used': 0,
+            'messages_sent': 0,
+            'subscription_status': 'active',
+            'plan_expires_at': expires_at,
+            'cancellation_reason': None,
+            'updated_at': datetime.now().isoformat()
+        }, on_conflict='user_id').execute()
+        
+        # Log de auditoria
+        await audit.log_action(
+            user_id=auth_user['user_id'],
+            user_email=auth_user['email'],
+            action='user_activated',
+            target_type='user',
+            target_id=user_id,
+            target_email=target_email,
+            details={
+                'plan_type': plan_type,
+                'plan_name': activate_data.plan_name,
+                'expires_at': expires_at
+            },
+            ip_address=request.client.host if request.client else None,
+            user_agent=request.headers.get('user-agent')
+        )
+        
+        logger.info(f"Admin {auth_user['email']} ativou usuário {target_email} com plano {plan_type}")
+        
+        return {
+            "success": True,
+            "message": f"Conta de {target_email} ativada com plano {activate_data.plan_name}",
+            "user_id": user_id,
+            "plan_type": plan_type,
+            "expires_at": expires_at
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro ao ativar usuário: {e}")
+        raise HTTPException(status_code=500, detail=f"Erro ao ativar: {str(e)}")
+
+
+@admin_router.get("/users")
+async def list_all_users(
+    auth_user: dict = Depends(require_role("super_admin")),
+    limit: int = 50,
+    offset: int = 0
+):
+    """
+    Lista todos os usuários com seus planos e status
+    
+    IMPORTANTE: Requer role super_admin
+    """
+    try:
+        db = get_supabase_service()
+        
+        # Buscar profiles com quotas (LEFT JOIN simulado)
+        profiles_result = db.client.table('profiles')\
+            .select('id, email, full_name, company_id, created_at')\
+            .order('created_at', desc=True)\
+            .range(offset, offset + limit - 1)\
+            .execute()
+        
+        users = []
+        for profile in (profiles_result.data or []):
+            user_id = profile['id']
+            
+            # Buscar quota do usuário
+            quota_result = db.client.table('user_quotas')\
+                .select('plan_type, plan_name, subscription_status, plan_expires_at')\
+                .eq('user_id', user_id)\
+                .maybe_single()\
+                .execute()
+            
+            quota = quota_result.data if quota_result.data else {}
+            
+            users.append({
+                'id': user_id,
+                'email': profile['email'],
+                'full_name': profile.get('full_name'),
+                'company_id': profile.get('company_id'),
+                'plan_type': quota.get('plan_type', 'sem_plano'),
+                'plan_name': quota.get('plan_name', 'Sem Plano'),
+                'status': quota.get('subscription_status', 'inactive'),
+                'expires_at': quota.get('plan_expires_at'),
+                'created_at': profile['created_at']
+            })
+        
+        # Contar total
+        count_result = db.client.table('profiles')\
+            .select('id', count='exact')\
+            .execute()
+        
+        return {
+            'users': users,
+            'total': count_result.count or len(users),
+            'limit': limit,
+            'offset': offset
+        }
+        
+    except Exception as e:
+        logger.error(f"Erro ao listar usuários: {e}")
+        raise HTTPException(status_code=500, detail=f"Erro ao listar: {str(e)}")
+
+
+
+
 @admin_router.get("/orphan-users")
 async def get_orphan_users(
     auth_user: dict = Depends(require_role("super_admin"))
