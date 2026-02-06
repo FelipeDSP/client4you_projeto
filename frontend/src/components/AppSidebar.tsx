@@ -96,6 +96,7 @@ export function AppSidebar() {
   const location = useLocation();
   const { signOut } = useAuth();
   const { isAdmin, isLoading } = useAdmin();
+  const { permissions, canUseFeature } = usePlanPermissions();
 
   return (
     <Sidebar collapsible="icon">
@@ -108,11 +109,89 @@ export function AppSidebar() {
           />
         </div>
         
+        {/* Itens Base */}
         <SidebarGroup>
           <SidebarGroupLabel>Aplicação</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {items.map((item) => (
+              {baseItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton 
+                    asChild 
+                    isActive={location.pathname === item.url}
+                    tooltip={item.title}
+                  >
+                    <Link to={item.url}>
+                      <item.icon className="h-4 w-4" />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        {/* Ferramentas (com controle de acesso) */}
+        <SidebarGroup>
+          <SidebarGroupLabel>Ferramentas</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {featureItems.map((item) => {
+                const hasAccess = canUseFeature(item.feature);
+                const isLocked = !hasAccess && !permissions.isPlanExpired;
+                
+                return (
+                  <SidebarMenuItem key={item.title}>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <SidebarMenuButton 
+                            asChild 
+                            isActive={location.pathname === item.url}
+                            tooltip={item.title}
+                            className={isLocked ? "opacity-60" : ""}
+                          >
+                            <Link to={item.url} className="relative">
+                              {isLocked ? (
+                                <Lock className="h-4 w-4 text-muted-foreground" />
+                              ) : (
+                                <item.icon className="h-4 w-4" />
+                              )}
+                              <span className="flex items-center gap-2">
+                                {item.title}
+                                {item.badge && hasAccess && (
+                                  <Badge variant="secondary" className="text-[10px] py-0 px-1 bg-purple-100 text-purple-700">
+                                    {item.badge}
+                                  </Badge>
+                                )}
+                                {isLocked && (
+                                  <Crown className="h-3 w-3 text-orange-500" />
+                                )}
+                              </span>
+                            </Link>
+                          </SidebarMenuButton>
+                        </TooltipTrigger>
+                        {isLocked && (
+                          <TooltipContent side="right">
+                            <p>Disponível no plano {item.requiredPlan === 'intermediario' ? 'Intermediário' : 'Avançado'}+</p>
+                          </TooltipContent>
+                        )}
+                      </Tooltip>
+                    </TooltipProvider>
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        {/* Conta */}
+        <SidebarGroup>
+          <SidebarGroupLabel>Conta</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {accountItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton 
                     asChild 
