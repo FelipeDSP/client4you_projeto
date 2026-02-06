@@ -1,9 +1,9 @@
 {
-  "timestamp": "2026-02-06T18:47:36.734990",
-  "total_tests": 11,
+  "timestamp": "2026-02-06T19:02:17.435431",
+  "total_tests": 12,
   "passed_tests": 11,
-  "failed_tests": 0,
-  "success_rate": 100.0,
+  "failed_tests": 1,
+  "success_rate": 91.7,
   "passed_test_names": [
     "Health Check",
     "Webhook Test",
@@ -17,6 +17,11 @@
     "API Root",
     "API Root Structure"
   ],
-  "failed_test_details": [],
+  "failed_test_details": [
+    {
+      "test": "POST /api/campaigns/from-leads endpoint exists",
+      "details": "Status: 405 (expected 401) - {'detail': 'Method Not Allowed'}"
+    }
+  ],
   "backend_url": "https://api.client4you.com.br"
 }
