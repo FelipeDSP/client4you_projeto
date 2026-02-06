@@ -22,7 +22,7 @@ Plataforma SaaS para captação e conversão de leads via WhatsApp.
 ### 2. Administrador da Plataforma
 - Gerencia usuários e planos
 - Monitora uso do sistema
-- Resolve problemas de suporte
+- Suspende/ativa contas manualmente
 
 ---
 
@@ -35,46 +35,58 @@ Plataforma SaaS para captação e conversão de leads via WhatsApp.
 4. **Gestão de Campanhas** - Criar, pausar, cancelar campanhas
 5. **Dashboard** - Métricas em tempo real
 
-### Sistema de Planos
+### Sistema de Planos (SEM DEMO)
 | Plano | Leads | Disparador | Agente IA | Preço |
 |-------|-------|------------|-----------|-------|
-| Demo | 5 buscas | ❌ | ❌ | Grátis (7 dias) |
 | Básico | Ilimitado | ❌ | ❌ | R$ 39,90/mês |
 | Intermediário | Ilimitado | ✅ Ilimitado | ❌ | R$ 99,90/mês |
 | Avançado | Ilimitado | ✅ Ilimitado | ✅ | R$ 199,90/mês |
 
-### Segurança
-- Autenticação JWT via Supabase Auth
-- Verificação de assinatura HMAC nos webhooks
-- Rate limiting nos endpoints
-- Row Level Security (RLS) no banco
+### Status de Conta
+- **active**: Conta funcionando normalmente
+- **suspended**: Conta suspensa (cancelamento/não pagamento/admin)
+- **expired**: Plano expirou sem renovação
 
 ---
 
 ## ✅ O que foi Implementado (06/02/2026)
 
-### Controle de Acesso por Plano
-- [x] Hook `usePlanPermissions` - verifica permissões do usuário
-- [x] Componente `PlanBlockedOverlay` - tela de bloqueio com upgrade
-- [x] Verificação de expiração de plano no backend
+### Controle de Acesso por Plano (ATUALIZADO)
+- [x] Plano Demo REMOVIDO completamente
+- [x] Hook `usePlanPermissions` - verifica permissões e status da conta
+- [x] Componente `PlanBlockedOverlay` - tela de bloqueio para conta suspensa/expirada
+- [x] Verificação de expiração de plano no backend (HTTP 402)
 - [x] Sidebar com ícones de cadeado para features bloqueadas
 - [x] Alerta de expiração próxima no Dashboard
 
+### Painel Admin - Gerenciamento de Contas
+- [x] Endpoint `POST /api/admin/users/{id}/suspend` - suspende conta
+- [x] Endpoint `POST /api/admin/users/{id}/activate` - ativa com plano escolhido
+- [x] Endpoint `GET /api/admin/users` - lista todos usuários com status
+- [x] Interface no Admin com botões Suspender/Ativar
+- [x] Coluna de Status (Ativo/Suspenso/Expirado) na tabela
+- [x] Dropdown para escolher plano ao ativar (30 dias)
+
 ### Página Agente IA
 - [x] Página criada (`/agente-ia`)
-- [x] Configurações de personalidade
-- [x] Editor de prompt do sistema
-- [x] Configurações de comportamento (delay, tamanho resposta)
-- [x] Qualificação automática de leads
-- [x] Horário de funcionamento
+- [x] Configurações de personalidade e prompt
 - [x] Status: Beta (integração n8n pendente)
 
 ### Sistema de Pagamentos (Kiwify)
-- [x] Webhook para `order.paid` - upgrade automático
-- [x] Webhook para `order.refunded` - downgrade
-- [x] Webhook para `subscription.canceled` - downgrade
+- [x] Webhook `order.paid` - upgrade automático
+- [x] Webhook `order.refunded` - SUSPENDE conta
+- [x] Webhook `subscription.canceled` - SUSPENDE conta
 - [x] Criação automática de conta ao pagar
-- [x] Email com credenciais para novos usuários
+
+---
+
+## 📊 Sobre Company vs User
+
+**Status atual:** Cada usuário tem sua própria Company (relação 1:1)
+
+**Motivo original:** Permitir times com múltiplos usuários por empresa
+
+**Recomendação:** Manter por enquanto - simplificar envolveria migração de dados no Supabase
 
 ---
 
@@ -82,20 +94,17 @@ Plataforma SaaS para captação e conversão de leads via WhatsApp.
 
 ### P0 (Crítico)
 - [ ] Integração n8n para Agente IA
-- [ ] Job de verificação de planos expirados (cron)
 - [ ] Webhook de renovação mensal do Kiwify
 
-### P1 (Importante)
+### P1 (Importante)  
 - [ ] Página de preços/planos pública
 - [ ] Histórico de pagamentos no perfil
-- [ ] Notificação por email X dias antes de expirar
-- [ ] Múltiplas instâncias WhatsApp (plano Avançado)
+- [ ] Notificação por email antes de expirar
 
 ### P2 (Melhoria)
-- [ ] Teste A/B de mensagens
-- [ ] Relatórios exportáveis (PDF)
-- [ ] Integração com CRMs
-- [ ] API pública com documentação
+- [ ] Simplificar relação Company/User
+- [ ] Job automático de expiração de planos
+- [ ] Relatórios exportáveis
 
 ---
 
@@ -106,9 +115,16 @@ Plataforma SaaS para captação e conversão de leads via WhatsApp.
 
 ---
 
-## 📊 Próximas Tarefas
+## 🧪 Como Testar
 
-1. Configurar webhook de renovação no Kiwify
-2. Implementar integração n8n para Agente IA
-3. Criar job de expiração automática de planos
-4. Adicionar página de histórico de pagamentos
+### Testar Suspensão via Admin:
+1. Acesse `/admin` (requer role super_admin)
+2. Encontre o usuário na lista
+3. Clique em "Suspender" → Confirme
+4. A conta do usuário ficará com status "Suspenso"
+5. Usuário verá tela de bloqueio ao acessar qualquer página
+
+### Testar Ativação via Admin:
+1. Encontre usuário suspenso
+2. Clique em "Ativar" → Escolha plano (Básico/Intermediário/Avançado)
+3. Conta ativada por 30 dias com o plano escolhido
