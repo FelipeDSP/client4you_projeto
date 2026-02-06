@@ -139,8 +139,9 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {featureItems.map((item) => {
-                const hasAccess = canUseFeature(item.feature);
-                const isLocked = !hasAccess && !permissions.isPlanExpired;
+                // Se não tem requiredPlan, é acessível para todos
+                const hasAccess = !item.requiredPlan || canUseFeature(item.feature);
+                const isLocked = item.requiredPlan && !hasAccess && !permissions.isPlanExpired;
                 
                 return (
                   <SidebarMenuItem key={item.title}>
