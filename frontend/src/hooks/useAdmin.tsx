@@ -124,10 +124,19 @@ export function useAdmin() {
         return;
       }
 
-      // Fetch user quotas
-      const { data: quotas, error: quotasError } = await supabase
-        .from("user_quotas")
-        .select("user_id, plan_type, plan_name, subscription_status, plan_expires_at");
+      // Fetch user quotas (handle case where subscription_status column might not exist)
+      let quotas: any[] = [];
+      try {
+        const { data: quotasData, error: quotasError } = await supabase
+          .from("user_quotas")
+          .select("user_id, plan_type, plan_name, plan_expires_at");
+
+        if (!quotasError && quotasData) {
+          quotas = quotasData;
+        }
+      } catch (e) {
+        console.warn("Could not fetch quotas:", e);
+      }
 
       if (quotasError) {
         console.error("Error fetching quotas:", quotasError);
