@@ -164,6 +164,18 @@ export default function AgenteIA() {
     );
   }
 
+  // Verificar se conta está suspensa
+  if (permissions.isSuspended) {
+    return (
+      <PlanBlockedOverlay
+        feature="agente"
+        currentPlan={permissions.planName}
+        requiredPlan="avancado"
+        isSuspended={true}
+      />
+    );
+  }
+
   // Verificar se plano expirou
   if (permissions.isPlanExpired) {
     return (
