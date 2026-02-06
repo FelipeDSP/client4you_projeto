@@ -252,8 +252,8 @@ class Client4YouAPITester:
 
 def main():
     """Main test execution"""
-    # Test against localhost (internal)
-    tester = Client4YouAPITester("http://localhost:8001")
+    # Test against public API
+    tester = Client4YouAPITester("https://api.client4you.com.br")
     
     try:
         report = tester.run_all_tests()
