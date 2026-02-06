@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useCompanySettings } from "./useCompanySettings";
+import { supabase } from "@/integrations/supabase/client";
 
 export type WAStatus = "LOADING" | "DISCONNECTED" | "STARTING" | "SCANNING" | "CONNECTED" | "NOT_CONFIGURED";
 
@@ -7,46 +7,43 @@ interface UseWahaStatusResult {
   status: WAStatus;
   isLoading: boolean;
   isConnected: boolean;
+  sessionName: string | null;
   refresh: () => void;
 }
 
+// URL do backend
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || import.meta.env.REACT_APP_BACKEND_URL || '';
+
 export function useWahaStatus(): UseWahaStatusResult {
-  const { settings, hasWahaConfig, isLoading: isLoadingSettings, refreshSettings } = useCompanySettings();
   const [status, setStatus] = useState<WAStatus>("LOADING");
   const [isLoading, setIsLoading] = useState(true);
+  const [sessionName, setSessionName] = useState<string | null>(null);
 
   const checkStatus = useCallback(async () => {
-    console.log("[useWahaStatus] Verificando status...", { hasWahaConfig, wahaApiUrl: settings?.wahaApiUrl });
+    console.log("[useWahaStatus] Verificando status via backend...");
     
-    // Se não tem config, retorna NOT_CONFIGURED
-    if (!hasWahaConfig || !settings?.wahaApiUrl) {
-      console.log("[useWahaStatus] Sem config WAHA");
-      setStatus("NOT_CONFIGURED");
-      setIsLoading(false);
-      return;
-    }
-
     try {
       setIsLoading(true);
-      const sessionName = settings.wahaSession || "default";
-      const url = `${settings.wahaApiUrl}/api/sessions/${sessionName}`;
       
-      console.log("[useWahaStatus] Chamando WAHA:", url);
-      
-      const headers: HeadersInit = {
-        "Content-Type": "application/json",
-      };
-      
-      if (settings.wahaApiKey) {
-        headers["X-Api-Key"] = settings.wahaApiKey;
+      // Pegar token de autenticação
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        console.log("[useWahaStatus] Usuário não autenticado");
+        setStatus("NOT_CONFIGURED");
+        setIsLoading(false);
+        return;
       }
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-      const response = await fetch(url, { 
+      // Chamar o endpoint do backend que já tem toda a lógica correta
+      const response = await fetch(`${BACKEND_URL}/api/whatsapp/status`, { 
         method: "GET", 
-        headers,
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`
+        },
         signal: controller.signal
       });
       
@@ -59,42 +56,39 @@ export function useWahaStatus(): UseWahaStatusResult {
       }
 
       const data = await response.json();
-      console.log("[useWahaStatus] Resposta WAHA:", data);
+      console.log("[useWahaStatus] Resposta do backend:", data);
       
-      // Mapear status do WAHA para nosso status
-      // WAHA pode retornar: WORKING, STOPPED, STARTING, SCAN_QR_CODE
-      const wahaStatus = (data.status || data.engine?.state || "").toUpperCase();
+      // Salvar nome da sessão para debug
+      if (data.session_name) {
+        setSessionName(data.session_name);
+      }
       
-      if (wahaStatus === "WORKING" || wahaStatus === "CONNECTED") {
+      // O backend já retorna o status mapeado corretamente
+      const backendStatus = (data.status || "DISCONNECTED").toUpperCase();
+      
+      if (backendStatus === "CONNECTED") {
         setStatus("CONNECTED");
-      } else if (wahaStatus === "SCAN_QR_CODE" || wahaStatus === "SCANNING") {
+      } else if (backendStatus === "SCANNING") {
         setStatus("SCANNING");
-      } else if (wahaStatus === "STARTING") {
+      } else if (backendStatus === "STARTING") {
         setStatus("STARTING");
+      } else if (backendStatus === "NOT_CONFIGURED") {
+        setStatus("NOT_CONFIGURED");
       } else {
         setStatus("DISCONNECTED");
       }
     } catch (error: any) {
       console.warn("[useWahaStatus] Erro ao verificar:", error?.message || error);
-      // Se deu timeout ou erro de rede, pode estar desconectado ou WAHA fora do ar
       setStatus("DISCONNECTED");
     } finally {
       setIsLoading(false);
     }
-  }, [hasWahaConfig, settings?.wahaApiUrl, settings?.wahaApiKey, settings?.wahaSession]);
-
-  // Refresh das configs quando montar
-  useEffect(() => {
-    refreshSettings();
   }, []);
 
-  // Verificar status quando settings mudar
+  // Verificar status ao montar o componente
   useEffect(() => {
-    if (!isLoadingSettings && settings) {
-      console.log("[useWahaStatus] Settings carregadas, verificando status...");
-      checkStatus();
-    }
-  }, [isLoadingSettings, settings, checkStatus]);
+    checkStatus();
+  }, [checkStatus]);
 
   // Polling a cada 30 segundos se não estiver conectado
   useEffect(() => {
@@ -106,8 +100,9 @@ export function useWahaStatus(): UseWahaStatusResult {
 
   return {
     status,
-    isLoading: isLoading || isLoadingSettings,
+    isLoading,
     isConnected: status === "CONNECTED",
+    sessionName,
     refresh: checkStatus,
   };
 }
