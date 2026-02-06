@@ -201,29 +201,27 @@ async def upgrade_user_to_plan(user_id: str, plan: str, subscription_id: str, or
         raise
 
 
-async def downgrade_user_to_demo(user_id: str, reason: str):
-    """Downgrade para plano Demo"""
+async def downgrade_user_to_suspended(user_id: str, reason: str):
+    """Suspende a conta do usuário (sem acesso a nenhuma funcionalidade)"""
     try:
         db = SupabaseService()
-        demo_config = PLAN_LIMITS['demo']
         
         db.client.table('user_quotas').update({
-            'plan_type': 'demo',
-            'plan_name': demo_config['name'],
-            'leads_limit': demo_config['leads_limit'],
-            'campaigns_limit': demo_config['campaigns_limit'],
-            'messages_limit': demo_config['messages_limit'],
-            'plan_expires_at': (datetime.now() + timedelta(days=7)).isoformat(),
+            'plan_type': 'suspended',
+            'plan_name': 'Conta Suspensa',
+            'leads_limit': 0,
+            'campaigns_limit': 0,
+            'messages_limit': 0,
             'subscription_id': None,
-            'subscription_status': 'canceled',
+            'subscription_status': 'suspended',
             'cancellation_reason': reason,
             'updated_at': datetime.now().isoformat()
         }).eq('user_id', user_id).execute()
         
-        logger.info(f"⚠️ Usuário {user_id} rebaixado para Demo. Motivo: {reason}")
+        logger.info(f"⚠️ Usuário {user_id} suspenso. Motivo: {reason}")
         
     except Exception as e:
-        logger.error(f"Erro ao fazer downgrade: {e}")
+        logger.error(f"Erro ao suspender conta: {e}")
         raise
 
 
