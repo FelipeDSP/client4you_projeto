@@ -84,6 +84,18 @@ Plataforma SaaS para captação e conversão de leads via WhatsApp.
 - [x] Tooltips explicativos nos dias da semana
 - [x] Backend atualizado para usar timezone da campanha
 
+### Criar Campanha Direto dos Leads (NOVO)
+- [x] Botão "Criar Campanha" na página de busca de leads
+- [x] Dialog com configurações rápidas (timezone, horário, dias, limite)
+- [x] Endpoint `POST /api/campaigns/from-leads` - cria campanha + contatos em uma chamada
+- [x] Inserção em batch de contatos (500 por vez) para não sobrecarregar Supabase
+- [x] Filtro automático: só leads com WhatsApp são adicionados
+- [x] Estimativa de tempo de conclusão da campanha
+
+### Correção de Dias da Semana
+- [x] Corrigida conversão JS (0=Dom) → Python (0=Seg) no campaign_worker
+- [x] Agora os horários funcionam corretamente com qualquer fuso horário
+
 ### Sistema de Pagamentos (Kiwify)
 - [x] Webhook `order.paid` - upgrade automático
 - [x] Webhook `order.refunded` - SUSPENDE conta
