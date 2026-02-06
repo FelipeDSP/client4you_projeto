@@ -47,6 +47,7 @@ class CampaignSettings(BaseModel):
     end_time: Optional[str] = None  # HH:MM format
     daily_limit: Optional[int] = None
     working_days: List[int] = [0, 1, 2, 3, 4]  # Monday to Friday
+    timezone: Optional[str] = "America/Sao_Paulo"  # Fuso horário da campanha
 
 
 class CampaignMessage(BaseModel):
