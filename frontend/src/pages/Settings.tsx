@@ -214,10 +214,6 @@ export default function Settings() {
     }
   };
 
-  const handleSaveGeneral = async () => {
-    await saveSettings({ timezone });
-  };
-
   // Determinar qual passo está ativo no guia
   const getCurrentStep = () => {
     if (waStatus === "DISCONNECTED") return 1;
