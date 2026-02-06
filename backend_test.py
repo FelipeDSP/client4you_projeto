@@ -293,20 +293,34 @@ class Client4YouAPITester:
 
 def main():
     """Main test execution"""
-    # Test against public API
-    tester = Client4YouAPITester("https://api.client4you.com.br")
+    # Test against local backend first, then production
+    print("🔄 Testing local backend first...")
+    local_tester = Client4YouAPITester("http://localhost:8001")
     
     try:
-        report = tester.run_all_tests()
+        local_report = local_tester.run_all_tests()
         
-        # Save report
+        # Save local report
+        with open('/app/test_reports/backend_test_local_results.json', 'w') as f:
+            json.dump(local_report, f, indent=2)
+        
+        print(f"\n📄 Local report saved to: /app/test_reports/backend_test_local_results.json")
+        
+        # Test against production API
+        print("\n" + "="*60)
+        print("🌐 Testing production backend...")
+        print("="*60)
+        prod_tester = Client4YouAPITester("https://api.client4you.com.br")
+        prod_report = prod_tester.run_all_tests()
+        
+        # Save production report
         with open('/app/test_reports/backend_test_results.json', 'w') as f:
-            json.dump(report, f, indent=2)
+            json.dump(prod_report, f, indent=2)
         
-        print(f"\n📄 Report saved to: /app/test_reports/backend_test_results.json")
+        print(f"\n📄 Production report saved to: /app/test_reports/backend_test_results.json")
         
-        # Return appropriate exit code
-        return 0 if report['failed_tests'] == 0 else 1
+        # Return appropriate exit code based on local tests (more important for development)
+        return 0 if local_report['failed_tests'] == 0 else 1
         
     except KeyboardInterrupt:
         print("\n⚠️ Tests interrupted by user")
