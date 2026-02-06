@@ -110,12 +110,13 @@ export function useCompanySettings() {
 
     try {
       // 1. Atualiza company_settings (API Keys)
+      // Nota: waha_session não deve ser "default" - deixar null para o sistema gerar automaticamente
       const settingsData = {
         company_id: user.companyId,
         serpapi_key: newSettings.serpapiKey !== undefined ? newSettings.serpapiKey : settings?.serpapiKey,
         waha_api_url: newSettings.wahaApiUrl !== undefined ? newSettings.wahaApiUrl : settings?.wahaApiUrl,
         waha_api_key: newSettings.wahaApiKey !== undefined ? newSettings.wahaApiKey : settings?.wahaApiKey,
-        waha_session: newSettings.wahaSession !== undefined ? newSettings.wahaSession : (settings?.wahaSession || 'default'),
+        waha_session: newSettings.wahaSession !== undefined ? newSettings.wahaSession : settings?.wahaSession,
         updated_at: new Date().toISOString(),
       };
 
