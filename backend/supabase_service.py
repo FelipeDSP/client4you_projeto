@@ -25,23 +25,36 @@ class SupabaseService:
     # ========== Waha Configuration (Legacy Support) ==========
     async def get_waha_config(self, company_id: str) -> Optional[Dict[str, Any]]:
         """
-        Busca configuração legada do WAHA (se existir).
-        Usado para manter compatibilidade com clientes antigos que têm sessões manuais.
+        Busca configuração do WAHA - primeiro em company_settings, depois em waha_configs (legado).
         """
         try:
-            # Tenta buscar na tabela 'waha_configs'
-            # Usamos try/except porque a tabela pode não existir em instalações novas
-            result = self.client.table('waha_configs')\
-                .select('session_name')\
+            # 1. Primeiro tenta buscar na tabela 'company_settings' (padrão atual)
+            result = self.client.table('company_settings')\
+                .select('waha_session, waha_api_url, waha_api_key')\
                 .eq('company_id', company_id)\
                 .limit(1)\
                 .execute()
             
-            return result.data[0] if result.data else None
+            if result.data and result.data[0].get('waha_session'):
+                return {"session_name": result.data[0].get('waha_session')}
+            
+            # 2. Fallback: Tenta buscar na tabela 'waha_configs' (legado)
+            try:
+                legacy_result = self.client.table('waha_configs')\
+                    .select('session_name')\
+                    .eq('company_id', company_id)\
+                    .limit(1)\
+                    .execute()
+                
+                if legacy_result.data:
+                    return legacy_result.data[0]
+            except Exception:
+                # Tabela legada pode não existir
+                pass
+            
+            return None
         except Exception as e:
-            # Apenas loga aviso, não quebra a aplicação
-            # Isso é normal se a tabela ainda não foi criada ou se é um cliente novo
-            logger.warning(f"Note: Could not fetch legacy waha_config (using default behavior): {e}")
+            logger.warning(f"Note: Could not fetch waha_config: {e}")
             return None
 
     # ========== Campaigns ==========
