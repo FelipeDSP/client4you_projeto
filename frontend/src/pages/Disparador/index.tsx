@@ -29,7 +29,7 @@ export default function Disparador() {
 
   const { campaigns, isLoading, error, fetchCampaigns } = useCampaigns();
   const { settings, hasWahaConfig, isLoading: isLoadingSettings, refreshSettings } = useCompanySettings();
-  const { quota, canUseCampaigns } = useQuotas();
+  const { permissions, isLoading: isLoadingPermissions } = usePlanPermissions();
   
   // Estado para controlar a visibilidade do modal de criação
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -49,14 +49,14 @@ export default function Disparador() {
   useEffect(() => {
     const hasRunning = campaigns.some((c) => c.status === "running");
     
-    if (autoRefresh && hasRunning && canUseCampaigns) {
+    if (autoRefresh && hasRunning && permissions.canUseDisparador) {
       // Polling a cada 30s quando há campanha rodando (otimizado de 5s)
       const interval = setInterval(() => {
         fetchCampaigns();
       }, 30000); // 30 segundos
       return () => clearInterval(interval);
     }
-  }, [autoRefresh, campaigns, fetchCampaigns, canUseCampaigns]);
+  }, [autoRefresh, campaigns, fetchCampaigns, permissions.canUseDisparador]);
 
   const selectedCampaign = campaigns.find((c) => c.id === selectedCampaignId);
 
@@ -67,7 +67,8 @@ export default function Disparador() {
     totalContacts: campaigns.reduce((sum, c) => sum + c.total_contacts, 0),
   };
 
-  if (isLoadingSettings || !quota) {
+  // Loading
+  if (isLoadingSettings || isLoadingPermissions) {
     return (
       <div className="flex h-[50vh] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -75,36 +76,27 @@ export default function Disparador() {
     );
   }
 
-  if (!canUseCampaigns) {
+  // Verificar se plano expirou
+  if (permissions.isPlanExpired) {
     return (
-      <div className="py-12 animate-fade-in">
-        <Card className="max-w-2xl mx-auto shadow-sm border-none">
-          <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-            <div className="rounded-full bg-primary/10 p-4 mb-6">
-              <Lock className="h-12 w-12 text-primary" />
-            </div>
-            <h2 className="text-2xl font-bold mb-2">Disparador Bloqueado 🔒</h2>
-            <p className="text-muted-foreground mb-6 max-w-md">
-              O Disparador de Mensagens WhatsApp está disponível apenas nos planos 
-              <strong className="text-foreground"> Pro</strong> e 
-              <strong className="text-foreground"> Enterprise</strong>.
-            </p>
-            <div className="bg-muted p-4 rounded-lg mb-6 text-left w-full max-w-sm">
-              <p className="text-sm font-medium mb-2">Seu plano atual:</p>
-              <div className="flex items-center gap-2">
-                <Crown className="h-5 w-5 text-primary" />
-                <span className="font-bold">{quota.plan_name}</span>
-              </div>
-            </div>
-            <Link to="/pricing">
-              <Button size="lg" className="gap-2">
-                <Crown className="h-4 w-4" />
-                Ver Planos e Fazer Upgrade
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
-      </div>
+      <PlanBlockedOverlay
+        feature="disparador"
+        currentPlan={permissions.planName}
+        requiredPlan="intermediario"
+        isExpired={true}
+        expiresAt={permissions.expiresAt}
+      />
+    );
+  }
+
+  // Verificar se tem permissão para usar disparador
+  if (!permissions.canUseDisparador) {
+    return (
+      <PlanBlockedOverlay
+        feature="disparador"
+        currentPlan={permissions.planName}
+        requiredPlan="intermediario"
+      />
     );
   }
 
