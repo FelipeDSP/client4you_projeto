@@ -197,10 +197,16 @@ export default function SearchLeads() {
         </div>
         
         {currentResults.length > 0 && (
-          <ExportButton 
-            leads={filteredLeads} 
-            selectedLeads={selectedLeads} 
-          />
+          <div className="flex items-center gap-2">
+            <ExportButton 
+              leads={filteredLeads} 
+              selectedLeads={selectedLeads} 
+            />
+            <CreateCampaignFromLeads
+              leads={filteredLeads}
+              selectedLeads={selectedLeads}
+            />
+          </div>
         )}
       </div>
 
