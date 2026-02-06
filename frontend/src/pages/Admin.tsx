@@ -191,6 +191,10 @@ export default function Admin() {
   const [editMessagesLimit, setEditMessagesLimit] = useState("-1");
   const [isEditingQuota, setIsEditingQuota] = useState(false);
 
+  // Suspend/Activate user
+  const [isSuspending, setIsSuspending] = useState<string | null>(null);
+  const [isActivating, setIsActivating] = useState<string | null>(null);
+
   // Force refresh helper
   const forceRefresh = useCallback(async () => {
     setIsRefreshing(true);
