@@ -38,16 +38,6 @@ import { supabase } from "@/integrations/supabase/client";
 // URL do backend a partir de variável de ambiente
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || import.meta.env.REACT_APP_BACKEND_URL || '';
 
-// Lista de Timezones
-const TIMEZONES = [
-  { value: "America/Sao_Paulo", label: "Horário de Brasília (SP/RJ/MG...)" },
-  { value: "America/Manaus", label: "Horário do Amazonas (Manaus)" },
-  { value: "America/Rio_Branco", label: "Horário do Acre (Rio Branco)" },
-  { value: "America/Cuiaba", label: "Horário do Mato Grosso (Cuiabá)" },
-  { value: "America/Noronha", label: "Fernando de Noronha" },
-  { value: "UTC", label: "UTC (Universal)" },
-];
-
 // Helper para fazer requisições autenticadas
 const createAuthenticatedApi = () => ({
   get: async (url: string) => {
