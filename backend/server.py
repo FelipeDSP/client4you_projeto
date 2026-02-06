@@ -393,6 +393,7 @@ async def create_campaign(
             "end_time": campaign.settings.end_time,
             "daily_limit": campaign.settings.daily_limit,
             "working_days": campaign.settings.working_days,
+            "timezone": campaign.settings.timezone,
             "total_contacts": 0,
             "sent_count": 0,
             "error_count": 0,
@@ -410,6 +411,122 @@ async def create_campaign(
     except HTTPException:
         raise
     except Exception as e:
+        raise handle_error(e, "Erro ao criar campanha")
+
+
+class CampaignFromLeadsRequest(BaseModel):
+    """Request para criar campanha diretamente dos leads buscados"""
+    name: str
+    message: CampaignMessage
+    settings: CampaignSettings = Field(default_factory=CampaignSettings)
+    contacts: List[dict]  # Lista de {name, phone, category?, extra_data?}
+
+
+@api_router.post("/campaigns/from-leads")
+@limiter.limit("20/hour")
+async def create_campaign_from_leads(
+    request: Request,
+    data: CampaignFromLeadsRequest,
+    auth_user: dict = Depends(get_authenticated_user)
+):
+    """
+    Cria uma campanha e adiciona contatos diretamente (sem precisar de arquivo).
+    Usado para criar campanhas diretamente da página de busca de leads.
+    """
+    try:
+        logger.info(f"📝 Criando campanha dos leads: {data.name} ({len(data.contacts)} contatos)")
+        
+        db = get_db()
+        await validate_quota_for_action(
+            user_id=auth_user["user_id"],
+            action="create_campaign",
+            required_plan=["intermediario", "avancado"],
+            db=db
+        )
+        
+        # Validar contatos
+        if not data.contacts or len(data.contacts) == 0:
+            raise HTTPException(status_code=400, detail="É necessário pelo menos 1 contato")
+        
+        # Limitar a 5000 contatos por vez para não sobrecarregar
+        if len(data.contacts) > 5000:
+            raise HTTPException(status_code=400, detail="Máximo de 5000 contatos por campanha")
+        
+        campaign_id = str(uuid.uuid4())
+        
+        # 1. Criar campanha
+        campaign_data = {
+            "id": campaign_id,
+            "company_id": auth_user["company_id"],
+            "user_id": auth_user["user_id"],
+            "name": data.name,
+            "status": "draft",
+            "message_type": data.message.type,
+            "message_text": data.message.text,
+            "media_url": data.message.media_url,
+            "media_filename": data.message.media_filename,
+            "interval_min": data.settings.interval_min,
+            "interval_max": data.settings.interval_max,
+            "start_time": data.settings.start_time,
+            "end_time": data.settings.end_time,
+            "daily_limit": data.settings.daily_limit,
+            "working_days": data.settings.working_days,
+            "timezone": data.settings.timezone,
+            "total_contacts": len(data.contacts),
+            "sent_count": 0,
+            "error_count": 0,
+            "pending_count": len(data.contacts)
+        }
+        
+        result = await db.create_campaign(campaign_data)
+        if not result:
+            raise HTTPException(status_code=500, detail="Erro ao criar campanha")
+        
+        # 2. Inserir contatos em batch (eficiente para Supabase)
+        contacts_to_insert = []
+        for contact in data.contacts:
+            phone = contact.get("phone", "").strip()
+            # Limpar telefone
+            phone = ''.join(filter(str.isdigit, phone))
+            if len(phone) < 10:
+                continue  # Pular telefones inválidos
+            
+            contacts_to_insert.append({
+                "campaign_id": campaign_id,
+                "name": contact.get("name", "Sem nome")[:100],
+                "phone": phone,
+                "category": contact.get("category", "")[:50] if contact.get("category") else None,
+                "extra_data": contact.get("extra_data", {}),
+                "status": "pending"
+            })
+        
+        # Inserir em batches de 500 para não sobrecarregar
+        batch_size = 500
+        for i in range(0, len(contacts_to_insert), batch_size):
+            batch = contacts_to_insert[i:i + batch_size]
+            db.client.table("campaign_contacts").insert(batch).execute()
+        
+        # 3. Atualizar contagem real (pode ter removido inválidos)
+        actual_count = len(contacts_to_insert)
+        if actual_count != len(data.contacts):
+            db.client.table("campaigns").update({
+                "total_contacts": actual_count,
+                "pending_count": actual_count
+            }).eq("id", campaign_id).execute()
+        
+        # 4. Incrementar quota
+        await db.increment_quota(auth_user["user_id"], "create_campaign")
+        
+        logger.info(f"✅ Campanha {campaign_id} criada com {actual_count} contatos")
+        
+        # Retornar campanha criada
+        final_result = db.client.table("campaigns").select("*").eq("id", campaign_id).single().execute()
+        return campaign_to_response(final_result.data) if final_result.data else result
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro ao criar campanha dos leads: {e}")
         raise handle_error(e, "Erro ao criar campanha")
 
 
