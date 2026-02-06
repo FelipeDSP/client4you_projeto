@@ -244,13 +244,15 @@ async def start_whatsapp_session(
     waha_url = os.getenv('WAHA_DEFAULT_URL')
     waha_key = os.getenv('WAHA_MASTER_KEY')
     session_name = await get_session_name_for_company(company_id)
+    
+    logger.info(f"🚀 Iniciando sessão: {session_name} para empresa: {company_id}")
 
     waha = WahaService(waha_url, waha_key, session_name)
     result = await waha.start_session()
     if not result.get("success"):
         raise HTTPException(status_code=500, detail=result.get("error"))
 
-    return {"status": "STARTING", "message": "Motor em inicialização..."}
+    return {"status": "STARTING", "message": "Motor em inicialização...", "session_name": session_name}
 
 @api_router.post("/whatsapp/session/stop")
 async def stop_whatsapp_session(
