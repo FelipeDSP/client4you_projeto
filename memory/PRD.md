@@ -59,24 +59,35 @@ Plataforma SaaS para captação e conversão de leads via WhatsApp.
 - [x] Sidebar com ícones de cadeado para features bloqueadas
 - [x] Alerta de expiração próxima no Dashboard
 
-### Painel Admin - Gerenciamento de Contas
+### Painel Admin - Gerenciamento Manual
 - [x] Endpoint `POST /api/admin/users/{id}/suspend` - suspende conta
 - [x] Endpoint `POST /api/admin/users/{id}/activate` - ativa com plano escolhido
 - [x] Endpoint `GET /api/admin/users` - lista todos usuários com status
 - [x] Interface no Admin com botões Suspender/Ativar
 - [x] Coluna de Status (Ativo/Suspenso/Expirado) na tabela
-- [x] Dropdown para escolher plano ao ativar (30 dias)
 
 ### Página Agente IA
 - [x] Página criada (`/agente-ia`)
 - [x] Configurações de personalidade e prompt
 - [x] Status: Beta (integração n8n pendente)
 
+### Sidebar Reorganizada
+- [x] "Buscar Leads" movido para seção "Ferramentas"
+- [x] Seções: Aplicação (Dashboard, Histórico) | Ferramentas (Buscar Leads, Disparador, Agente IA) | Conta
+
+### Configurações de Campanha MELHORADAS
+- [x] Seleção de Fuso Horário por campanha (6 fusos brasileiros)
+- [x] Presets de horário: Comercial, Manhã, Tarde, Dia Inteiro
+- [x] Visualização gráfica da janela de disparo (barra visual 0-24h)
+- [x] Estimativa de capacidade (msg/hora, msg/dia)
+- [x] Badges de risco no limite diário (Seguro → Alto Risco)
+- [x] Tooltips explicativos nos dias da semana
+- [x] Backend atualizado para usar timezone da campanha
+
 ### Sistema de Pagamentos (Kiwify)
 - [x] Webhook `order.paid` - upgrade automático
 - [x] Webhook `order.refunded` - SUSPENDE conta
 - [x] Webhook `subscription.canceled` - SUSPENDE conta
-- [x] Criação automática de conta ao pagar
 
 ---
 
