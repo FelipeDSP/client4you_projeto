@@ -10,7 +10,7 @@ from datetime import datetime
 import json
 
 class AdminEndpointsTest:
-    def __init__(self, base_url="https://4d627f0f-7cd4-4e1b-b67d-00a320f76c70.preview.emergentagent.com"):
+    def __init__(self, base_url="https://leadpro-check.preview.emergentagent.com"):
         self.base_url = base_url
         self.tests_run = 0
         self.tests_passed = 0
