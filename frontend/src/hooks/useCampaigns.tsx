@@ -428,12 +428,58 @@ export function useCampaigns() {
     }
   };
 
+  // Criar campanha com contatos diretamente (dos leads buscados)
+  const createCampaignFromLeads = async (data: {
+    name: string;
+    message: CampaignMessage;
+    settings: CampaignSettings;
+    contacts: Array<{
+      name: string;
+      phone: string;
+      category?: string;
+      extra_data?: any;
+    }>;
+  }): Promise<Campaign | null> => {
+    if (!user?.companyId) {
+      toast({
+        title: "Erro",
+        description: "Usuário não autenticado.",
+        variant: "destructive",
+      });
+      return null;
+    }
+
+    try {
+      const response = await makeAuthenticatedRequest(
+        `${BACKEND_URL}/api/campaigns/from-leads`,
+        {
+          method: "POST",
+          body: JSON.stringify(data),
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.detail || "Erro ao criar campanha");
+      }
+
+      const campaign = await response.json();
+      await fetchCampaigns();
+      
+      return campaign;
+    } catch (error: any) {
+      console.error("Erro ao criar campanha dos leads:", error);
+      throw error;
+    }
+  };
+
   return {
     campaigns,
     isLoading,
     error,
     fetchCampaigns,
     createCampaign,
+    createCampaignFromLeads,
     uploadContacts,
     startCampaign,
     pauseCampaign,
