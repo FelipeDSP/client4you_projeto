@@ -38,7 +38,8 @@ export function useWahaStatus(): UseWahaStatusResult {
       const timeoutId = setTimeout(() => controller.abort(), 10000);
 
       // Chamar o endpoint do backend que já tem toda a lógica correta
-      const response = await fetch(`${BACKEND_URL}/api/whatsapp/status`, { 
+      // Usa URL relativa porque o proxy do Vite redireciona /api -> backend
+      const response = await fetch(`/api/whatsapp/status`, { 
         method: "GET", 
         headers: {
           "Content-Type": "application/json",
