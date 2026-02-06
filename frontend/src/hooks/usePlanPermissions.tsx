@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useQuotas } from "./useQuotas";
 
-export type PlanType = 'demo' | 'basico' | 'intermediario' | 'avancado';
+export type PlanType = 'basico' | 'intermediario' | 'avancado' | 'suspended';
 
 export interface PlanPermissions {
   // Funcionalidades
@@ -19,23 +19,14 @@ export interface PlanPermissions {
   planType: PlanType;
   planName: string;
   isPlanExpired: boolean;
+  isSuspended: boolean;
   isActive: boolean;
   expiresAt: string | null;
   daysUntilExpiration: number | null;
 }
 
-// Configuração de permissões por plano
-const PLAN_PERMISSIONS: Record<PlanType, Omit<PlanPermissions, 'isPlanExpired' | 'isActive' | 'expiresAt' | 'daysUntilExpiration' | 'planName'>> = {
-  demo: {
-    canSearchLeads: true,
-    canExportLeads: true,
-    canUseDisparador: false,
-    canUseAgenteIA: false,
-    leadsLimit: 5,
-    campaignsLimit: 0,
-    messagesLimit: 0,
-    planType: 'demo',
-  },
+// Configuração de permissões por plano (SEM DEMO)
+const PLAN_PERMISSIONS: Record<PlanType, Omit<PlanPermissions, 'isPlanExpired' | 'isSuspended' | 'isActive' | 'expiresAt' | 'daysUntilExpiration' | 'planName'>> = {
   basico: {
     canSearchLeads: true,
     canExportLeads: true,
@@ -65,6 +56,16 @@ const PLAN_PERMISSIONS: Record<PlanType, Omit<PlanPermissions, 'isPlanExpired' |
     campaignsLimit: -1,
     messagesLimit: -1,
     planType: 'avancado',
+  },
+  suspended: {
+    canSearchLeads: false,
+    canExportLeads: false,
+    canUseDisparador: false,
+    canUseAgenteIA: false,
+    leadsLimit: 0,
+    campaignsLimit: 0,
+    messagesLimit: 0,
+    planType: 'suspended',
   },
 };
 
