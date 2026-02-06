@@ -40,21 +40,14 @@ PLAN_NAME_MAP = {
     'avancado': 'avancado',
 }
 
-# Configurações de limites por plano
+# Configurações de limites por plano (SEM DEMO - apenas planos pagos)
 PLAN_LIMITS = {
-    'demo': {
-        'name': 'Plano Demo',
-        'leads_limit': 5,
-        'campaigns_limit': 1,
-        'messages_limit': 50,
-        'expires_days': 7
-    },
     'basico': {
         'name': 'Plano Básico',
         'leads_limit': -1,  # Ilimitado
         'campaigns_limit': 0,  # Sem disparador
         'messages_limit': 0,
-        'expires_days': None  # Não expira
+        'expires_days': None  # Não expira (enquanto pago)
     },
     'intermediario': {
         'name': 'Plano Intermediário',
