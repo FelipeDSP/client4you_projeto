@@ -822,9 +822,9 @@ export default function Admin() {
                     <TableRow>
                       <TableHead className="font-semibold text-gray-600">Usuário</TableHead>
                       <TableHead className="font-semibold text-gray-600">Empresa</TableHead>
+                      <TableHead className="text-center font-semibold text-gray-600">Status</TableHead>
                       <TableHead className="text-center font-semibold text-gray-600">Admin</TableHead>
-                      <TableHead className="text-center font-semibold text-gray-600">Quota</TableHead>
-                      <TableHead className="text-right font-semibold text-gray-600 pr-6">Ações</TableHead>
+                      <TableHead className="text-center font-semibold text-gray-600">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -835,18 +835,45 @@ export default function Admin() {
                         </TableCell>
                       </TableRow>
                     ) : (
-                      filteredUsers.map((user) => (
+                      filteredUsers.map((user) => {
+                        const isSuspended = user.quotaStatus === 'suspended' || user.quotaStatus === 'canceled';
+                        const isExpired = user.quotaExpiresAt && new Date(user.quotaExpiresAt) < new Date();
+                        
+                        return (
                         <TableRow key={user.id} className="hover:bg-gray-50/50 transition-colors">
                           <TableCell>
                             <div className="flex flex-col">
                               <span className="font-medium text-gray-900">{user.fullName || "Sem nome"}</span>
                               <span className="text-xs text-muted-foreground">{user.email}</span>
+                              {user.quotaPlanName && (
+                                <Badge variant="outline" className="w-fit mt-1 text-xs">
+                                  {user.quotaPlanName}
+                                </Badge>
+                              )}
                             </div>
                           </TableCell>
                           <TableCell>
                             <span className="text-sm text-gray-700 font-medium">
                               {user.companyName || <span className="text-muted-foreground italic">Sem empresa</span>}
                             </span>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {isSuspended ? (
+                              <Badge variant="destructive" className="gap-1">
+                                <XCircle className="h-3 w-3" />
+                                Suspenso
+                              </Badge>
+                            ) : isExpired ? (
+                              <Badge variant="outline" className="text-orange-600 border-orange-300 gap-1">
+                                <XCircle className="h-3 w-3" />
+                                Expirado
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-green-600 border-green-300 gap-1">
+                                <CheckCircle className="h-3 w-3" />
+                                Ativo
+                              </Badge>
+                            )}
                           </TableCell>
                           <TableCell className="text-center">
                             <Checkbox
@@ -858,45 +885,107 @@ export default function Admin() {
                             />
                           </TableCell>
                           <TableCell className="text-center">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleOpenEditQuota(user.id)}
-                              className="h-7 text-xs"
-                            >
-                              <Edit className="mr-1 h-3 w-3" />
-                              Editar Quota
-                            </Button>
-                          </TableCell>
-                          <TableCell className="text-right pr-6">
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-red-600 hover:bg-red-50">
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Excluir usuário?</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    O usuário <strong>{user.fullName || user.email}</strong> será removido permanentemente. 
-                                    Esta ação não pode ser desfeita.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                  <AlertDialogAction
-                                    className="bg-red-600 hover:bg-red-700 text-white"
-                                    onClick={() => handleDeleteUser(user.id, user.fullName || user.email)}
-                                  >
-                                    Sim, excluir
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
+                            <div className="flex items-center justify-center gap-1">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleOpenEditQuota(user.id)}
+                                className="h-7 text-xs"
+                              >
+                                <Edit className="mr-1 h-3 w-3" />
+                                Quota
+                              </Button>
+                              
+                              {isSuspended || isExpired ? (
+                                <Select 
+                                  onValueChange={(planType) => handleActivateUser(user.id, user.fullName || user.email, planType)}
+                                  disabled={isActivating === user.id}
+                                >
+                                  <SelectTrigger className="h-7 w-24 text-xs bg-green-50 text-green-700 border-green-200 hover:bg-green-100">
+                                    {isActivating === user.id ? (
+                                      <Loader2 className="h-3 w-3 animate-spin" />
+                                    ) : (
+                                      <>
+                                        <Play className="h-3 w-3 mr-1" />
+                                        Ativar
+                                      </>
+                                    )}
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="basico">Básico (30d)</SelectItem>
+                                    <SelectItem value="intermediario">Intermediário (30d)</SelectItem>
+                                    <SelectItem value="avancado">Avançado (30d)</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              ) : (
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button 
+                                      variant="outline" 
+                                      size="sm" 
+                                      className="h-7 text-xs text-red-600 border-red-200 hover:bg-red-50"
+                                      disabled={isSuspending === user.id}
+                                    >
+                                      {isSuspending === user.id ? (
+                                        <Loader2 className="h-3 w-3 animate-spin" />
+                                      ) : (
+                                        <>
+                                          <Ban className="mr-1 h-3 w-3" />
+                                          Suspender
+                                        </>
+                                      )}
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Suspender conta?</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        O usuário <strong>{user.fullName || user.email}</strong> perderá acesso a todas as funcionalidades.
+                                        Você pode reativar a conta a qualquer momento.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                      <AlertDialogAction
+                                        className="bg-red-600 hover:bg-red-700 text-white"
+                                        onClick={() => handleSuspendUser(user.id, user.fullName || user.email)}
+                                      >
+                                        Sim, suspender
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              )}
+                              
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-red-600 hover:bg-red-50">
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Excluir usuário?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      O usuário <strong>{user.fullName || user.email}</strong> será removido permanentemente. 
+                                      Esta ação não pode ser desfeita.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      className="bg-red-600 hover:bg-red-700 text-white"
+                                      onClick={() => handleDeleteUser(user.id, user.fullName || user.email)}
+                                    >
+                                      Sim, excluir
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </div>
                           </TableCell>
                         </TableRow>
-                      ))
+                      )})
                     )}
                   </TableBody>
                 </Table>
