@@ -160,7 +160,7 @@ async def activate_user_account(
         from datetime import datetime, timedelta
         expires_at = (datetime.now() + timedelta(days=activate_data.days_valid)).isoformat()
         
-        # Ativar conta
+        # Ativar conta (usando apenas colunas existentes na tabela user_quotas)
         db.client.table('user_quotas').upsert({
             'user_id': user_id,
             'company_id': company_id,
@@ -172,9 +172,7 @@ async def activate_user_account(
             'leads_used': 0,
             'campaigns_used': 0,
             'messages_sent': 0,
-            'subscription_status': 'active',
             'plan_expires_at': expires_at,
-            'cancellation_reason': None,
             'updated_at': datetime.now().isoformat()
         }, on_conflict='user_id').execute()
         
