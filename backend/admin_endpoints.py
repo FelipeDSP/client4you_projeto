@@ -69,7 +69,7 @@ async def suspend_user_account(
         
         target_email = profile.data.get('email')
         
-        # Suspender conta
+        # Suspender conta (usando plan_type='suspended' como marcador)
         from datetime import datetime
         db.client.table('user_quotas').upsert({
             'user_id': user_id,
@@ -78,8 +78,6 @@ async def suspend_user_account(
             'leads_limit': 0,
             'campaigns_limit': 0,
             'messages_limit': 0,
-            'subscription_status': 'suspended',
-            'cancellation_reason': suspend_data.reason,
             'updated_at': datetime.now().isoformat()
         }, on_conflict='user_id').execute()
         
