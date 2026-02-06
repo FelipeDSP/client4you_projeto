@@ -43,6 +43,7 @@ export default function Dashboard() {
   const { leads, searchHistory, isLoading: isLoadingLeads } = useLeads();
   const { campaigns, isLoading: isLoadingCampaigns } = useCampaigns();
   const { hasWahaConfig } = useCompanySettings();
+  const { status: waStatus, isLoading: isLoadingWaha, isConnected } = useWahaStatus();
 
   // 2. Calculamos os KPIs (Indicadores Chave)
   const stats = useMemo(() => {
