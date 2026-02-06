@@ -6,11 +6,15 @@ import {
   User, 
   MessageSquare, 
   LogOut,
-  ShieldCheck
+  ShieldCheck,
+  Bot,
+  Lock,
+  Crown
 } from "lucide-react";
 import { useLocation, Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useAdmin } from "@/hooks/useAdmin";
+import { usePlanPermissions } from "@/hooks/usePlanPermissions";
 import {
   Sidebar,
   SidebarContent,
@@ -23,37 +27,68 @@ import {
   SidebarFooter,
 } from "@/components/ui/sidebar";
 import { Button } from "./ui/button";
+import { Badge } from "./ui/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
-const items = [
+// Itens base (sempre visíveis)
+const baseItems = [
   {
     title: "Dashboard",
     url: "/dashboard",
     icon: LayoutDashboard,
+    requiredPlan: null,
   },
   {
     title: "Buscar Leads",
     url: "/search",
     icon: Search,
+    requiredPlan: null,
   },
   {
     title: "Histórico",
     url: "/history",
     icon: History,
+    requiredPlan: null,
   },
+];
+
+// Itens com controle de acesso
+const featureItems = [
   {
     title: "Disparador",
     url: "/disparador",
     icon: MessageSquare,
+    requiredPlan: 'intermediario' as const,
+    feature: 'disparador' as const,
   },
+  {
+    title: "Agente IA",
+    url: "/agente-ia",
+    icon: Bot,
+    requiredPlan: 'avancado' as const,
+    feature: 'agente' as const,
+    badge: "Beta",
+  },
+];
+
+// Itens de conta
+const accountItems = [
   {
     title: "Perfil",
     url: "/profile",
     icon: User,
+    requiredPlan: null,
   },
   {
     title: "Configurações",
     url: "/settings",
     icon: Settings,
+    requiredPlan: null,
   },
 ];
 
