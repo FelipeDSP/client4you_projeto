@@ -66,15 +66,17 @@ def is_within_working_hours(settings: dict, campaign_tz: ZoneInfo) -> bool:
     # Pega a hora atual no fuso da empresa
     now = datetime.now(campaign_tz)
     
-    # Check working days (0 = Monday, 6 = Sunday)
-    working_days = settings.get("working_days", [0, 1, 2, 3, 4])
+    # Check working days
+    # Frontend envia: 0=Domingo, 1=Segunda, ..., 6=Sábado (padrão JavaScript)
+    # Python weekday(): 0=Segunda, ..., 6=Domingo
+    # Precisamos converter: JS Sunday(0) -> Python Sunday(6), etc.
+    working_days_js = settings.get("working_days", [1, 2, 3, 4, 5])  # Default: Seg-Sex em JS
     
-    # Python weekday(): 0=Mon, 6=Sun
-    # Se o frontend enviar 0=Sun, 1=Mon, precisamos converter ou padronizar.
-    # Assumindo que o Frontend agora envia padrão Python (0=Mon...):
-    if now.weekday() not in working_days:
-        # Debug log
-        # logger.debug(f"Hoje ({now.weekday()}) não é dia de envio: {working_days}")
+    # Converter de JS (0=Dom) para Python (0=Seg)
+    js_to_python_day = {0: 6, 1: 0, 2: 1, 3: 2, 4: 3, 5: 4, 6: 5}
+    working_days_python = [js_to_python_day.get(d, d) for d in working_days_js]
+    
+    if now.weekday() not in working_days_python:
         return False
     
     # Check time range
@@ -94,9 +96,6 @@ def is_within_working_hours(settings: dict, campaign_tz: ZoneInfo) -> bool:
                 # Crosses midnight (e.g., 22:00 to 02:00)
                 is_time = current_time >= start or current_time <= end
             
-            if not is_time:
-                # logger.debug(f"Fora do horário: Agora {current_time}, Limites {start}-{end}")
-                pass
             return is_time
 
         except ValueError as e:
