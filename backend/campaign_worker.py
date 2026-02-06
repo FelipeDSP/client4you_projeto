@@ -129,7 +129,10 @@ async def process_campaign(
         # Usa o novo método que criamos no supabase_service
         company_settings = await db.get_company_settings_with_timezone(company_id)
         
-        # 3. Define timezone da campanha
+        # 3. Define timezone da campanha (prioriza timezone da campanha, depois da empresa)
+        campaign_timezone = campaign_data.get("timezone") or company_settings.get("timezone")
+        if campaign_timezone:
+            company_settings["timezone"] = campaign_timezone
         campaign_tz = get_campaign_timezone(company_settings)
         logger.info(f"Campaign {campaign_id} (Company {company_id}) using timezone: {campaign_tz}")
         
