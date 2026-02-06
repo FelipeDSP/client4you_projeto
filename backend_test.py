@@ -148,6 +148,46 @@ class Client4YouAPITester:
                 data={"name": "test"} if method == "POST" else None
             )
 
+    def test_new_campaign_endpoints(self):
+        """Test new campaign endpoints specifically mentioned in review request"""
+        print("\n" + "="*50)
+        print("TESTING NEW CAMPAIGN ENDPOINTS")
+        print("="*50)
+        
+        # Test the new campaigns/from-leads endpoint
+        test_data = {
+            "name": "Test Campaign from Leads",
+            "message": {
+                "type": "text",
+                "text": "Hello {Nome}, this is a test message"
+            },
+            "settings": {
+                "interval_min": 30,
+                "interval_max": 120,
+                "start_time": "08:00",
+                "end_time": "18:00",
+                "daily_limit": 300,
+                "working_days": [1, 2, 3, 4, 5],
+                "timezone": "America/Sao_Paulo"
+            },
+            "contacts": [
+                {
+                    "name": "Test Contact",
+                    "phone": "5511999999999",
+                    "category": "test",
+                    "extra_data": {}
+                }
+            ]
+        }
+        
+        self.run_test(
+            "POST /api/campaigns/from-leads endpoint exists",
+            "POST",
+            "/api/campaigns/from-leads",
+            401,  # Will be 401 without auth, but endpoint should exist
+            data=test_data
+        )
+
     def test_cors_and_security_headers(self):
         """Test CORS and security headers"""
         print("\n" + "="*50)
