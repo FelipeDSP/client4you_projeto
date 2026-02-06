@@ -39,20 +39,25 @@ class WahaService:
     async def start_session(self) -> Dict[str, Any]:
         """Inicia (ou cria) a sessão no WAHA"""
         try:
+            logger.info(f"🔌 WahaService.start_session - session_name: {self.session_name}")
             payload = {"name": self.session_name, "config": {"webhooks": []}}
+            logger.info(f"🔌 Payload para criar sessão: {payload}")
+            
             async with httpx.AsyncClient(timeout=30.0) as client:
                 response = await client.post(
                     f"{self.waha_url}/api/sessions",
                     headers=self.headers,
                     json=payload
                 )
+                logger.info(f"🔌 Resposta criar sessão: {response.status_code}")
                 
                 if response.status_code in [201, 409]:
-                    await client.post(
+                    start_response = await client.post(
                         f"{self.waha_url}/api/sessions/{self.session_name}/start",
                         headers=self.headers
                     )
-                    return {"success": True, "status": "STARTING"}
+                    logger.info(f"🔌 Resposta start sessão: {start_response.status_code}")
+                    return {"success": True, "status": "STARTING", "session_name": self.session_name}
                 
                 return {"success": False, "error": f"Erro WAHA: {response.status_code}"}
         except Exception as e:
