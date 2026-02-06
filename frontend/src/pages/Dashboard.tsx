@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { QuotaBar } from "@/components/QuotaBar";
+import { PlanExpirationAlert } from "@/components/PlanExpirationAlert";
 import { useLeads } from "@/hooks/useLeads";
 import { useCampaigns } from "@/hooks/useCampaigns";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
