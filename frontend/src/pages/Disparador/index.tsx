@@ -76,6 +76,18 @@ export default function Disparador() {
     );
   }
 
+  // Verificar se conta está suspensa
+  if (permissions.isSuspended) {
+    return (
+      <PlanBlockedOverlay
+        feature="disparador"
+        currentPlan={permissions.planName}
+        requiredPlan="intermediario"
+        isSuspended={true}
+      />
+    );
+  }
+
   // Verificar se plano expirou
   if (permissions.isPlanExpired) {
     return (
