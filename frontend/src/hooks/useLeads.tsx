@@ -202,7 +202,7 @@ export function useLeads() {
     if (leadIds.length === 0) return [];
 
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || "http://localhost:8000";
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || "";
       const { data: { session } } = await supabase.auth.getSession();
       
       const response = await fetch(`${backendUrl}/api/leads/validate`, {
