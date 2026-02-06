@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,11 +7,20 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCampaigns } from "@/hooks/useCampaigns";
-import { Loader2, Calendar, Clock, MessageSquare, Image as ImageIcon, Check, UploadCloud, FileSpreadsheet } from "lucide-react";
+import { useCompanySettings } from "@/hooks/useCompanySettings";
+import { Loader2, Calendar, Clock, MessageSquare, Image as ImageIcon, Check, UploadCloud, FileSpreadsheet, Globe, Info, AlertCircle } from "lucide-react";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { Card, CardContent } from "@/components/ui/card";
+import { Slider } from "@/components/ui/slider";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface CreateCampaignDialogProps {
   open: boolean;
@@ -29,8 +38,25 @@ const DAYS_OF_WEEK = [
   { value: "6", label: "S", fullName: "Sábado" },
 ];
 
+const TIMEZONES = [
+  { value: "America/Sao_Paulo", label: "Brasília (SP/RJ/MG)", offset: "-03:00" },
+  { value: "America/Manaus", label: "Amazonas (Manaus)", offset: "-04:00" },
+  { value: "America/Rio_Branco", label: "Acre (Rio Branco)", offset: "-05:00" },
+  { value: "America/Cuiaba", label: "Mato Grosso (Cuiabá)", offset: "-04:00" },
+  { value: "America/Noronha", label: "Fernando de Noronha", offset: "-02:00" },
+  { value: "America/Fortaleza", label: "Nordeste (Fortaleza)", offset: "-03:00" },
+];
+
+const PRESET_SCHEDULES = [
+  { label: "Horário Comercial", start: "08:00", end: "18:00", days: ["1", "2", "3", "4", "5"] },
+  { label: "Manhã", start: "08:00", end: "12:00", days: ["1", "2", "3", "4", "5"] },
+  { label: "Tarde", start: "13:00", end: "18:00", days: ["1", "2", "3", "4", "5"] },
+  { label: "Dia Inteiro", start: "08:00", end: "21:00", days: ["0", "1", "2", "3", "4", "5", "6"] },
+];
+
 export function CreateCampaignDialog({ open, onOpenChange, onSuccess }: CreateCampaignDialogProps) {
   const { createCampaign, uploadContacts, isCreating } = useCampaigns();
+  const { settings } = useCompanySettings();
   
   // Estado do Formulário
   const [name, setName] = useState("");
@@ -43,13 +69,33 @@ export function CreateCampaignDialog({ open, onOpenChange, onSuccess }: CreateCa
   
   const [isUploading, setIsUploading] = useState(false);
   
-  // Configurações
+  // Configurações de Intervalo
   const [intervalMin, setIntervalMin] = useState(30);
   const [intervalMax, setIntervalMax] = useState(120);
-  const [startTime, setStartTime] = useState("09:00");
+  
+  // Configurações de Horário
+  const [timezone, setTimezone] = useState("America/Sao_Paulo");
+  const [startTime, setStartTime] = useState("08:00");
   const [endTime, setEndTime] = useState("18:00");
   const [workingDays, setWorkingDays] = useState<string[]>(["1", "2", "3", "4", "5"]);
   const [dailyLimit, setDailyLimit] = useState(500);
+
+  // Carregar timezone das configurações da empresa
+  useEffect(() => {
+    if (settings?.timezone) {
+      setTimezone(settings.timezone);
+    }
+  }, [settings]);
+
+  const applyPreset = (preset: typeof PRESET_SCHEDULES[0]) => {
+    setStartTime(preset.start);
+    setEndTime(preset.end);
+    setWorkingDays(preset.days);
+    toast({
+      title: `Preset aplicado: ${preset.label}`,
+      description: `${preset.start} - ${preset.end}`,
+    });
+  };
 
   const toggleDay = (dayValue: string) => {
     setWorkingDays(prev => 
@@ -110,6 +156,12 @@ export function CreateCampaignDialog({ open, onOpenChange, onSuccess }: CreateCa
       return;
     }
 
+    // Validar horários
+    if (startTime >= endTime) {
+      toast({ title: "Erro", description: "O horário de início deve ser anterior ao de término.", variant: "destructive" });
+      return;
+    }
+
     try {
       setIsUploading(true);
       let finalMediaUrl: string | undefined = undefined;
@@ -124,27 +176,27 @@ export function CreateCampaignDialog({ open, onOpenChange, onSuccess }: CreateCa
         finalMediaUrl = url;
       }
 
-      // 3. Montar Payload (Limpo)
-      // Usamos undefined para campos opcionais vazios, assim o JSON.stringify remove a chave
+      // 3. Montar Payload
       const campaignData = {
         name: name.trim(),
         message: {
           type: messageType,
-          text: messageText || "", // Texto obrigatório, mesmo que vazio
-          media_url: finalMediaUrl || undefined, // undefined remove do JSON
+          text: messageText || "",
+          media_url: finalMediaUrl || undefined,
           media_filename: mediaFile ? mediaFile.name : (messageType === 'document' ? 'documento' : undefined)
         },
         settings: {
           interval_min: Math.floor(Number(intervalMin)),
           interval_max: Math.floor(Number(intervalMax)),
-          start_time: startTime || "09:00",
+          start_time: startTime || "08:00",
           end_time: endTime || "18:00",
           daily_limit: Math.floor(Number(dailyLimit)) || 500,
-          working_days: workingDays.map(d => parseInt(d, 10))
+          working_days: workingDays.map(d => parseInt(d, 10)),
+          timezone: timezone
         }
       };
 
-      console.log("Payload Enviado (v2):", JSON.stringify(campaignData, null, 2));
+      console.log("Payload Enviado:", JSON.stringify(campaignData, null, 2));
 
       // 4. Enviar
       const newCampaign = await createCampaign(
@@ -153,7 +205,7 @@ export function CreateCampaignDialog({ open, onOpenChange, onSuccess }: CreateCa
         campaignData.settings
       );
       
-      // 5. Upload dos Contatos (Planilha)
+      // 5. Upload dos Contatos
       if (newCampaign && newCampaign.id) {
         toast({ title: "Enviando contatos...", description: "Processando sua planilha." });
         await uploadContacts(newCampaign.id, contactsFile);
@@ -176,10 +228,8 @@ export function CreateCampaignDialog({ open, onOpenChange, onSuccess }: CreateCa
     } catch (error: any) {
       console.error("Erro completo:", error);
       
-      // Extração avançada de erro 422
       let errorMessage = "Erro ao processar requisição.";
       if (error?.response?.data?.detail) {
-        // Se for erro de validação do Pydantic, ele vem como um array
         if (Array.isArray(error.response.data.detail)) {
           errorMessage = error.response.data.detail
             .map((err: any) => `${err.loc.join('.')} -> ${err.msg}`)
@@ -190,8 +240,6 @@ export function CreateCampaignDialog({ open, onOpenChange, onSuccess }: CreateCa
       } else if (error?.message) {
         errorMessage = error.message;
       }
-
-      console.error("Mensagem Detalhada:", errorMessage);
       
       toast({ 
         title: "Erro ao criar", 
@@ -209,9 +257,21 @@ export function CreateCampaignDialog({ open, onOpenChange, onSuccess }: CreateCa
     setMediaFile(null);
     setContactsFile(null);
     setWorkingDays(["1", "2", "3", "4", "5"]);
-    setStartTime("09:00");
+    setStartTime("08:00");
     setEndTime("18:00");
+    setIntervalMin(30);
+    setIntervalMax(120);
   };
+
+  // Calcular tempo estimado de disparo
+  const avgInterval = (intervalMin + intervalMax) / 2;
+  const hoursPerDay = (() => {
+    const [sh, sm] = startTime.split(':').map(Number);
+    const [eh, em] = endTime.split(':').map(Number);
+    return Math.max(0, (eh * 60 + em - sh * 60 - sm) / 60);
+  })();
+  const messagesPerHour = Math.floor(3600 / avgInterval);
+  const estimatedDailyCapacity = Math.min(dailyLimit, messagesPerHour * hoursPerDay);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -219,7 +279,7 @@ export function CreateCampaignDialog({ open, onOpenChange, onSuccess }: CreateCa
         <DialogHeader>
           <DialogTitle className="text-xl font-bold text-slate-800">Nova Campanha</DialogTitle>
           <DialogDescription>
-            Importe sua planilha e configure o disparo.
+            Configure sua campanha de disparo de mensagens.
           </DialogDescription>
         </DialogHeader>
 
@@ -259,7 +319,7 @@ export function CreateCampaignDialog({ open, onOpenChange, onSuccess }: CreateCa
                 <MessageSquare className="h-4 w-4" /> Mensagem
               </TabsTrigger>
               <TabsTrigger value="settings" className="flex items-center gap-2">
-                <Clock className="h-4 w-4" /> Configurações
+                <Clock className="h-4 w-4" /> Agendamento
               </TabsTrigger>
             </TabsList>
 
@@ -337,77 +397,244 @@ export function CreateCampaignDialog({ open, onOpenChange, onSuccess }: CreateCa
             </TabsContent>
 
             <TabsContent value="settings" className="space-y-5 pt-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Intervalo Mínimo (seg)</Label>
-                  <Input 
-                    type="number" 
-                    value={intervalMin} 
-                    onChange={(e) => setIntervalMin(Number(e.target.value))}
-                    min={10}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Intervalo Máximo (seg)</Label>
-                  <Input 
-                    type="number" 
-                    value={intervalMax} 
-                    onChange={(e) => setIntervalMax(Number(e.target.value))}
-                    min={15}
-                  />
+              
+              {/* Fuso Horário */}
+              <Card className="border-blue-100 bg-blue-50/30">
+                <CardContent className="pt-4 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Globe className="h-4 w-4 text-blue-600" />
+                    <Label className="font-semibold text-blue-900">Fuso Horário</Label>
+                  </div>
+                  <Select value={timezone} onValueChange={setTimezone}>
+                    <SelectTrigger className="bg-white">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {TIMEZONES.map((tz) => (
+                        <SelectItem key={tz.value} value={tz.value}>
+                          <div className="flex items-center gap-2">
+                            <span>{tz.label}</span>
+                            <span className="text-xs text-muted-foreground">({tz.offset})</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-blue-700">
+                    Os horários de disparo seguirão este fuso horário.
+                  </p>
+                </CardContent>
+              </Card>
+
+              {/* Presets de Horário */}
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <Clock className="h-4 w-4" /> Horário de Disparo
+                </Label>
+                <div className="flex flex-wrap gap-2">
+                  {PRESET_SCHEDULES.map((preset) => (
+                    <Button
+                      key={preset.label}
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => applyPreset(preset)}
+                      className="text-xs"
+                    >
+                      {preset.label}
+                    </Button>
+                  ))}
                 </div>
               </div>
 
+              {/* Horário Início/Fim */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="flex items-center gap-2"><Clock className="h-3 w-3" /> Início</Label>
+                  <Label className="text-sm">Início</Label>
                   <Input 
                     type="time" 
                     value={startTime} 
                     onChange={(e) => setStartTime(e.target.value)}
+                    className="font-mono"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="flex items-center gap-2"><Clock className="h-3 w-3" /> Fim</Label>
+                  <Label className="text-sm">Término</Label>
                   <Input 
                     type="time" 
                     value={endTime} 
                     onChange={(e) => setEndTime(e.target.value)}
+                    className="font-mono"
                   />
                 </div>
               </div>
 
-              <div className="space-y-3">
-                <Label className="flex items-center gap-2"><Calendar className="h-3 w-3" /> Dias de Funcionamento</Label>
-                <ToggleGroup type="multiple" value={workingDays} onValueChange={setWorkingDays} className="justify-start gap-2">
-                  {DAYS_OF_WEEK.map((day) => (
-                    <ToggleGroupItem 
-                      key={day.value} 
-                      value={day.value}
-                      aria-label={day.fullName}
-                      className="h-9 w-9 rounded-full border border-slate-200 data-[state=on]:bg-[#054173] data-[state=on]:text-white data-[state=on]:border-[#054173]"
-                    >
-                      {day.label}
-                    </ToggleGroupItem>
-                  ))}
-                </ToggleGroup>
-                <p className="text-xs text-muted-foreground">Selecione os dias que o robô deve operar.</p>
+              {/* Preview Visual do Horário */}
+              <div className="bg-slate-100 rounded-lg p-3">
+                <div className="flex items-center justify-between text-sm mb-2">
+                  <span className="text-slate-600">Janela de disparo:</span>
+                  <span className="font-semibold text-slate-800">{startTime} - {endTime}</span>
+                </div>
+                <div className="relative h-2 bg-slate-200 rounded-full overflow-hidden">
+                  {(() => {
+                    const [sh] = startTime.split(':').map(Number);
+                    const [eh] = endTime.split(':').map(Number);
+                    const startPercent = (sh / 24) * 100;
+                    const endPercent = (eh / 24) * 100;
+                    return (
+                      <div 
+                        className="absolute h-full bg-gradient-to-r from-green-400 to-green-600 rounded-full"
+                        style={{ 
+                          left: `${startPercent}%`, 
+                          width: `${endPercent - startPercent}%` 
+                        }}
+                      />
+                    );
+                  })()}
+                </div>
+                <div className="flex justify-between text-[10px] text-slate-400 mt-1">
+                  <span>00:00</span>
+                  <span>06:00</span>
+                  <span>12:00</span>
+                  <span>18:00</span>
+                  <span>24:00</span>
+                </div>
               </div>
 
-              <div className="space-y-2 pt-2 border-t">
+              {/* Dias da Semana */}
+              <div className="space-y-3">
+                <Label className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4" /> Dias de Funcionamento
+                </Label>
+                <ToggleGroup type="multiple" value={workingDays} onValueChange={setWorkingDays} className="justify-start gap-2">
+                  {DAYS_OF_WEEK.map((day) => (
+                    <TooltipProvider key={day.value}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <ToggleGroupItem 
+                            value={day.value}
+                            aria-label={day.fullName}
+                            className="h-10 w-10 rounded-full border-2 border-slate-200 data-[state=on]:bg-[#054173] data-[state=on]:text-white data-[state=on]:border-[#054173] font-semibold"
+                          >
+                            {day.label}
+                          </ToggleGroupItem>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>{day.fullName}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  ))}
+                </ToggleGroup>
+              </div>
+
+              {/* Intervalo entre mensagens */}
+              <div className="space-y-4 pt-4 border-t">
+                <div className="flex items-center justify-between">
+                  <Label className="flex items-center gap-2">
+                    Intervalo entre mensagens
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger>
+                          <Info className="h-4 w-4 text-muted-foreground" />
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          <p>Tempo aleatório entre cada envio. Intervalos maiores são mais seguros.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </Label>
+                  <Badge variant="outline" className="font-mono">
+                    {intervalMin}s - {intervalMax}s
+                  </Badge>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Mínimo (seg)</Label>
+                    <Input 
+                      type="number" 
+                      value={intervalMin} 
+                      onChange={(e) => setIntervalMin(Math.max(10, Number(e.target.value)))}
+                      min={10}
+                      className="font-mono"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Máximo (seg)</Label>
+                    <Input 
+                      type="number" 
+                      value={intervalMax} 
+                      onChange={(e) => setIntervalMax(Math.max(intervalMin + 5, Number(e.target.value)))}
+                      min={intervalMin + 5}
+                      className="font-mono"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Limite Diário */}
+              <div className="space-y-3">
                 <Label>Limite Diário de Envios</Label>
                 <Select value={String(dailyLimit)} onValueChange={(v) => setDailyLimit(Number(v))}>
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="100">100 mensagens (Seguro)</SelectItem>
-                    <SelectItem value="500">500 mensagens (Recomendado)</SelectItem>
-                    <SelectItem value="1000">1000 mensagens</SelectItem>
-                    <SelectItem value="2000">2000 mensagens (Alto Risco)</SelectItem>
+                    <SelectItem value="100">
+                      <div className="flex items-center gap-2">
+                        <span>100 mensagens</span>
+                        <Badge className="bg-green-100 text-green-700 text-[10px]">Seguro</Badge>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="300">
+                      <div className="flex items-center gap-2">
+                        <span>300 mensagens</span>
+                        <Badge className="bg-green-100 text-green-700 text-[10px]">Recomendado</Badge>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="500">
+                      <div className="flex items-center gap-2">
+                        <span>500 mensagens</span>
+                        <Badge className="bg-yellow-100 text-yellow-700 text-[10px]">Moderado</Badge>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="1000">
+                      <div className="flex items-center gap-2">
+                        <span>1000 mensagens</span>
+                        <Badge className="bg-orange-100 text-orange-700 text-[10px]">Alto Volume</Badge>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="2000">
+                      <div className="flex items-center gap-2">
+                        <span>2000 mensagens</span>
+                        <Badge className="bg-red-100 text-red-700 text-[10px]">Alto Risco</Badge>
+                      </div>
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Resumo/Estimativa */}
+              <Card className="bg-slate-50 border-slate-200">
+                <CardContent className="pt-4">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 bg-slate-200 rounded-lg">
+                      <Info className="h-4 w-4 text-slate-600" />
+                    </div>
+                    <div className="space-y-1 text-sm">
+                      <p className="font-medium text-slate-700">Estimativa de Capacidade</p>
+                      <p className="text-slate-600">
+                        ~<strong>{messagesPerHour}</strong> msg/hora • 
+                        ~<strong>{Math.round(estimatedDailyCapacity)}</strong> msg/dia
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        Operando {hoursPerDay.toFixed(1)}h/dia em {workingDays.length} dias/semana
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
 
             </TabsContent>
           </Tabs>
@@ -425,7 +652,7 @@ export function CreateCampaignDialog({ open, onOpenChange, onSuccess }: CreateCa
             {isCreating || isUploading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" /> 
-                {isUploading ? "Enviando..." : "Criar Campanha"}
+                {isUploading ? "Enviando..." : "Criando..."}
               </>
             ) : (
               <>
