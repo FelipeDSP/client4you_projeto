@@ -10,7 +10,10 @@ import {
   CheckCircle2, 
   AlertCircle,
   Clock,
-  LayoutDashboard
+  LayoutDashboard,
+  Loader2,
+  Wifi,
+  WifiOff
 } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -23,6 +26,7 @@ import { PlanExpirationAlert } from "@/components/PlanExpirationAlert";
 import { useLeads } from "@/hooks/useLeads";
 import { useCampaigns } from "@/hooks/useCampaigns";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
+import { useWahaStatus } from "@/hooks/useWahaStatus";
 import { usePageTitle } from "@/contexts/PageTitleContext";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
