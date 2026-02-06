@@ -473,12 +473,13 @@ async def create_campaign_from_leads(
             "end_time": data.settings.end_time,
             "daily_limit": data.settings.daily_limit,
             "working_days": data.settings.working_days,
-            "timezone": data.settings.timezone,
             "total_contacts": len(data.contacts),
             "sent_count": 0,
             "error_count": 0,
             "pending_count": len(data.contacts)
         }
+        
+        # Nota: timezone será buscado da empresa se não estiver na campanha
         
         result = await db.create_campaign(campaign_data)
         if not result:
