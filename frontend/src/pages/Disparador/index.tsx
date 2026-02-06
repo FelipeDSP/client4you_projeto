@@ -4,8 +4,9 @@ import { CampaignCard } from "./CampaignCard";
 import { MessageLogsDialog } from "./MessageLogsDialog";
 import { useCampaigns } from "@/hooks/useCampaigns";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
-import { useQuotas } from "@/hooks/useQuotas";
+import { usePlanPermissions } from "@/hooks/usePlanPermissions";
 import { usePageTitle } from "@/contexts/PageTitleContext";
+import { PlanBlockedOverlay } from "@/components/PlanBlockedOverlay";
 import {
   MessageSquare,
   Send,
@@ -14,13 +15,10 @@ import {
   Loader2,
   RefreshCw,
   AlertCircle,
-  Lock,
-  Crown,
-  Plus // Importando o ícone Plus
+  Plus
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Link } from "react-router-dom";
 
 export default function Disparador() {
   const { setPageTitle } = usePageTitle();
