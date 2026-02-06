@@ -244,12 +244,8 @@ export default function Settings() {
       </div>
 
       {/* Tabs de Configuração */}
-      <Tabs defaultValue="general" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3 lg:w-[600px]">
-          <TabsTrigger value="general" className="gap-2">
-            <SettingsIcon className="h-4 w-4" />
-            Geral
-          </TabsTrigger>
+      <Tabs defaultValue="whatsapp" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-2 lg:w-[400px]">
           <TabsTrigger value="whatsapp" className="gap-2">
             <MessageCircle className="h-4 w-4" />
             WhatsApp
@@ -259,40 +255,6 @@ export default function Settings() {
             Integrações
           </TabsTrigger>
         </TabsList>
-
-        {/* ========== TAB GERAL (NOVO) ========== */}
-        <TabsContent value="general" className="space-y-6">
-            <Card>
-                <CardHeader>
-                    <CardTitle>Configurações Gerais</CardTitle>
-                    <CardDescription>Informações sobre a configuração da sua conta.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                        <div className="flex items-start gap-3">
-                            <Info className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
-                            <div>
-                                <p className="font-medium text-blue-900">Configurações de Horário</p>
-                                <p className="text-sm text-blue-700 mt-1">
-                                    Os horários e fusos horários agora são configurados <strong>por campanha</strong>, 
-                                    permitindo maior flexibilidade. Ao criar uma campanha, você pode definir o 
-                                    fuso horário, horário de início/término e dias da semana específicos.
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div className="pt-4 border-t">
-                        <h4 className="font-medium mb-2">Dados da Conta</h4>
-                        <div className="text-sm text-muted-foreground space-y-1">
-                            <p>• As configurações do WhatsApp estão na aba "WhatsApp"</p>
-                            <p>• Os planos e quotas estão disponíveis no seu Perfil</p>
-                            <p>• Cada campanha pode ter configurações de horário independentes</p>
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
-        </TabsContent>
 
         {/* ========== TAB WHATSAPP ========== */}
         <TabsContent value="whatsapp" className="space-y-6">
