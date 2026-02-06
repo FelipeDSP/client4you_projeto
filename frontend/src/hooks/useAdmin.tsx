@@ -421,7 +421,7 @@ export function useAdmin() {
 
     try {
       // Usar endpoint do backend que deleta completamente
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8001';
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || '';
       const token = session?.access_token;
       
       if (!token) {
