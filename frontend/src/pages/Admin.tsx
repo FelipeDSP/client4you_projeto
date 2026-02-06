@@ -64,18 +64,14 @@ import {
   Building2,
   Zap,
   Edit,
-  TrendingUp
+  TrendingUp,
+  Ban,
+  Play,
+  XCircle
 } from "lucide-react";
 
-// Planos do sistema user_quotas
+// Planos do sistema user_quotas (SEM DEMO)
 const QUOTA_PLANS = [
-  {
-    id: "demo",
-    name: "Demo",
-    description: "5 buscas / 1 campanha teste",
-    color: "gray",
-    features: { leads: 5, campaigns: 1, messages: 0 }
-  },
   {
     id: "basico",
     name: "Básico",
@@ -93,7 +89,7 @@ const QUOTA_PLANS = [
   {
     id: "avancado",
     name: "Avançado",
-    description: "Completo + IA (em breve)",
+    description: "Completo + Agente IA",
     color: "purple",
     features: { leads: -1, campaigns: -1, messages: -1 }
   },
