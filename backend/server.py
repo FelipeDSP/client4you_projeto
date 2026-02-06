@@ -14,7 +14,7 @@ from datetime import datetime
 import pandas as pd
 import io
 import uuid
-from pydantic import BaseModel  # Importante para o novo endpoint
+from pydantic import BaseModel, Field  # Importante para os endpoints
 
 from models import (
     Campaign, CampaignCreate, CampaignUpdate, CampaignStatus, CampaignStats, CampaignWithStats,
