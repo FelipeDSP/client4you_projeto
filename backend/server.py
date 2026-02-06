@@ -89,11 +89,17 @@ async def get_session_name_for_company(company_id: str, company_name: str = None
     """
     import re
     
+    logger.info(f"🔍 Buscando sessão para company_id: {company_id}")
+    
     try:
         db = get_db()
         config = await db.get_waha_config(company_id)
+        logger.info(f"🔍 Config encontrada: {config}")
+        
         if config and config.get("session_name"):
-            return config.get("session_name")
+            session_name = config.get("session_name")
+            logger.info(f"✅ Usando sessão do banco: {session_name}")
+            return session_name
         
         if not company_name:
             try:
@@ -104,19 +110,24 @@ async def get_session_name_for_company(company_id: str, company_name: str = None
                     .execute()
                 if company_result.data:
                     company_name = company_result.data.get('name')
+                    logger.info(f"🔍 Nome da empresa encontrado: {company_name}")
             except Exception as e:
-                logger.debug(f"Não encontrou nome da empresa: {e}")
+                logger.warning(f"Não encontrou nome da empresa: {e}")
         
     except Exception as e:
-        logger.warning(f"Usando sessão padrão devido a erro ou config ausente: {e}")
+        logger.warning(f"Usando sessão padrão devido a erro: {e}")
     
     if company_name:
         safe_name = re.sub(r'[^a-zA-Z0-9]', '_', company_name.lower())
         safe_name = re.sub(r'_+', '_', safe_name).strip('_')[:30]
         short_id = company_id.split('-')[0] if company_id else 'unknown'
-        return f"{safe_name}_{short_id}"
+        session_name = f"{safe_name}_{short_id}"
+        logger.info(f"✅ Sessão gerada: {session_name}")
+        return session_name
     
-    return f"company_{company_id}"
+    fallback = f"company_{company_id.split('-')[0] if company_id else 'unknown'}"
+    logger.warning(f"⚠️ Usando fallback: {fallback}")
+    return fallback
 
 
 def calculate_campaign_stats(campaign: dict) -> CampaignStats:
