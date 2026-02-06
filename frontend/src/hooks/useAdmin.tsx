@@ -165,7 +165,7 @@ export function useAdmin() {
         createdAt: p.created_at,
         quotaPlanType: quotasByUser[p.id]?.plan_type || null,
         quotaPlanName: quotasByUser[p.id]?.plan_name || null,
-        quotaStatus: quotasByUser[p.id]?.subscription_status || null,
+        quotaStatus: quotasByUser[p.id]?.plan_type === 'suspended' ? 'suspended' : 'active',
         quotaExpiresAt: quotasByUser[p.id]?.plan_expires_at || null,
       }));
 
