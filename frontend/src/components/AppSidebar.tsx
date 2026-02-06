@@ -44,12 +44,6 @@ const baseItems = [
     requiredPlan: null,
   },
   {
-    title: "Buscar Leads",
-    url: "/search",
-    icon: Search,
-    requiredPlan: null,
-  },
-  {
     title: "Histórico",
     url: "/history",
     icon: History,
@@ -57,8 +51,15 @@ const baseItems = [
   },
 ];
 
-// Itens com controle de acesso
+// Itens com controle de acesso (Ferramentas)
 const featureItems = [
+  {
+    title: "Buscar Leads",
+    url: "/search",
+    icon: Search,
+    requiredPlan: null,
+    feature: 'leads' as const,
+  },
   {
     title: "Disparador",
     url: "/disparador",
