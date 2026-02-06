@@ -190,6 +190,46 @@ async def health_check():
     return {"status": "healthy", "timestamp": datetime.now().isoformat()}
 
 
+# ========== WhatsApp Debug Endpoint ==========
+@api_router.get("/whatsapp/debug")
+async def debug_whatsapp_session(
+    request: Request,
+    auth_user: dict = Depends(get_authenticated_user)
+):
+    """Endpoint de diagnóstico para verificar configuração da sessão WAHA"""
+    company_id = auth_user.get("company_id")
+    user_id = auth_user.get("user_id")
+    
+    db = get_db()
+    
+    # Buscar dados da empresa
+    company_data = None
+    try:
+        company_result = db.client.table('companies')\
+            .select('id, name')\
+            .eq('id', company_id)\
+            .single()\
+            .execute()
+        company_data = company_result.data
+    except Exception as e:
+        company_data = {"error": str(e)}
+    
+    # Buscar config da sessão
+    waha_config = await db.get_waha_config(company_id)
+    
+    # Calcular nome da sessão que seria gerado
+    session_name = await get_session_name_for_company(company_id)
+    
+    return {
+        "user_id": user_id,
+        "company_id": company_id,
+        "company_data": company_data,
+        "waha_config_from_db": waha_config,
+        "computed_session_name": session_name,
+        "waha_url": os.getenv('WAHA_DEFAULT_URL'),
+    }
+
+
 # ========== WhatsApp Management ==========
 
 @api_router.get("/whatsapp/status")
