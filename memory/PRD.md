@@ -84,6 +84,11 @@ Plataforma SaaS para captação e conversão de leads via WhatsApp.
 - [x] Tooltips explicativos nos dias da semana
 - [x] Backend atualizado para usar timezone da campanha
 
+### Configurações Simplificadas
+- [x] Removida configuração de timezone/horários globais (agora é por campanha)
+- [x] Página de Configurações mostra mensagem informativa sobre horários por campanha
+- [x] Cada campanha define seu próprio fuso horário e horários de envio
+
 ### Criar Campanha Direto dos Leads (NOVO)
 - [x] Botão "Criar Campanha" na página de busca de leads
 - [x] Dialog com configurações rápidas (timezone, horário, dias, limite)
