@@ -124,6 +124,15 @@ export function useAdmin() {
         return;
       }
 
+      // Fetch user quotas
+      const { data: quotas, error: quotasError } = await supabase
+        .from("user_quotas")
+        .select("user_id, plan_type, plan_name, subscription_status, plan_expires_at");
+
+      if (quotasError) {
+        console.error("Error fetching quotas:", quotasError);
+      }
+
       // Map roles by user_id
       const rolesByUser: Record<string, AppRole[]> = {};
       roles?.forEach((r) => {
@@ -131,6 +140,12 @@ export function useAdmin() {
           rolesByUser[r.user_id] = [];
         }
         rolesByUser[r.user_id].push(r.role as AppRole);
+      });
+
+      // Map quotas by user_id
+      const quotasByUser: Record<string, any> = {};
+      quotas?.forEach((q) => {
+        quotasByUser[q.user_id] = q;
       });
 
       const mappedUsers: AdminUser[] = (profiles || []).map((p: any) => ({
@@ -141,6 +156,10 @@ export function useAdmin() {
         companyName: p.companies?.name || null,
         roles: rolesByUser[p.id] || [],
         createdAt: p.created_at,
+        quotaPlanType: quotasByUser[p.id]?.plan_type || null,
+        quotaPlanName: quotasByUser[p.id]?.plan_name || null,
+        quotaStatus: quotasByUser[p.id]?.subscription_status || null,
+        quotaExpiresAt: quotasByUser[p.id]?.plan_expires_at || null,
       }));
 
       setUsers(mappedUsers);
