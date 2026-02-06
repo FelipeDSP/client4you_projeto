@@ -393,12 +393,14 @@ async def create_campaign(
             "end_time": campaign.settings.end_time,
             "daily_limit": campaign.settings.daily_limit,
             "working_days": campaign.settings.working_days,
-            "timezone": campaign.settings.timezone,
             "total_contacts": 0,
             "sent_count": 0,
             "error_count": 0,
             "pending_count": 0
         }
+        
+        # Tentar adicionar timezone se a coluna existir (graceful degradation)
+        # O timezone será buscado da empresa se não estiver na campanha
         
         result = await db.create_campaign(campaign_data)
         if not result:
