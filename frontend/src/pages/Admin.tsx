@@ -315,6 +315,90 @@ export default function Admin() {
     }
   };
 
+  // Suspender usuário
+  const handleSuspendUser = async (userId: string, userName: string) => {
+    setIsSuspending(userId);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) throw new Error("Não autenticado");
+
+      const response = await fetch(`/api/admin/users/${userId}/suspend`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({ reason: "Suspenso pelo administrador via painel" })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || "Erro ao suspender");
+      }
+
+      toast({
+        title: "Conta suspensa",
+        description: `${userName} foi suspenso e não tem mais acesso.`,
+      });
+      await forceRefresh();
+    } catch (error: any) {
+      toast({
+        title: "Erro",
+        description: error.message || "Não foi possível suspender o usuário.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSuspending(null);
+    }
+  };
+
+  // Ativar usuário
+  const handleActivateUser = async (userId: string, userName: string, planType: string = "basico") => {
+    setIsActivating(userId);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) throw new Error("Não autenticado");
+
+      const planNames: Record<string, string> = {
+        basico: "Plano Básico",
+        intermediario: "Plano Intermediário",
+        avancado: "Plano Avançado"
+      };
+
+      const response = await fetch(`/api/admin/users/${userId}/activate`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({ 
+          plan_type: planType,
+          plan_name: planNames[planType] || "Plano Básico",
+          days_valid: 30
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || "Erro ao ativar");
+      }
+
+      toast({
+        title: "Conta ativada",
+        description: `${userName} foi ativado com ${planNames[planType]} por 30 dias.`,
+      });
+      await forceRefresh();
+    } catch (error: any) {
+      toast({
+        title: "Erro",
+        description: error.message || "Não foi possível ativar o usuário.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsActivating(null);
+    }
+  };
+
   const handleCreateUser = async () => {
     if (!newUserEmail || !newUserPassword) {
       toast({
