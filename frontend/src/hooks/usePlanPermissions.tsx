@@ -73,20 +73,50 @@ export function usePlanPermissions() {
   const { quota, isLoading, error, refresh } = useQuotas();
 
   const permissions = useMemo<PlanPermissions>(() => {
-    // Valores default para quando não tem quota
+    // Valores default para quando não tem quota (conta sem plano = suspensa)
     if (!quota) {
       return {
-        ...PLAN_PERMISSIONS.demo,
-        planName: 'Demo',
+        ...PLAN_PERMISSIONS.suspended,
+        planName: 'Sem Plano',
         isPlanExpired: false,
+        isSuspended: true,
         isActive: false,
         expiresAt: null,
         daysUntilExpiration: null,
       };
     }
 
-    const planType = (quota.plan_type?.toLowerCase() || 'demo') as PlanType;
-    const basePlan = PLAN_PERMISSIONS[planType] || PLAN_PERMISSIONS.demo;
+    // Verificar se conta está suspensa
+    const subscriptionStatus = quota.subscription_status?.toLowerCase();
+    const isSuspended = subscriptionStatus === 'suspended' || subscriptionStatus === 'canceled';
+    
+    if (isSuspended) {
+      return {
+        ...PLAN_PERMISSIONS.suspended,
+        planName: 'Conta Suspensa',
+        isPlanExpired: false,
+        isSuspended: true,
+        isActive: false,
+        expiresAt: quota.plan_expires_at || null,
+        daysUntilExpiration: null,
+      };
+    }
+
+    const planType = (quota.plan_type?.toLowerCase() || 'basico') as PlanType;
+    // Se o plano for 'demo', tratar como suspenso (plano não existe mais)
+    if (planType === 'demo' as any) {
+      return {
+        ...PLAN_PERMISSIONS.suspended,
+        planName: 'Plano Inativo',
+        isPlanExpired: true,
+        isSuspended: false,
+        isActive: false,
+        expiresAt: quota.plan_expires_at || null,
+        daysUntilExpiration: null,
+      };
+    }
+    
+    const basePlan = PLAN_PERMISSIONS[planType] || PLAN_PERMISSIONS.basico;
     
     // Calcular expiração
     const expiresAt = quota.plan_expires_at || null;
@@ -107,16 +137,11 @@ export function usePlanPermissions() {
     // Se o plano expirou, bloqueia TUDO
     if (isPlanExpired) {
       return {
-        canSearchLeads: false,
-        canExportLeads: false,
-        canUseDisparador: false,
-        canUseAgenteIA: false,
-        leadsLimit: 0,
-        campaignsLimit: 0,
-        messagesLimit: 0,
+        ...PLAN_PERMISSIONS.suspended,
         planType,
         planName: quota.plan_name || 'Expirado',
         isPlanExpired: true,
+        isSuspended: false,
         isActive: false,
         expiresAt,
         daysUntilExpiration: 0,
@@ -127,6 +152,7 @@ export function usePlanPermissions() {
       ...basePlan,
       planName: quota.plan_name || basePlan.planType,
       isPlanExpired,
+      isSuspended: false,
       isActive: true,
       expiresAt,
       daysUntilExpiration,
@@ -140,7 +166,7 @@ export function usePlanPermissions() {
     refresh,
     // Atalhos úteis
     canUseFeature: (feature: 'leads' | 'disparador' | 'agente') => {
-      if (permissions.isPlanExpired) return false;
+      if (permissions.isPlanExpired || permissions.isSuspended) return false;
       switch (feature) {
         case 'leads': return permissions.canSearchLeads;
         case 'disparador': return permissions.canUseDisparador;
@@ -150,7 +176,7 @@ export function usePlanPermissions() {
     },
     // Verificar se precisa upgrade para uma feature
     needsUpgradeFor: (feature: 'disparador' | 'agente'): PlanType | null => {
-      if (permissions.isPlanExpired) return 'basico'; // Qualquer plano serve
+      if (permissions.isPlanExpired || permissions.isSuspended) return 'basico';
       switch (feature) {
         case 'disparador':
           if (!permissions.canUseDisparador) return 'intermediario';
