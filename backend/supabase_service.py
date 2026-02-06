@@ -26,6 +26,7 @@ class SupabaseService:
     async def get_waha_config(self, company_id: str) -> Optional[Dict[str, Any]]:
         """
         Busca configuração do WAHA - primeiro em company_settings, depois em waha_configs (legado).
+        Ignora valor "default" pois isso significa que não foi configurado manualmente.
         """
         try:
             # 1. Primeiro tenta buscar na tabela 'company_settings' (padrão atual)
@@ -36,7 +37,10 @@ class SupabaseService:
                 .execute()
             
             if result.data and result.data[0].get('waha_session'):
-                return {"session_name": result.data[0].get('waha_session')}
+                session = result.data[0].get('waha_session')
+                # Ignorar "default" - significa que não foi configurado corretamente
+                if session and session.lower() != 'default':
+                    return {"session_name": session}
             
             # 2. Fallback: Tenta buscar na tabela 'waha_configs' (legado)
             try:
@@ -47,7 +51,9 @@ class SupabaseService:
                     .execute()
                 
                 if legacy_result.data:
-                    return legacy_result.data[0]
+                    session = legacy_result.data[0].get('session_name')
+                    if session and session.lower() != 'default':
+                        return legacy_result.data[0]
             except Exception:
                 # Tabela legada pode não existir
                 pass
