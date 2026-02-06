@@ -195,17 +195,32 @@ export default function Dashboard() {
         <Card className="bg-white shadow-sm border-none">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Status WhatsApp</CardTitle>
-            {hasWahaConfig ? (
-              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-            ) : (
+            {isLoadingWaha ? (
+              <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+            ) : isConnected ? (
+              <Wifi className="h-4 w-4 text-emerald-600" />
+            ) : waStatus === "NOT_CONFIGURED" ? (
               <AlertCircle className="h-4 w-4 text-yellow-500" />
+            ) : waStatus === "SCANNING" ? (
+              <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
+            ) : (
+              <WifiOff className="h-4 w-4 text-red-500" />
             )}
           </CardHeader>
           <CardContent>
             <div className="text-lg font-medium text-gray-800">
-              {hasWahaConfig ? "Conectado" : "Configurar"}
+              {isLoadingWaha ? "Verificando..." : 
+               isConnected ? "Conectado" : 
+               waStatus === "NOT_CONFIGURED" ? "Configurar" :
+               waStatus === "SCANNING" ? "Escaneando QR" :
+               waStatus === "STARTING" ? "Iniciando..." :
+               "Desconectado"}
             </div>
-            <p className="text-xs text-muted-foreground mt-1">API de envio</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {isConnected ? "Pronto para enviar" : 
+               waStatus === "NOT_CONFIGURED" ? "Configure nas Configurações" :
+               "Verifique nas Configurações"}
+            </p>
           </CardContent>
         </Card>
       </div>
