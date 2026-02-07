@@ -1,6 +1,8 @@
-import { useState, useEffect, useCallback } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "./useAuth";
 import { makeAuthenticatedRequest } from "@/lib/api";
+
+const API_URL = import.meta.env.VITE_BACKEND_URL || "";
 
 export interface Notification {
   id: string;
@@ -16,135 +18,56 @@ export interface Notification {
   read_at?: string;
 }
 
-const API_URL = import.meta.env.VITE_BACKEND_URL || "";
-
 export function useNotifications() {
   const { user } = useAuth();
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
-  const fetchNotifications = useCallback(async (unreadOnly: boolean = false) => {
-    if (!user?.id) {
-      setIsLoading(false);
-      return;
+  // 1. Busca unificada e cacheada (roda a cada 2 minutos ou quando focar na janela)
+  const { data: notifications = [], isLoading, error } = useQuery({
+    queryKey: ['notifications', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const response = await makeAuthenticatedRequest(`${API_URL}/api/notifications?unread_only=false&limit=20`);
+      if (!response.ok) throw new Error("Falha ao buscar notificações");
+      const data = await response.json();
+      return data.notifications || [];
+    },
+    enabled: !!user?.id,
+    refetchInterval: 120000, // Polling apenas a cada 2 minutos (120s)
+    staleTime: 60000, // Os dados são considerados "frescos" por 1 minuto
+    refetchOnWindowFocus: true, // Atualiza se o usuário voltar para a aba
+  });
+
+  // 2. Unread Count derivado do cache (Zero requests extras!)
+  // O React Query já tem os dados, não precisamos bater na API de novo só pra contar
+  const unreadCount = notifications.filter((n: Notification) => !n.read).length;
+
+  // 3. Mutation para marcar como lida
+  const markAsReadMutation = useMutation({
+    mutationFn: async (notificationId: string) => {
+      await makeAuthenticatedRequest(`${API_URL}/api/notifications/${notificationId}/read`, { method: "PUT" });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] }); // Atualiza a lista automaticamente
     }
+  });
 
-    try {
-      console.log('Fetching notifications for user:', user.id);
-      const response = await makeAuthenticatedRequest(
-        `${API_URL}/api/notifications?unread_only=${unreadOnly}&limit=20`
-      );
-      
-      if (response.ok) {
-        const data = await response.json();
-        console.log('Notifications fetched:', data);
-        setNotifications(data.notifications || []);
-        setError(null);
-      } else {
-        const errorText = await response.text();
-        console.error('Error fetching notifications:', response.status, errorText);
-        setError(`Erro ${response.status}`);
-      }
-    } catch (error) {
-      console.error("Error fetching notifications:", error);
-      setError('Erro de conexão');
-    } finally {
-      setIsLoading(false);
+  const markAllAsReadMutation = useMutation({
+    mutationFn: async () => {
+      await makeAuthenticatedRequest(`${API_URL}/api/notifications/mark-all-read`, { method: "PUT" });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
     }
-  }, [user?.id]);
-
-  const fetchUnreadCount = useCallback(async () => {
-    if (!user?.id) {
-      setUnreadCount(0);
-      return;
-    }
-
-    try {
-      console.log('Fetching unread count for user:', user.id);
-      const response = await makeAuthenticatedRequest(
-        `${API_URL}/api/notifications/unread-count`
-      );
-      
-      if (response.ok) {
-        const data = await response.json();
-        console.log('Unread count:', data.unread_count);
-        setUnreadCount(data.unread_count || 0);
-      } else {
-        console.error('Error fetching unread count:', response.status);
-      }
-    } catch (error) {
-      console.error("Error fetching unread count:", error);
-    }
-  }, [user?.id]);
-
-  const markAsRead = useCallback(async (notificationId: string) => {
-    try {
-      const response = await makeAuthenticatedRequest(
-        `${API_URL}/api/notifications/${notificationId}/read`,
-        { method: "PUT" }
-      );
-      
-      if (response.ok) {
-        // Update local state
-        setNotifications(prev =>
-          prev.map(n => n.id === notificationId ? { ...n, read: true, read_at: new Date().toISOString() } : n)
-        );
-        setUnreadCount(prev => Math.max(0, prev - 1));
-      }
-    } catch (error) {
-      console.error("Error marking notification as read:", error);
-    }
-  }, []);
-
-  const markAllAsRead = useCallback(async () => {
-    if (!user?.id) return;
-
-    try {
-      const response = await makeAuthenticatedRequest(
-        `${API_URL}/api/notifications/mark-all-read`,
-        { method: "PUT" }
-      );
-      
-      if (response.ok) {
-        // Update local state
-        setNotifications(prev =>
-          prev.map(n => ({ ...n, read: true, read_at: new Date().toISOString() }))
-        );
-        setUnreadCount(0);
-      }
-    } catch (error) {
-      console.error("Error marking all as read:", error);
-    }
-  }, [user?.id]);
-
-  const refresh = useCallback(() => {
-    fetchNotifications();
-    fetchUnreadCount();
-  }, [fetchNotifications, fetchUnreadCount]);
-
-  useEffect(() => {
-    if (user?.id) {
-      fetchNotifications();
-      fetchUnreadCount();
-
-      // Poll for new notifications every 30 seconds
-      const interval = setInterval(() => {
-        fetchUnreadCount();
-      }, 30000);
-
-      return () => clearInterval(interval);
-    }
-  }, [user?.id, fetchNotifications, fetchUnreadCount]);
+  });
 
   return {
     notifications,
     unreadCount,
     isLoading,
     error,
-    markAsRead,
-    markAllAsRead,
-    refresh
+    markAsRead: markAsReadMutation.mutate,
+    markAllAsRead: markAllAsReadMutation.mutate,
+    refresh: () => queryClient.invalidateQueries({ queryKey: ['notifications'] })
   };
 }
