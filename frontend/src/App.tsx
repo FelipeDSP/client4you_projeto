@@ -38,7 +38,25 @@ const PageLoader = () => (
   </div>
 );
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // 1. O dado é considerado "fresco" por 5 minutos.
+      // Se o usuário mudar de aba e voltar em 4min, NÃO faz request.
+      staleTime: 1000 * 60 * 5, 
+      
+      // 2. Mantém o dado na memória (lixo) por 30 minutos caso não seja usado.
+      gcTime: 1000 * 60 * 30,
+      
+      // 3. NÃO busca de novo automaticamente só porque o usuário clicou na janela.
+      // Isso economiza MUITOS requests de usuários que ficam trocando de janelas no Windows.
+      refetchOnWindowFocus: false,
+      
+      // 4. Se der erro, tenta mais 1 vez (padrão é 3, o que gasta request à toa se a net caiu)
+      retry: 1,
+    },
+  },
+});
 
 function ProtectedRoute({ children, requireAdmin = false }: { children: React.ReactNode; requireAdmin?: boolean }) {
   const { user, isLoading } = useAuth();
