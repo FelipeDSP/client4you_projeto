@@ -50,7 +50,7 @@ const PRESET_SCHEDULES = [
   { label: "Horário Comercial", start: "08:00", end: "18:00", days: ["1", "2", "3", "4", "5"] },
   { label: "Manhã", start: "08:00", end: "12:00", days: ["1", "2", "3", "4", "5"] },
   { label: "Tarde", start: "13:00", end: "18:00", days: ["1", "2", "3", "4", "5"] },
-  { label: "Dia Inteiro", start: "08:00", end: "21:00", days: ["0", "1", "2", "3", "4", "5", "6"] },
+  { label: "Dia Inteiro", start: "08:00", end: "21:00", days: ["1", "2", "3", "4", "5"] },
 ];
 
 export function CreateCampaignDialog({ open, onOpenChange, onSuccess }: CreateCampaignDialogProps) {
