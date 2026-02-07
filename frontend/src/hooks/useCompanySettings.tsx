@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -15,68 +15,112 @@ export interface CompanySettings {
   updatedAt: string;
 }
 
+// Cache global para settings
+const settingsCache: {
+  data: CompanySettings | null;
+  timestamp: number;
+  companyId: string | null;
+} = {
+  data: null,
+  timestamp: 0,
+  companyId: null
+};
+
+// Cache de 2 minutos para settings (muda raramente)
+const SETTINGS_CACHE_TTL = 2 * 60 * 1000;
+
 export function useCompanySettings() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [settings, setSettings] = useState<CompanySettings | null>(null);
+  const [settings, setSettings] = useState<CompanySettings | null>(settingsCache.data);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const isFetchingRef = useRef(false);
 
-  const fetchSettings = useCallback(async () => {
+  const fetchSettings = useCallback(async (forceRefresh = false) => {
     if (!user?.companyId) {
       setSettings(null);
       setIsLoading(false);
       return;
     }
 
-    try {
-      // 1. Busca configurações gerais (API Keys, etc)
-      const { data: settingsData, error: settingsError } = await supabase
-        .from("company_settings")
-        .select("*")
-        .eq("company_id", user.companyId)
-        .maybeSingle();
+    // Verificar cache
+    if (!forceRefresh && settingsCache.companyId === user.companyId && settingsCache.data) {
+      const now = Date.now();
+      if (now - settingsCache.timestamp < SETTINGS_CACHE_TTL) {
+        console.log('[useCompanySettings] Usando cache');
+        setSettings(settingsCache.data);
+        setIsLoading(false);
+        return;
+      }
+    }
 
-      // 2. Busca dados da empresa (timezone)
-      const { data: companyData, error: companyError } = await supabase
-        .from("companies")
-        .select("timezone")
-        .eq("id", user.companyId)
-        .single();
+    // Evitar chamadas duplicadas
+    if (isFetchingRef.current) {
+      return;
+    }
+
+    try {
+      isFetchingRef.current = true;
+      
+      // Buscar ambos em paralelo para reduzir latência
+      const [settingsResult, companyResult] = await Promise.all([
+        supabase
+          .from("company_settings")
+          .select("*")
+          .eq("company_id", user.companyId)
+          .maybeSingle(),
+        supabase
+          .from("companies")
+          .select("timezone")
+          .eq("id", user.companyId)
+          .single()
+      ]);
+
+      const { data: settingsData, error: settingsError } = settingsResult;
+      const { data: companyData } = companyResult;
 
       if (settingsError) {
         console.error("Error fetching settings:", settingsError);
       } 
       
+      let finalSettings: CompanySettings | null = null;
+      
       // Monta o objeto final combinando as duas tabelas
       if (settingsData) {
-        setSettings({
+        finalSettings = {
           id: settingsData.id,
           companyId: settingsData.company_id,
           serpapiKey: settingsData.serpapi_key,
           wahaApiUrl: settingsData.waha_api_url,
           wahaApiKey: settingsData.waha_api_key,
           wahaSession: settingsData.waha_session,
-          timezone: companyData?.timezone || 'America/Sao_Paulo', // Valor padrão seguro
+          timezone: companyData?.timezone || 'America/Sao_Paulo',
           createdAt: settingsData.created_at,
           updatedAt: settingsData.updated_at,
-        });
+        };
       } else if (companyData) {
-        // Caso raro: tem empresa mas não tem settings criado ainda
-        setSettings({
-          id: "", // Placeholder
+        finalSettings = {
+          id: "",
           companyId: user.companyId,
           serpapiKey: null,
           wahaApiUrl: null,
           wahaApiKey: null,
-          wahaSession: "default",
+          wahaSession: null,
           timezone: companyData.timezone || 'America/Sao_Paulo',
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
-        });
-      } else {
-        setSettings(null);
+        };
       }
+      
+      // Atualizar cache
+      if (finalSettings) {
+        settingsCache.data = finalSettings;
+        settingsCache.timestamp = Date.now();
+        settingsCache.companyId = user.companyId;
+      }
+      
+      setSettings(finalSettings);
 
     } catch (error) {
       console.error("Unexpected error:", error);
