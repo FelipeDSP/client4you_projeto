@@ -3,6 +3,7 @@ import { User as SupabaseUser, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { User } from "@/types";
 import { toast } from "@/hooks/use-toast";
+import { setSessionExpiredCallback } from "@/lib/api";
 
 interface AuthContextType {
   user: User | null;
