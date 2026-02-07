@@ -58,7 +58,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const checkSessionValidity = useCallback(async (userId: string) => {
     try {
       const localToken = localStorage.getItem(SESSION_TOKEN_KEY);
-      if (!localToken) return true; // Se não tem token local, não verifica
+      if (!localToken) {
+        console.log('[useAuth] Sem token local, pulando verificação');
+        return true; // Se não tem token local, não verifica
+      }
 
       const { data, error } = await supabase
         .from("profiles")
@@ -67,18 +70,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .single();
 
       if (error) {
-        console.warn("Erro ao verificar sessão:", error);
+        console.warn("[useAuth] Erro ao verificar sessão:", error);
         return true; // Em caso de erro, não desloga
       }
 
+      console.log('[useAuth] Verificação de sessão - Local:', localToken, '| Servidor:', data?.session_token);
+
       // Se o token do servidor é diferente do local, a sessão foi invalidada
       if (data?.session_token && data.session_token !== localToken) {
+        console.log('[useAuth] Token diferente! Sessão invalidada por outro dispositivo.');
         return false;
       }
 
       return true;
     } catch (err) {
-      console.warn("Erro ao verificar sessão:", err);
+      console.warn("[useAuth] Erro ao verificar sessão:", err);
       return true;
     }
   }, []);
