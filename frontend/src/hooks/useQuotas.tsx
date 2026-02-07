@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "./useAuth";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -33,6 +33,20 @@ export interface QuotaCheckResult {
 
 const API_URL = import.meta.env.VITE_BACKEND_URL || "";
 
+// Cache global para quotas (compartilhado entre instâncias do hook)
+const quotaCache: {
+  data: UserQuota | null;
+  timestamp: number;
+  userId: string | null;
+} = {
+  data: null,
+  timestamp: 0,
+  userId: null
+};
+
+// Tempo de cache: 60 segundos
+const CACHE_TTL = 60 * 1000;
+
 // Helper function for authenticated requests
 async function makeAuthenticatedRequest(
   url: string,
@@ -66,38 +80,64 @@ async function makeAuthenticatedRequest(
 
 export function useQuotas() {
   const { user } = useAuth();
-  const [quota, setQuota] = useState<UserQuota | null>(null);
+  const [quota, setQuota] = useState<UserQuota | null>(quotaCache.data);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const isFetchingRef = useRef(false);
 
-  const fetchQuota = useCallback(async () => {
+  const fetchQuota = useCallback(async (forceRefresh = false) => {
     if (!user?.id) {
       setIsLoading(false);
       return;
     }
 
+    // Verificar cache (se não forçar refresh)
+    if (!forceRefresh && quotaCache.userId === user.id && quotaCache.data) {
+      const now = Date.now();
+      if (now - quotaCache.timestamp < CACHE_TTL) {
+        console.log('[useQuotas] Usando cache');
+        setQuota(quotaCache.data);
+        setIsLoading(false);
+        return;
+      }
+    }
+
+    // Evitar chamadas duplicadas
+    if (isFetchingRef.current) {
+      console.log('[useQuotas] Já está buscando, ignorando...');
+      return;
+    }
+
     try {
-      console.log('Fetching quota for user:', user.id);
+      isFetchingRef.current = true;
+      console.log('[useQuotas] Buscando quota do servidor...');
       const response = await makeAuthenticatedRequest(`${API_URL}/api/quotas/me`);
       
       if (response.ok) {
         const data = await response.json();
-        console.log('Quota fetched:', data);
+        console.log('[useQuotas] Quota recebida:', data);
+        
+        // Atualizar cache global
+        quotaCache.data = data;
+        quotaCache.timestamp = Date.now();
+        quotaCache.userId = user.id;
+        
         setQuota(data);
         setError(null);
       } else {
         const errorText = await response.text();
-        console.error('Error fetching quota:', response.status, errorText);
+        console.error('[useQuotas] Erro:', response.status, errorText);
         setError(`Erro ${response.status}`);
       }
     } catch (error: any) {
-      console.error("Error fetching quota:", error);
+      console.error("[useQuotas] Error:", error);
       if (error.message?.includes("Sessão expirada")) {
         setError('Sessão expirada');
       } else {
         setError('Erro de conexão');
       }
     } finally {
+      isFetchingRef.current = false;
       setIsLoading(false);
     }
   }, [user?.id]);
