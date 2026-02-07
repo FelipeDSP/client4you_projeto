@@ -1,5 +1,5 @@
-import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from "react";
-import { User as SupabaseUser, Session } from "@supabase/supabase-js";
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from "react";
+import { User as SupabaseUser, Session, RealtimeChannel } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { User } from "@/types";
 import { toast } from "@/hooks/use-toast";
@@ -52,47 +52,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [wasLoggedOutRemotely, setWasLoggedOutRemotely] = useState(false);
-
-  // Função para verificar se a sessão ainda é válida
-  const checkSessionValidity = useCallback(async (userId: string) => {
-    try {
-      const localToken = localStorage.getItem(SESSION_TOKEN_KEY);
-      if (!localToken) {
-        console.log('[useAuth] Sem token local, pulando verificação');
-        return true; // Se não tem token local, não verifica
-      }
-
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("session_token")
-        .eq("id", userId)
-        .single();
-
-      if (error) {
-        console.warn("[useAuth] Erro ao verificar sessão:", error);
-        return true; // Em caso de erro, não desloga
-      }
-
-      console.log('[useAuth] Verificação de sessão - Local:', localToken, '| Servidor:', data?.session_token);
-
-      // Se o token do servidor é diferente do local, a sessão foi invalidada
-      if (data?.session_token && data.session_token !== localToken) {
-        console.log('[useAuth] Token diferente! Sessão invalidada por outro dispositivo.');
-        return false;
-      }
-
-      return true;
-    } catch (err) {
-      console.warn("[useAuth] Erro ao verificar sessão:", err);
-      return true;
-    }
-  }, []);
+  const realtimeChannelRef = useRef<RealtimeChannel | null>(null);
 
   // Função para deslogar por sessão remota
   const handleRemoteLogout = useCallback(async () => {
-    setWasLoggedOutRemotely(true);
+    console.log('[useAuth] Sessão invalidada - deslogando...');
     localStorage.removeItem(SESSION_TOKEN_KEY);
+    
+    // Remover subscription antes de deslogar
+    if (realtimeChannelRef.current) {
+      supabase.removeChannel(realtimeChannelRef.current);
+      realtimeChannelRef.current = null;
+    }
+    
     await supabase.auth.signOut();
     setUser(null);
     setSession(null);
@@ -104,6 +76,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       duration: 10000,
     });
   }, []);
+
+  // Configurar Realtime para escutar mudanças no session_token
+  const setupRealtimeSubscription = useCallback((userId: string) => {
+    // Remover subscription anterior se existir
+    if (realtimeChannelRef.current) {
+      supabase.removeChannel(realtimeChannelRef.current);
+    }
+
+    const localToken = localStorage.getItem(SESSION_TOKEN_KEY);
+    if (!localToken) return;
+
+    console.log('[useAuth] Configurando Realtime para user:', userId);
+
+    const channel = supabase
+      .channel(`profile-session-${userId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'profiles',
+          filter: `id=eq.${userId}`,
+        },
+        (payload) => {
+          console.log('[useAuth] Realtime - Mudança detectada:', payload);
+          const newToken = payload.new?.session_token;
+          const currentLocalToken = localStorage.getItem(SESSION_TOKEN_KEY);
+          
+          // Se o token mudou e é diferente do nosso, fomos deslogados
+          if (newToken && currentLocalToken && newToken !== currentLocalToken) {
+            console.log('[useAuth] Token mudou! Deslogando...');
+            handleRemoteLogout();
+          }
+        }
+      )
+      .subscribe((status) => {
+        console.log('[useAuth] Realtime status:', status);
+      });
+
+    realtimeChannelRef.current = channel;
+  }, [handleRemoteLogout]);
 
   useEffect(() => {
     // Set up auth state listener BEFORE checking session
@@ -117,10 +130,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const profile = await fetchUserProfile(newSession.user.id);
             setUser(profile);
             setIsLoading(false);
+            
+            // Configurar Realtime após carregar o perfil
+            setupRealtimeSubscription(newSession.user.id);
           }, 0);
         } else {
           setUser(null);
           setIsLoading(false);
+          
+          // Limpar subscription quando deslogar
+          if (realtimeChannelRef.current) {
+            supabase.removeChannel(realtimeChannelRef.current);
+            realtimeChannelRef.current = null;
+          }
         }
       }
     );
@@ -133,12 +155,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const profile = await fetchUserProfile(existingSession.user.id);
         setUser(profile);
         
-        // Verificar se a sessão ainda é válida
-        const isValid = await checkSessionValidity(existingSession.user.id);
-        if (!isValid) {
-          handleRemoteLogout();
-          return;
+        // Verificar se o token local ainda é válido
+        const localToken = localStorage.getItem(SESSION_TOKEN_KEY);
+        if (localToken) {
+          const { data } = await supabase
+            .from("profiles")
+            .select("session_token")
+            .eq("id", existingSession.user.id)
+            .single();
+          
+          if (data?.session_token && data.session_token !== localToken) {
+            // Token diferente, sessão foi invalidada
+            handleRemoteLogout();
+            return;
+          }
         }
+        
+        // Configurar Realtime
+        setupRealtimeSubscription(existingSession.user.id);
       }
       
       setIsLoading(false);
@@ -146,22 +180,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => {
       subscription.unsubscribe();
-    };
-  }, [checkSessionValidity, handleRemoteLogout]);
-
-  // Verificar sessão periodicamente (a cada 30 segundos)
-  useEffect(() => {
-    if (!user?.id || !session) return;
-
-    const intervalId = setInterval(async () => {
-      const isValid = await checkSessionValidity(user.id);
-      if (!isValid) {
-        handleRemoteLogout();
+      if (realtimeChannelRef.current) {
+        supabase.removeChannel(realtimeChannelRef.current);
       }
-    }, 30000); // 30 segundos
-
-    return () => clearInterval(intervalId);
-  }, [user?.id, session, checkSessionValidity, handleRemoteLogout]);
+    };
+  }, [setupRealtimeSubscription, handleRemoteLogout]);
 
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
@@ -180,7 +203,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.log('[useAuth] Novo token de sessão gerado:', newToken);
         localStorage.setItem(SESSION_TOKEN_KEY, newToken);
         
-        // Atualizar token no banco (isso invalida outras sessões)
+        // Atualizar token no banco (isso invalida outras sessões INSTANTANEAMENTE via Realtime)
         const { data: updateData, error: updateError } = await supabase
           .from("profiles")
           .update({ 
@@ -193,11 +216,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (updateError) {
           console.error("[useAuth] Erro ao atualizar token de sessão:", updateError);
         } else {
-          console.log("[useAuth] Token de sessão atualizado com sucesso:", updateData);
+          console.log("[useAuth] Token de sessão atualizado com sucesso");
         }
+        
+        // Configurar Realtime para esta sessão
+        setupRealtimeSubscription(data.user.id);
       }
 
-      setWasLoggedOutRemotely(false);
       return { success: true };
     } catch (err) {
       console.error("[useAuth] Erro no login:", err);
@@ -235,6 +260,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     localStorage.removeItem(SESSION_TOKEN_KEY);
+    
+    // Limpar subscription
+    if (realtimeChannelRef.current) {
+      supabase.removeChannel(realtimeChannelRef.current);
+      realtimeChannelRef.current = null;
+    }
+    
     await supabase.auth.signOut();
     setUser(null);
     setSession(null);
