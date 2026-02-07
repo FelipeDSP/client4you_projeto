@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { makeAuthenticatedRequest } from "@/lib/api";
 
 export type WAStatus = "LOADING" | "DISCONNECTED" | "STARTING" | "SCANNING" | "CONNECTED" | "NOT_CONFIGURED";
 
@@ -24,31 +24,10 @@ export function useWahaStatus(): UseWahaStatusResult {
     
     try {
       setIsLoading(true);
-      
-      // Pegar token de autenticação
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) {
-        console.log("[useWahaStatus] Usuário não autenticado");
-        setStatus("NOT_CONFIGURED");
-        setIsLoading(false);
-        return;
-      }
 
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
-
-      // Chamar o endpoint do backend que já tem toda a lógica correta
-      // Em produção usa VITE_BACKEND_URL, em dev usa URL relativa
-      const response = await fetch(`${API_BASE_URL}/api/whatsapp/status`, { 
-        method: "GET", 
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${session.access_token}`
-        },
-        signal: controller.signal
+      const response = await makeAuthenticatedRequest(`${API_BASE_URL}/api/whatsapp/status`, {
+        method: "GET"
       });
-      
-      clearTimeout(timeoutId);
 
       if (!response.ok) {
         console.log("[useWahaStatus] Resposta não ok:", response.status);
@@ -80,7 +59,10 @@ export function useWahaStatus(): UseWahaStatusResult {
       }
     } catch (error: any) {
       console.warn("[useWahaStatus] Erro ao verificar:", error?.message || error);
-      setStatus("DISCONNECTED");
+      // Se for erro de sessão expirada, não seta como desconectado
+      if (!error?.message?.includes("outro dispositivo")) {
+        setStatus("DISCONNECTED");
+      }
     } finally {
       setIsLoading(false);
     }
