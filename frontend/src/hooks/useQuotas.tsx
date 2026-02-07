@@ -1,6 +1,11 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useCallback } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "./useAuth";
 import { makeAuthenticatedRequest } from "@/lib/api";
+
+const API_URL = import.meta.env.VITE_BACKEND_URL || "";
+
+// --- Tipos e Interfaces ---
 
 export interface UserQuota {
   id: string;
@@ -31,179 +36,118 @@ export interface QuotaCheckResult {
   plan_type?: string;
 }
 
-const API_URL = import.meta.env.VITE_BACKEND_URL || "";
-
-// Cache global para quotas (compartilhado entre instâncias do hook)
-const quotaCache: {
-  data: UserQuota | null;
-  timestamp: number;
-  userId: string | null;
-} = {
-  data: null,
-  timestamp: 0,
-  userId: null
-};
-
-// Tempo de cache: 60 segundos
-const CACHE_TTL = 60 * 1000;
+// --- Hook Otimizado com React Query ---
 
 export function useQuotas() {
   const { user } = useAuth();
-  const [quota, setQuota] = useState<UserQuota | null>(quotaCache.data);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const isFetchingRef = useRef(false);
+  const queryClient = useQueryClient();
 
-  const fetchQuota = useCallback(async (forceRefresh = false) => {
-    if (!user?.id) {
-      setIsLoading(false);
-      return;
-    }
-
-    // Verificar cache (se não forçar refresh)
-    if (!forceRefresh && quotaCache.userId === user.id && quotaCache.data) {
-      const now = Date.now();
-      if (now - quotaCache.timestamp < CACHE_TTL) {
-        console.log('[useQuotas] Usando cache');
-        setQuota(quotaCache.data);
-        setIsLoading(false);
-        return;
-      }
-    }
-
-    // Evitar chamadas duplicadas
-    if (isFetchingRef.current) {
-      console.log('[useQuotas] Já está buscando, ignorando...');
-      return;
-    }
-
-    try {
-      isFetchingRef.current = true;
-      console.log('[useQuotas] Buscando quota do servidor...');
+  // 1. QUERY: Buscar Quotas (Cacheada e Deduplicada)
+  const { 
+    data: quota = null, 
+    isLoading, 
+    error: queryError 
+  } = useQuery({
+    queryKey: ['user-quota', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return null;
+      
+      console.log('[useQuotas] Buscando quota do servidor (Request Real)...');
       const response = await makeAuthenticatedRequest(`${API_URL}/api/quotas/me`);
       
-      if (response.ok) {
-        const data = await response.json();
-        console.log('[useQuotas] Quota recebida:', data);
-        
-        // Atualizar cache global
-        quotaCache.data = data;
-        quotaCache.timestamp = Date.now();
-        quotaCache.userId = user.id;
-        
-        setQuota(data);
-        setError(null);
-      } else {
-        const errorText = await response.text();
-        console.error('[useQuotas] Erro:', response.status, errorText);
-        setError(`Erro ${response.status}`);
-      }
-    } catch (error: any) {
-      console.error("[useQuotas] Error:", error);
-      if (error.message?.includes("Sessão expirada")) {
-        setError('Sessão expirada');
-      } else {
-        setError('Erro de conexão');
-      }
-    } finally {
-      isFetchingRef.current = false;
-      setIsLoading(false);
-    }
-  }, [user?.id]);
-
-  const checkQuota = useCallback(async (action: 'lead_search' | 'campaign_send' | 'message_send'): Promise<QuotaCheckResult> => {
-    if (!user?.id) {
-      return { allowed: false, reason: 'Usuário não autenticado' };
-    }
-
-    try {
-      // Verificar localmente se é ilimitado ANTES de chamar API
-      if (quota) {
-        let limit = 0;
-        let used = 0;
-        
-        if (action === 'lead_search') {
-          limit = quota.leads_limit;
-          used = quota.leads_used;
-        } else if (action === 'campaign_send') {
-          limit = quota.campaigns_limit;
-          used = quota.campaigns_used;
-        } else if (action === 'message_send') {
-          limit = quota.messages_limit;
-          used = quota.messages_sent;
-        }
-        
-        // -1 = Ilimitado
-        if (limit === -1) {
-          console.log(`Quota check: ${action} is UNLIMITED`);
-          return { 
-            allowed: true, 
-            unlimited: true,
-            used,
-            limit: -1
-          };
-        }
+      if (!response.ok) {
+        if (response.status === 401) throw new Error("Sessão expirada");
+        throw new Error(`Erro ${response.status}`);
       }
       
-      // Backend espera action como query parameter
+      const data = await response.json();
+      return data as UserQuota;
+    },
+    enabled: !!user?.id,
+    // Cache forte de 5 minutos. Evita recarregar ao mudar de aba/página.
+    staleTime: 1000 * 60 * 5, 
+    refetchOnWindowFocus: false, 
+    retry: 1
+  });
+
+  // 2. MUTATION: Incrementar Quota
+  const incrementMutation = useMutation({
+    mutationFn: async ({ action, amount }: { action: 'lead_search' | 'campaign_send' | 'message_send', amount: number }) => {
+      const response = await makeAuthenticatedRequest(
+        `${API_URL}/api/quotas/increment?action=${action}&amount=${amount}`,
+        { method: 'POST' }
+      );
+      if (!response.ok) throw new Error("Falha ao incrementar");
+      return true;
+    },
+    onSuccess: () => {
+      // Atualiza os dados locais puxando do servidor novamente após incrementar
+      queryClient.invalidateQueries({ queryKey: ['user-quota'] });
+    }
+  });
+
+  // 3. Funções Auxiliares (Logic Check)
+  
+  const checkQuota = useCallback(async (action: 'lead_search' | 'campaign_send' | 'message_send'): Promise<QuotaCheckResult> => {
+    if (!user?.id) return { allowed: false, reason: 'Usuário não autenticado' };
+
+    // Otimização: Verificar cache local primeiro para casos Ilimitados (-1)
+    if (quota) {
+      let limit = 0;
+      let used = 0;
+      
+      if (action === 'lead_search') {
+        limit = quota.leads_limit;
+        used = quota.leads_used;
+      } else if (action === 'campaign_send') {
+        limit = quota.campaigns_limit;
+        used = quota.campaigns_used;
+      } else if (action === 'message_send') {
+        limit = quota.messages_limit;
+        used = quota.messages_sent;
+      }
+      
+      // Se for ilimitado no cache, retorna IMEDIATAMENTE sem bater no servidor (Economia de Request)
+      if (limit === -1) {
+        console.log(`[useQuotas] Check Local: ${action} é ILIMITADO. Economizando request.`);
+        return { allowed: true, unlimited: true, used, limit: -1 };
+      }
+    }
+
+    // Se não for ilimitado ou não tiver cache, valida no servidor
+    try {
       const response = await makeAuthenticatedRequest(
         `${API_URL}/api/quotas/check?action=${action}`,
-        {
-          method: 'POST'
-        }
+        { method: 'POST' }
       );
       
       if (response.ok) {
         const result = await response.json();
-        console.log('Quota check result:', result);
-        
-        // Se backend retornar limit -1, também tratar como ilimitado
-        if (result.limit === -1) {
-          return { ...result, allowed: true, unlimited: true };
-        }
-        
+        // Sincroniza cache se o servidor disser algo novo
+        if (result.limit === -1) return { ...result, allowed: true, unlimited: true };
         return result;
-      } else {
-        const errorData = await response.json().catch(() => ({}));
-        console.error('Quota check failed:', errorData);
-        return { allowed: false, reason: errorData.detail || 'Erro ao verificar quota' };
       }
+      
+      const errorData = await response.json().catch(() => ({}));
+      return { allowed: false, reason: errorData.detail || 'Erro ao verificar quota' };
     } catch (error) {
       console.error("Error checking quota:", error);
       return { allowed: false, reason: 'Erro de conexão' };
     }
-  }, [user?.id, quota]);
+  }, [user?.id, quota]); // Dependência 'quota' permite a otimização local
 
-  const incrementQuota = useCallback(async (action: 'lead_search' | 'campaign_send' | 'message_send', amount: number = 1): Promise<boolean> => {
+  const incrementQuota = async (action: 'lead_search' | 'campaign_send' | 'message_send', amount: number = 1): Promise<boolean> => {
     if (!user?.id) return false;
-
     try {
-      // Backend espera action e amount como query parameters
-      const response = await makeAuthenticatedRequest(
-        `${API_URL}/api/quotas/increment?action=${action}&amount=${amount}`,
-        {
-          method: 'POST'
-        }
-      );
-      
-      if (response.ok) {
-        // Forçar refresh do cache após incremento
-        await fetchQuota(true);
-        return true;
-      }
-      return false;
-    } catch (error) {
-      console.error("Error incrementing quota:", error);
+      await incrementMutation.mutateAsync({ action, amount });
+      return true;
+    } catch (e) {
+      console.error("Erro ao incrementar:", e);
       return false;
     }
-  }, [user?.id, fetchQuota]);
+  };
 
-  const refresh = useCallback(() => {
-    // Forçar refresh ignorando cache
-    fetchQuota(true);
-  }, [fetchQuota]);
-
-  // Helper functions
+  // Helper values derivados do cache
   const hasUnlimitedLeads = quota?.leads_limit === -1;
   const hasUnlimitedCampaigns = quota?.campaigns_limit === -1;
   const canUseCampaigns = quota ? quota.campaigns_limit !== 0 : false;
@@ -216,24 +160,14 @@ export function useQuotas() {
     ? new Date(quota.plan_expires_at) < new Date()
     : false;
 
-  useEffect(() => {
-    if (user?.id) {
-      console.log("[useQuotas] User logged in, fetching quota...", user.id);
-      fetchQuota();
-    } else {
-      console.log("[useQuotas] No user, skipping quota fetch");
-      setIsLoading(false);
-    }
-  }, [user?.id, fetchQuota]);
-
   return {
     quota,
     isLoading,
-    error,
+    error: queryError ? (queryError as Error).message : null,
     checkQuota,
     incrementQuota,
-    refresh,
-    // Helper values
+    refresh: () => queryClient.invalidateQueries({ queryKey: ['user-quota'] }),
+    // Helpers
     hasUnlimitedLeads,
     hasUnlimitedCampaigns,
     canUseCampaigns,
