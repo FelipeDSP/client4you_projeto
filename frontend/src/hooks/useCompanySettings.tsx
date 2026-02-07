@@ -126,6 +126,7 @@ export function useCompanySettings() {
       console.error("Unexpected error:", error);
       setSettings(null);
     } finally {
+      isFetchingRef.current = false;
       setIsLoading(false);
     }
   }, [user?.companyId]);
