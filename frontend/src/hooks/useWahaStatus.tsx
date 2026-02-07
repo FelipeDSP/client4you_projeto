@@ -11,8 +11,8 @@ interface UseWahaStatusResult {
   refresh: () => void;
 }
 
-// O frontend usa proxy do Vite, então URLs relativas funcionam
-// vite.config.ts: /api -> http://127.0.0.1:8001
+// Em produção usa VITE_BACKEND_URL, em dev usa URL relativa (proxy do Vite)
+const API_BASE_URL = import.meta.env.VITE_BACKEND_URL || "";
 
 export function useWahaStatus(): UseWahaStatusResult {
   const [status, setStatus] = useState<WAStatus>("LOADING");
