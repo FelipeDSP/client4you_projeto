@@ -171,25 +171,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Gerar novo token de sessão e salvar no perfil
       if (data.user) {
         const newToken = generateSessionToken();
+        console.log('[useAuth] Novo token de sessão gerado:', newToken);
         localStorage.setItem(SESSION_TOKEN_KEY, newToken);
         
         // Atualizar token no banco (isso invalida outras sessões)
-        const { error: updateError } = await supabase
+        const { data: updateData, error: updateError } = await supabase
           .from("profiles")
           .update({ 
             session_token: newToken,
             last_login_at: new Date().toISOString()
           })
-          .eq("id", data.user.id);
+          .eq("id", data.user.id)
+          .select();
         
         if (updateError) {
-          console.warn("Erro ao atualizar token de sessão:", updateError);
+          console.error("[useAuth] Erro ao atualizar token de sessão:", updateError);
+        } else {
+          console.log("[useAuth] Token de sessão atualizado com sucesso:", updateData);
         }
       }
 
       setWasLoggedOutRemotely(false);
       return { success: true };
     } catch (err) {
+      console.error("[useAuth] Erro no login:", err);
       return { success: false, error: "Erro ao fazer login" };
     }
   };
