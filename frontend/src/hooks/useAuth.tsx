@@ -78,6 +78,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  // Registrar callback para quando sessão expira via API
+  useEffect(() => {
+    setSessionExpiredCallback(handleSessionExpired);
+  }, [handleSessionExpired]);
+
   useEffect(() => {
     hasLoggedOutRef.current = false;
     
