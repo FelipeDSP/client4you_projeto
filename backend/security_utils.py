@@ -193,13 +193,22 @@ async def get_authenticated_user(request: Request) -> dict:
             client_session_token = request.headers.get("X-Session-Token")
             db_session_token = profile.data.get("session_token")
             
-            if client_session_token and db_session_token:
+            logger.info(f"[Session Check] Client token: {client_session_token[:15] if client_session_token else 'NONE'}... | DB token: {db_session_token[:15] if db_session_token else 'NONE'}...")
+            
+            # Se o banco tem um token mas o cliente não enviou, é sessão antiga
+            if db_session_token and not client_session_token:
+                logger.warning(f"Session token missing from client for user {user_id}. DB has token but client didn't send.")
+                # Não bloqueia sessões antigas sem token (compatibilidade)
+                pass
+            elif client_session_token and db_session_token:
                 if client_session_token != db_session_token:
-                    logger.warning(f"Session token mismatch for user {user_id}. Client: {client_session_token[:15]}..., DB: {db_session_token[:15]}...")
+                    logger.warning(f"Session token MISMATCH for user {user_id}!")
                     raise HTTPException(
                         status_code=401, 
                         detail="SESSION_EXPIRED_OTHER_DEVICE"
                     )
+                else:
+                    logger.debug(f"Session token MATCH for user {user_id}")
             
             # Buscar roles do usuário
             roles_result = supabase.table('user_roles')\
