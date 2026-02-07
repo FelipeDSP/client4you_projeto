@@ -1,104 +1,102 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Lead, SearchHistory } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
+export interface SearchResult {
+  leads: Lead[];
+  hasMore: boolean;
+  nextStart: number;
+  searchId: string;
+  query: string;
+  location: string;
+}
+
 export function useLeads() {
   const { user } = useAuth();
-  const [leads, setLeads] = useState<Lead[]>([]);
-  const [searchHistory, setSearchHistory] = useState<SearchHistory[]>([]);
+  const queryClient = useQueryClient();
   const [isSearching, setIsSearching] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
 
-  // Fetch leads and history from Supabase
-  const fetchData = useCallback(async () => {
-    if (!user?.companyId) {
-      setLeads([]);
-      setSearchHistory([]);
-      setIsLoading(false);
-      return;
-    }
-
-    try {
-      const { data: leadsData, error: leadsError } = await supabase
+  // --- 1. QUERY: Buscar Leads (Com Cache Infinito para economizar) ---
+  const { data: leads = [], isLoading: isLoadingLeads } = useQuery({
+    queryKey: ['leads', user?.companyId],
+    queryFn: async () => {
+      if (!user?.companyId) return [];
+      
+      const { data, error } = await supabase
         .from("leads")
         .select("*")
         .order("created_at", { ascending: false });
 
-      if (leadsError) {
-        console.error("Error fetching leads:", leadsError);
-      } else {
-        const mappedLeads: Lead[] = (leadsData || []).map((lead) => ({
-          id: lead.id,
-          name: lead.name,
-          phone: lead.phone || "",
-          hasWhatsApp: lead.has_whatsapp || false,
-          email: lead.email,
-          hasEmail: lead.has_email || false,
-          address: lead.address || "",
-          city: "",
-          state: "",
-          rating: Number(lead.rating) || 0,
-          reviews: lead.reviews_count || 0,
-          category: lead.category || "",
-          website: lead.website,
-          extractedAt: lead.created_at,
-          searchId: lead.search_id || undefined,
-          companyId: lead.company_id,
-        }));
-        setLeads(mappedLeads);
+      if (error) {
+        console.error("Error fetching leads:", error);
+        throw error;
       }
 
-      const { data: historyData, error: historyError } = await supabase
+      return (data || []).map((lead) => ({
+        id: lead.id,
+        name: lead.name,
+        phone: lead.phone || "",
+        hasWhatsApp: lead.has_whatsapp || false,
+        email: lead.email,
+        hasEmail: lead.has_email || false,
+        address: lead.address || "",
+        city: "",
+        state: "",
+        rating: Number(lead.rating) || 0,
+        reviews: lead.reviews_count || 0,
+        category: lead.category || "",
+        website: lead.website,
+        extractedAt: lead.created_at,
+        searchId: lead.search_id || undefined,
+        companyId: lead.company_id,
+      }));
+    },
+    enabled: !!user?.companyId,
+    // CRÍTICO: Não refetch automaticamente. Só atualiza se forçarmos ou na busca.
+    staleTime: Infinity, 
+    refetchOnWindowFocus: false,
+  });
+
+  // --- 2. QUERY: Buscar Histórico ---
+  const { data: searchHistory = [] } = useQuery({
+    queryKey: ['searchHistory', user?.companyId],
+    queryFn: async () => {
+      if (!user?.companyId) return [];
+      
+      const { data, error } = await supabase
         .from("search_history")
         .select("*")
         .order("created_at", { ascending: false });
 
-      if (historyError) {
-        console.error("Error fetching history:", historyError);
-      } else {
-        const mappedHistory: SearchHistory[] = (historyData || []).map((h) => ({
-          id: h.id,
-          query: h.query,
-          location: h.location,
-          resultsCount: h.results_count || 0,
-          searchedAt: h.created_at,
-          userId: h.user_id || undefined,
-          companyId: h.company_id,
-        }));
-        setSearchHistory(mappedHistory);
+      if (error) {
+        console.error("Error fetching history:", error);
+        throw error;
       }
-    } catch (error) {
-      console.error("Error fetching data:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [user?.companyId]);
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+      return (data || []).map((h) => ({
+        id: h.id,
+        query: h.query,
+        location: h.location,
+        resultsCount: h.results_count || 0,
+        searchedAt: h.created_at,
+        userId: h.user_id || undefined,
+        companyId: h.company_id,
+      }));
+    },
+    enabled: !!user?.companyId,
+    staleTime: 1000 * 60 * 5, // 5 minutos de cache para histórico
+  });
 
-  interface SearchResult {
-    leads: Lead[];
-    hasMore: boolean;
-    nextStart: number;
-    searchId: string;
-    query: string;
-    location: string;
-  }
-
-  const searchLeads = async (query: string, location: string, start: number = 0, existingSearchId?: string): Promise<SearchResult | null> => {
-    if (!user?.companyId) {
-      console.error("No company ID found");
-      return null;
-    }
-
-    setIsSearching(true);
-
-    try {
+  // --- 3. MUTATION: Buscar Leads (Ação Pesada) ---
+  const searchMutation = useMutation({
+    mutationFn: async ({ query, location, start = 0, existingSearchId }: { query: string, location: string, start?: number, existingSearchId?: string }): Promise<SearchResult | null> => {
+      if (!user?.companyId) return null;
+      
       let searchId = existingSearchId;
 
+      // 1. Criar histórico se não existir
       if (!searchId) {
         const { data: historyData, error: historyError } = await supabase
           .from("search_history")
@@ -112,41 +110,20 @@ export function useLeads() {
           .select()
           .single();
 
-        if (historyError) {
-          console.error("Error creating search history:", historyError);
-          setIsSearching(false);
-          return null;
-        }
+        if (historyError) throw historyError;
         searchId = historyData.id;
       }
 
+      // 2. Chamar Edge Function
       const { data: { session } } = await supabase.auth.getSession();
-
       const { data, error } = await supabase.functions.invoke("search-leads", {
-        body: {
-          query,
-          location,
-          companyId: user.companyId,
-          searchId,
-          start,
-        },
-        headers: session?.access_token 
-          ? { Authorization: `Bearer ${session.access_token}` }
-          : undefined,
+        body: { query, location, companyId: user.companyId, searchId, start },
+        headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : undefined,
       });
 
-      if (error) {
-        console.error("Error calling search-leads function:", error);
-        setIsSearching(false);
-        return null;
-      }
+      if (error || data?.error) throw error || new Error(data?.error);
 
-      if (data?.error) {
-        console.error("Search error:", data.error);
-        setIsSearching(false);
-        return null;
-      }
-
+      // 3. Buscar APENAS os novos leads criados (economiza banda)
       const { data: newLeadsData, error: newLeadsError } = await supabase
         .from("leads")
         .select("*")
@@ -154,13 +131,9 @@ export function useLeads() {
         .order("created_at", { ascending: false })
         .limit(data?.count || 20);
 
-      if (newLeadsError) {
-        console.error("Error fetching new leads:", newLeadsError);
-        setIsSearching(false);
-        return null;
-      }
+      if (newLeadsError) throw newLeadsError;
 
-      const newLeads: Lead[] = (newLeadsData || []).map((lead) => ({
+      const newLeadsMapped: Lead[] = (newLeadsData || []).map((lead) => ({
         id: lead.id,
         name: lead.name,
         phone: lead.phone || "",
@@ -179,29 +152,38 @@ export function useLeads() {
         companyId: lead.company_id,
       }));
 
-      await fetchData();
-      setIsSearching(false);
-      
       return {
-        leads: newLeads,
+        leads: newLeadsMapped,
         hasMore: data?.hasMore || false,
         nextStart: data?.nextStart || 0,
         searchId: searchId!,
         query,
         location,
       };
-    } catch (error) {
-      console.error("Error in searchLeads:", error);
-      setIsSearching(false);
-      return null;
+    },
+    onSuccess: (data) => {
+      if (data?.leads) {
+        // Atualiza o cache de LEADS adicionando os novos no topo
+        queryClient.setQueryData(['leads', user?.companyId], (oldLeads: Lead[] = []) => {
+          // Filtra duplicatas caso existam por segurança e adiciona novos
+          const newIds = new Set(data.leads.map(l => l.id));
+          const filteredOld = oldLeads.filter(l => !newIds.has(l.id));
+          return [...data.leads, ...filteredOld];
+        });
+
+        // Invalida histórico para atualizar contagem
+        queryClient.invalidateQueries({ queryKey: ['searchHistory'] });
+      }
+    },
+    onError: (error) => {
+      console.error("Erro na busca:", error);
     }
-  };
+  });
 
-  // 🔥 NOVA FUNÇÃO RESTAURADA: Conecta com o backend Python para validar 🔥
-  const validateLeads = async (leadIds: string[]) => {
-    if (leadIds.length === 0) return [];
-
-    try {
+  // --- 4. MUTATION: Validar Leads (Python Backend) ---
+  const validateMutation = useMutation({
+    mutationFn: async (leadIds: string[]) => {
+      if (leadIds.length === 0) return [];
       const backendUrl = import.meta.env.VITE_BACKEND_URL || "";
       const { data: { session } } = await supabase.auth.getSession();
       
@@ -214,75 +196,103 @@ export function useLeads() {
         body: JSON.stringify({ lead_ids: leadIds }),
       });
 
-      if (!response.ok) {
-        console.warn("Validation endpoint error:", response.status);
-        return [];
-      }
+      if (!response.ok) throw new Error("Erro na validação");
+      return response.json();
+    },
+    onSuccess: (data) => {
+       if (data.updated && data.updated.length > 0) {
+         // Atualiza cache localmente sem refetch
+         queryClient.setQueryData(['leads', user?.companyId], (oldLeads: Lead[] = []) => {
+           return oldLeads.map(lead => {
+             const wasUpdated = data.updated.find((u: any) => u.id === lead.id);
+             return wasUpdated ? { ...lead, hasWhatsApp: true } : lead;
+           });
+         });
+       }
+    }
+  });
 
-      const data = await response.json();
-      
-      // Atualiza o estado local imediatamente
-      if (data.updated && data.updated.length > 0) {
-        setLeads(prev => prev.map(lead => {
-          const update = data.updated.find((u: any) => u.id === lead.id);
-          if (update) {
-            return { ...lead, hasWhatsApp: true };
-          }
-          return lead;
-        }));
-        return data.updated;
-      }
-      return [];
-    } catch (error) {
-      console.error("Error validating leads:", error);
-      return [];
+  // --- 5. Outras Actions (Delete, Clear) ---
+  const deleteLeadMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("leads").delete().eq("id", id);
+      if (error) throw error;
+      return id;
+    },
+    onSuccess: (id) => {
+      queryClient.setQueryData(['leads', user?.companyId], (old: Lead[] = []) => old.filter(l => l.id !== id));
+    }
+  });
+
+  const clearAllLeadsMutation = useMutation({
+    mutationFn: async () => {
+      if (!user?.companyId) return;
+      const { error } = await supabase.from("leads").delete().eq("company_id", user.companyId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.setQueryData(['leads', user?.companyId], []);
+    }
+  });
+
+  const deleteSearchHistoryMutation = useMutation({
+    mutationFn: async (searchId: string) => {
+      // Deleta leads e histórico
+      await supabase.from("leads").delete().eq("search_id", searchId);
+      await supabase.from("search_history").delete().eq("id", searchId);
+      return searchId;
+    },
+    onSuccess: (searchId) => {
+      queryClient.setQueryData(['searchHistory', user?.companyId], (old: SearchHistory[] = []) => old.filter(h => h.id !== searchId));
+      queryClient.setQueryData(['leads', user?.companyId], (old: Lead[] = []) => old.filter(l => l.searchId !== searchId));
+    }
+  });
+
+  const clearAllHistoryMutation = useMutation({
+    mutationFn: async () => {
+      if (!user?.companyId) return;
+      await supabase.from("leads").delete().eq("company_id", user.companyId);
+      await supabase.from("search_history").delete().eq("company_id", user.companyId);
+    },
+    onSuccess: () => {
+      queryClient.setQueryData(['leads', user?.companyId], []);
+      queryClient.setQueryData(['searchHistory', user?.companyId], []);
+    }
+  });
+
+  // --- Wrapper Functions para manter compatibilidade ---
+  
+  const searchLeads = async (query: string, location: string, start: number = 0, existingSearchId?: string) => {
+    setIsSearching(true);
+    try {
+      const result = await searchMutation.mutateAsync({ query, location, start, existingSearchId });
+      return result;
+    } catch (e) {
+      return null;
+    } finally {
+      setIsSearching(false);
     }
   };
 
-  const deleteLead = async (id: string) => {
-    const { error } = await supabase.from("leads").delete().eq("id", id);
-    if (error) { console.error("Error deleting lead:", error); return; }
-    setLeads((prev) => prev.filter((l) => l.id !== id));
-  };
-
-  const clearAllLeads = async () => {
-    if (!user?.companyId) return;
-    const { error } = await supabase.from("leads").delete().eq("company_id", user.companyId);
-    if (error) { console.error("Error clearing leads:", error); return; }
-    setLeads([]);
-  };
-
-  const getLeadsBySearchId = (searchId: string): Lead[] => {
-    return leads.filter((l) => l.searchId === searchId);
-  };
-
-  const deleteSearchHistory = async (searchId: string) => {
-    await supabase.from("leads").delete().eq("search_id", searchId);
-    await supabase.from("search_history").delete().eq("id", searchId);
-    setSearchHistory((prev) => prev.filter((h) => h.id !== searchId));
-    setLeads((prev) => prev.filter((l) => l.searchId !== searchId));
-  };
-
-  const clearAllHistory = async () => {
-    if (!user?.companyId) return;
-    await supabase.from("leads").delete().eq("company_id", user.companyId);
-    await supabase.from("search_history").delete().eq("company_id", user.companyId);
-    setSearchHistory([]);
-    setLeads([]);
+  const validateLeads = async (leadIds: string[]) => {
+    try {
+      const data = await validateMutation.mutateAsync(leadIds);
+      return data.updated || [];
+    } catch { return []; }
   };
 
   return {
     leads,
     searchHistory,
-    isSearching,
-    isLoading,
+    isSearching, // Estado local para UI de 'buscando...'
+    isLoading: isLoadingLeads, // Estado global de 'carregando dados iniciais'
     searchLeads,
-    validateLeads, // 🔥 EXPORTAR A FUNÇÃO
-    deleteLead,
-    clearAllLeads,
-    getLeadsBySearchId,
-    deleteSearchHistory,
-    clearAllHistory,
-    refreshData: fetchData,
+    validateLeads,
+    deleteLead: (id: string) => deleteLeadMutation.mutate(id),
+    clearAllLeads: () => clearAllLeadsMutation.mutate(),
+    getLeadsBySearchId: (searchId: string) => leads.filter((l) => l.searchId === searchId),
+    deleteSearchHistory: (id: string) => deleteSearchHistoryMutation.mutate(id),
+    clearAllHistory: () => clearAllHistoryMutation.mutate(),
+    refreshData: () => queryClient.invalidateQueries({ queryKey: ['leads'] }),
   };
 }
