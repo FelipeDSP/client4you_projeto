@@ -1,10 +1,11 @@
-import { useState, useEffect, useCallback } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
 import { makeAuthenticatedRequest } from "@/lib/api";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "";
+
+// --- Interfaces (Mantidas iguais para compatibilidade) ---
 
 export type CampaignStatus = "draft" | "ready" | "running" | "paused" | "completed" | "cancelled";
 export type MessageType = "text" | "image" | "document";
@@ -52,7 +53,7 @@ export interface Campaign {
   completed_at?: string;
   stats: CampaignStats;
   is_worker_running: boolean;
-  is_actively_sending?: boolean; // Flag para indicar se está enviando ou só aguardando horário
+  is_actively_sending?: boolean;
 }
 
 export interface Contact {
@@ -80,310 +81,191 @@ export interface MessageLog {
   sent_at: string;
 }
 
+// --- Hook Otimizado com React Query ---
+
 export function useCampaigns() {
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
+  const queryClient = useQueryClient();
 
-  const fetchCampaigns = useCallback(async () => {
-    if (!user?.companyId) {
-      setCampaigns([]);
-      setIsLoading(false);
-      setError(null);
-      return;
-    }
-
-    setIsLoading(true);
-    setError(null);
-
-    try {
+  // 1. QUERY: Busca lista de campanhas com Cache
+  // staleTime: 30000 -> Evita requests repetidos se você trocar de aba e voltar rápido (30s)
+  const { 
+    data: campaigns = [], 
+    isLoading, 
+    error: queryError 
+  } = useQuery({
+    queryKey: ['campaigns', user?.companyId],
+    queryFn: async () => {
+      if (!user?.companyId) return [];
+      
       const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/campaigns`);
       
       if (!response.ok) {
-        if (response.status === 401) {
-          throw new Error("Sessão expirada. Faça login novamente.");
-        }
-        if (response.status === 403) {
-          throw new Error("Você não tem permissão para acessar as campanhas.");
-        }
+        if (response.status === 401) throw new Error("Sessão expirada. Faça login novamente.");
+        if (response.status === 403) throw new Error("Sem permissão.");
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.detail || `Erro ${response.status}: ${response.statusText}`);
+        throw new Error(errorData.detail || `Erro ${response.status}`);
       }
       
       const data = await response.json();
-      setCampaigns(data.campaigns || []);
-      setError(null);
-    } catch (error: any) {
-      console.error("Error fetching campaigns:", error);
-      const errorMsg = error.message || "Erro ao carregar campanhas";
-      setError(errorMsg);
-      setCampaigns([]);
-      
-      if (error.message?.includes("Sessão expirada")) {
-        toast({
-          title: "Sessão expirada",
-          description: "Por favor, faça login novamente.",
-          variant: "destructive"
-        });
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  }, [user?.companyId, toast]);
+      return data.campaigns || [];
+    },
+    enabled: !!user?.companyId,
+    staleTime: 30000, 
+    refetchOnWindowFocus: true, 
+  });
 
-  useEffect(() => {
-    fetchCampaigns();
-  }, [fetchCampaigns]);
-
-  const createCampaign = async (
-    name: string,
-    message: CampaignMessage,
-    settings: CampaignSettings
-  ): Promise<Campaign | null> => {
-    if (!user?.companyId) {
-      toast({
-        title: "Erro",
-        description: "Usuário não autenticado.",
-        variant: "destructive",
-      });
-      return null;
-    }
-
-    try {
-      const response = await makeAuthenticatedRequest(
-        `${BACKEND_URL}/api/campaigns`,
-        {
-          method: "POST",
-          body: JSON.stringify({ name, message, settings }),
-        }
-      );
-
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        throw new Error(error.detail || "Erro ao criar campanha");
-      }
-
-      const campaign = await response.json();
-      await fetchCampaigns();
-      
-      toast({
-        title: "Campanha criada!",
-        description: `Campanha "${name}" criada com sucesso.`,
-      });
-      
-      return campaign;
-    } catch (error: any) {
-      toast({
-        title: "Erro",
-        description: error.message || "Não foi possível criar a campanha.",
-        variant: "destructive",
-      });
-      return null;
-    }
+  // Helpers de sucesso e erro para as mutations
+  const handleSuccess = (msg: string) => {
+    queryClient.invalidateQueries({ queryKey: ['campaigns'] });
+    toast({ title: "Sucesso", description: msg });
   };
 
-  const uploadContacts = async (campaignId: string, file: File): Promise<boolean> => {
-    try {
+  const handleError = (error: any, action: string) => {
+    console.error(`Erro ao ${action}:`, error);
+    toast({
+      title: "Erro",
+      description: error.message || `Falha ao ${action}.`,
+      variant: "destructive",
+    });
+  };
+
+  // 2. MUTATIONS: Ações de escrita
+
+  const createCampaignMutation = useMutation({
+    mutationFn: async (data: { name: string; message: CampaignMessage; settings: CampaignSettings }) => {
+      const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/campaigns`, {
+        method: "POST",
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.detail || "Erro ao criar campanha");
+      }
+      return response.json();
+    },
+    onSuccess: (data) => handleSuccess(`Campanha "${data.name}" criada!`),
+    onError: (e) => handleError(e, "criar campanha"),
+  });
+
+  const uploadContactsMutation = useMutation({
+    mutationFn: async ({ id, file }: { id: string; file: File }) => {
       const formData = new FormData();
       formData.append("file", file);
-
-      const response = await makeAuthenticatedRequest(
-        `${BACKEND_URL}/api/campaigns/${campaignId}/upload`,
-        {
-          method: "POST",
-          body: formData,
-        }
-      );
-
+      const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/campaigns/${id}/upload`, {
+        method: "POST",
+        body: formData,
+      });
       if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        throw new Error(error.detail || "Erro ao fazer upload");
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.detail || "Erro no upload");
       }
+      return response.json();
+    },
+    onSuccess: (data) => handleSuccess(`${data.total_imported} contatos importados.`),
+    onError: (e) => handleError(e, "fazer upload"),
+  });
 
-      const data = await response.json();
-      await fetchCampaigns();
-
-      toast({
-        title: "Upload concluído!",
-        description: `${data.total_imported} contatos importados. ${data.skipped} ignorados.`,
-      });
-
-      return true;
-    } catch (error: any) {
-      toast({
-        title: "Erro no upload",
-        description: error.message || "Não foi possível fazer upload dos contatos.",
-        variant: "destructive",
-      });
-      return false;
-    }
-  };
-
-  const startCampaign = async (
-    campaignId: string,
-    wahaConfig?: { url: string; apiKey: string; session: string }
-  ): Promise<boolean> => {
-    try {
-      const params = new URLSearchParams();
+  const genericActionMutation = useMutation({
+    mutationFn: async ({ id, action, method = "POST", params }: { id: string; action: string; method?: string; params?: any }) => {
+      // Monta URL com query params se existirem (ex: start campaign)
+      let url = `${BACKEND_URL}/api/campaigns/${id}`;
+      if (action) url += `/${action}`;
       
-      if (wahaConfig) {
-        params.append("waha_url", wahaConfig.url);
-        params.append("waha_api_key", wahaConfig.apiKey);
-        params.append("waha_session", wahaConfig.session);
-      }
-      
-      const url = `${BACKEND_URL}/api/campaigns/${campaignId}/start${params.toString() ? `?${params.toString()}` : ''}`;
-      
-      const response = await makeAuthenticatedRequest(url, { method: "POST" });
-
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        throw new Error(error.detail || "Erro ao iniciar campanha");
+      if (params) {
+        const searchParams = new URLSearchParams(params);
+        url += `?${searchParams.toString()}`;
       }
 
-      await fetchCampaigns();
-      toast({
-        title: "Campanha iniciada!",
-        description: "O disparo de mensagens foi iniciado.",
-      });
-      return true;
-    } catch (error: any) {
-      toast({
-        title: "Erro",
-        description: error.message || "Não foi possível iniciar a campanha.",
-        variant: "destructive",
-      });
-      return false;
-    }
-  };
-
-  const pauseCampaign = async (campaignId: string): Promise<boolean> => {
-    try {
-      const response = await makeAuthenticatedRequest(
-        `${BACKEND_URL}/api/campaigns/${campaignId}/pause`,
-        { method: "POST" }
-      );
-
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        throw new Error(error.detail || "Erro ao pausar campanha");
-      }
-
-      await fetchCampaigns();
-      toast({
-        title: "Campanha pausada",
-        description: "O disparo foi pausado.",
-      });
-      return true;
-    } catch (error: any) {
-      toast({
-        title: "Erro",
-        description: error.message || "Não foi possível pausar a campanha.",
-        variant: "destructive",
-      });
-      return false;
-    }
-  };
-
-  const cancelCampaign = async (campaignId: string): Promise<boolean> => {
-    try {
-      const response = await makeAuthenticatedRequest(
-        `${BACKEND_URL}/api/campaigns/${campaignId}/cancel`,
-        { method: "POST" }
-      );
-
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        throw new Error(error.detail || "Erro ao cancelar campanha");
-      }
-
-      await fetchCampaigns();
-      toast({
-        title: "Campanha cancelada",
-        description: "A campanha foi cancelada.",
-      });
-      return true;
-    } catch (error: any) {
-      toast({
-        title: "Erro",
-        description: error.message || "Não foi possível cancelar a campanha.",
-        variant: "destructive",
-      });
-      return false;
-    }
-  };
-
-  const resetCampaign = async (campaignId: string): Promise<boolean> => {
-    try {
-      const response = await makeAuthenticatedRequest(
-        `${BACKEND_URL}/api/campaigns/${campaignId}/reset`,
-        { method: "POST" }
-      );
-
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        throw new Error(error.detail || "Erro ao resetar campanha");
-      }
-
-      await fetchCampaigns();
-      toast({
-        title: "Campanha resetada",
-        description: "Todos os contatos foram marcados como pendentes.",
-      });
-      return true;
-    } catch (error: any) {
-      toast({
-        title: "Erro",
-        description: error.message || "Não foi possível resetar a campanha.",
-        variant: "destructive",
-      });
-      return false;
-    }
-  };
-
-  const deleteCampaign = async (campaignId: string): Promise<boolean> => {
-    try {
-      const response = await makeAuthenticatedRequest(
-        `${BACKEND_URL}/api/campaigns/${campaignId}`,
-        { method: "DELETE" }
-      );
-
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        throw new Error(error.detail || "Erro ao excluir campanha");
-      }
-
-      await fetchCampaigns();
-      toast({
-        title: "Campanha excluída",
-        description: "A campanha foi excluída com sucesso.",
-      });
-      return true;
-    } catch (error: any) {
-      toast({
-        title: "Erro",
-        description: error.message || "Não foi possível excluir a campanha.",
-        variant: "destructive",
-      });
-      return false;
-    }
-  };
-
-  const getMessageLogs = async (
-    campaignId: string,
-    limit: number = 100
-  ): Promise<MessageLog[]> => {
-    try {
-      const response = await makeAuthenticatedRequest(
-        `${BACKEND_URL}/api/campaigns/${campaignId}/logs?limit=${limit}`
-      );
+      const response = await makeAuthenticatedRequest(url, { method });
       
       if (!response.ok) {
-        throw new Error("Erro ao buscar logs");
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.detail || `Erro ao ${action || 'excluir'}`);
       }
-      
+      return response.json();
+    },
+    onSuccess: (_, variables) => {
+        const actionMap: Record<string, string> = {
+            'start': 'iniciada',
+            'pause': 'pausada',
+            'cancel': 'cancelada',
+            'reset': 'resetada',
+            '': 'excluída' // Delete action tem string vazia no endpoint final
+        };
+        const verb = actionMap[variables.action] || 'atualizada';
+        handleSuccess(`Campanha ${verb} com sucesso.`);
+    },
+    onError: (e) => handleError(e, "executar ação"),
+  });
+
+  const createFromLeadsMutation = useMutation({
+    mutationFn: async (data: any) => {
+        const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/campaigns/from-leads`, {
+            method: "POST",
+            body: JSON.stringify(data),
+        });
+        if (!response.ok) throw new Error("Erro ao criar campanha");
+        return response.json();
+    },
+    onSuccess: () => handleSuccess("Campanha criada a partir dos leads!"),
+    onError: (e) => handleError(e, "criar campanha dos leads"),
+  });
+
+  // --- Wrapper Functions para manter compatibilidade com seus componentes ---
+
+  const createCampaign = async (name: string, message: CampaignMessage, settings: CampaignSettings) => {
+    const result = await createCampaignMutation.mutateAsync({ name, message, settings }).catch(() => null);
+    return result;
+  };
+
+  const uploadContacts = async (campaignId: string, file: File) => {
+    try {
+        await uploadContactsMutation.mutateAsync({ id: campaignId, file });
+        return true;
+    } catch { return false; }
+  };
+
+  const startCampaign = async (campaignId: string, wahaConfig?: { url: string; apiKey: string; session: string }) => {
+    try {
+        // Mapeia o config para os params que o backend espera
+        const params = wahaConfig ? {
+            waha_url: wahaConfig.url,
+            waha_api_key: wahaConfig.apiKey,
+            waha_session: wahaConfig.session
+        } : undefined;
+
+        await genericActionMutation.mutateAsync({ id: campaignId, action: 'start', params });
+        return true;
+    } catch { return false; }
+  };
+
+  const pauseCampaign = async (id: string) => {
+    try { await genericActionMutation.mutateAsync({ id, action: 'pause' }); return true; } catch { return false; }
+  };
+  
+  const cancelCampaign = async (id: string) => {
+    try { await genericActionMutation.mutateAsync({ id, action: 'cancel' }); return true; } catch { return false; }
+  };
+
+  const resetCampaign = async (id: string) => {
+    try { await genericActionMutation.mutateAsync({ id, action: 'reset' }); return true; } catch { return false; }
+  };
+
+  const deleteCampaign = async (id: string) => {
+    try { await genericActionMutation.mutateAsync({ id, action: '', method: 'DELETE' }); return true; } catch { return false; }
+  };
+
+  const createCampaignFromLeads = async (data: any) => {
+    return createFromLeadsMutation.mutateAsync(data);
+  };
+
+  // Função para logs (apenas leitura, sem cache necessário pois é sob demanda)
+  const getMessageLogs = async (campaignId: string, limit: number = 100): Promise<MessageLog[]> => {
+    try {
+      const response = await makeAuthenticatedRequest(`${BACKEND_URL}/api/campaigns/${campaignId}/logs?limit=${limit}`);
+      if (!response.ok) throw new Error("Erro");
       const data = await response.json();
       return data.logs || [];
     } catch (error) {
@@ -392,56 +274,11 @@ export function useCampaigns() {
     }
   };
 
-  // Criar campanha com contatos diretamente (dos leads buscados)
-  const createCampaignFromLeads = async (data: {
-    name: string;
-    message: CampaignMessage;
-    settings: CampaignSettings;
-    contacts: Array<{
-      name: string;
-      phone: string;
-      category?: string;
-      extra_data?: any;
-    }>;
-  }): Promise<Campaign | null> => {
-    if (!user?.companyId) {
-      toast({
-        title: "Erro",
-        description: "Usuário não autenticado.",
-        variant: "destructive",
-      });
-      return null;
-    }
-
-    try {
-      const response = await makeAuthenticatedRequest(
-        `${BACKEND_URL}/api/campaigns/from-leads`,
-        {
-          method: "POST",
-          body: JSON.stringify(data),
-        }
-      );
-
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        throw new Error(error.detail || "Erro ao criar campanha");
-      }
-
-      const campaign = await response.json();
-      await fetchCampaigns();
-      
-      return campaign;
-    } catch (error: any) {
-      console.error("Erro ao criar campanha dos leads:", error);
-      throw error;
-    }
-  };
-
   return {
     campaigns,
     isLoading,
-    error,
-    fetchCampaigns,
+    error: queryError ? (queryError as Error).message : null,
+    fetchCampaigns: () => queryClient.invalidateQueries({ queryKey: ['campaigns'] }), // Mantido para compatibilidade
     createCampaign,
     createCampaignFromLeads,
     uploadContacts,
