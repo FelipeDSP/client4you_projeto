@@ -198,7 +198,8 @@ export function useCompanySettings() {
         if (companyError) throw companyError;
       }
 
-      await fetchSettings();
+      // Forçar refresh ignorando cache após salvar
+      await fetchSettings(true);
 
       toast({
         title: "Sucesso",
