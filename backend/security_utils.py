@@ -39,6 +39,9 @@ async def get_authenticated_user(request: Request) -> dict:
     
     token = auth_header.replace("Bearer ", "")
     
+    # Obter X-Session-Token do header (para verificação de sessão única)
+    client_session_token = request.headers.get("X-Session-Token")
+    
     # Verificar cache primeiro
     token_hash = hash(token)
     current_time = time.time()
@@ -46,7 +49,35 @@ async def get_authenticated_user(request: Request) -> dict:
     if token_hash in _token_cache:
         user_data, expiry = _token_cache[token_hash]
         if current_time < expiry:
-            # Cache ainda válido
+            # Cache ainda válido, MAS precisa verificar session_token
+            if client_session_token:
+                # Verificar se o session_token ainda é válido no banco
+                try:
+                    supabase_url = os.environ.get('SUPABASE_URL')
+                    supabase_key = os.environ.get('SUPABASE_SERVICE_ROLE_KEY') or os.environ.get('SUPABASE_KEY')
+                    supabase = create_client(supabase_url, supabase_key)
+                    
+                    profile = supabase.table('profiles')\
+                        .select('session_token')\
+                        .eq('id', user_data.get('user_id'))\
+                        .single()\
+                        .execute()
+                    
+                    db_session_token = profile.data.get('session_token') if profile.data else None
+                    
+                    logger.info(f"[Session Check - Cached] Client: {client_session_token[:15]}... | DB: {db_session_token[:15] if db_session_token else 'NONE'}...")
+                    
+                    if db_session_token and client_session_token != db_session_token:
+                        logger.warning(f"Session token MISMATCH (cached) for user {user_data.get('user_id')}!")
+                        raise HTTPException(
+                            status_code=401, 
+                            detail="SESSION_EXPIRED_OTHER_DEVICE"
+                        )
+                except HTTPException:
+                    raise
+                except Exception as e:
+                    logger.warning(f"Error checking session token: {e}")
+            
             return user_data
         else:
             # Cache expirado, remover
