@@ -218,8 +218,8 @@ export function useQuotas() {
       );
       
       if (response.ok) {
-        // Refresh quota after increment
-        await fetchQuota();
+        // Forçar refresh do cache após incremento
+        await fetchQuota(true);
         return true;
       }
       return false;
@@ -230,7 +230,8 @@ export function useQuotas() {
   }, [user?.id, fetchQuota]);
 
   const refresh = useCallback(() => {
-    fetchQuota();
+    // Forçar refresh ignorando cache
+    fetchQuota(true);
   }, [fetchQuota]);
 
   // Helper functions
