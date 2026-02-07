@@ -506,26 +506,43 @@ export function CreateCampaignDialog({ open, onOpenChange, onSuccess }: CreateCa
                 <Label className="flex items-center gap-2">
                   <Calendar className="h-4 w-4" /> Dias de Funcionamento
                 </Label>
-                <ToggleGroup type="multiple" value={workingDays} onValueChange={setWorkingDays} className="justify-start gap-2">
-                  {DAYS_OF_WEEK.map((day) => (
-                    <TooltipProvider key={day.value}>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <ToggleGroupItem 
-                            value={day.value}
-                            aria-label={day.fullName}
-                            className="h-10 w-10 rounded-full border-2 border-slate-200 data-[state=on]:bg-[#054173] data-[state=on]:text-white data-[state=on]:border-[#054173] font-semibold"
-                          >
-                            {day.label}
-                          </ToggleGroupItem>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>{day.fullName}</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  ))}
-                </ToggleGroup>
+                <div className="flex gap-2 flex-wrap">
+                  {DAYS_OF_WEEK.map((day) => {
+                    const isSelected = workingDays.includes(day.value);
+                    return (
+                      <TooltipProvider key={day.value}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              type="button"
+                              onClick={() => toggleDay(day.value)}
+                              className={`
+                                h-10 w-10 rounded-full border-2 font-semibold transition-all duration-200
+                                ${isSelected 
+                                  ? 'bg-[#054173] text-white border-[#054173] shadow-md' 
+                                  : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                                }
+                              `}
+                              aria-label={day.fullName}
+                              aria-pressed={isSelected}
+                            >
+                              {day.label}
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>{day.fullName}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    );
+                  })}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Selecionados: {workingDays.length > 0 
+                    ? workingDays.map(d => DAYS_OF_WEEK.find(day => day.value === d)?.fullName).join(', ')
+                    : 'Nenhum'
+                  }
+                </p>
               </div>
 
               {/* Intervalo entre mensagens */}
