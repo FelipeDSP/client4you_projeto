@@ -112,7 +112,7 @@ export function useCampaigns() {
       return data.campaigns || [];
     },
     enabled: !!user?.companyId,
-    staleTime: 30000, 
+    staleTime: 1000 * 60 * 2,
     refetchOnWindowFocus: true, 
   });
 
