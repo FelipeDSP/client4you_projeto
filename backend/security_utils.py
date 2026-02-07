@@ -177,9 +177,9 @@ async def get_authenticated_user(request: Request) -> dict:
             logger.debug(f"Token validated for user_id: {user_id[:8]}...")
             
             # Buscar company_id do perfil usando service_role key
-            # Nota: coluna 'role' pode não existir, então não buscamos
+            # Também busca session_token para verificação de sessão única
             profile = supabase.table('profiles')\
-                .select('company_id, email, full_name')\
+                .select('company_id, email, full_name, session_token')\
                 .eq('id', user_id)\
                 .single()\
                 .execute()
@@ -187,6 +187,19 @@ async def get_authenticated_user(request: Request) -> dict:
             if not profile.data:
                 logger.error(f"Profile not found for user_id: {user_id}")
                 raise HTTPException(status_code=403, detail="Perfil de usuário não encontrado")
+            
+            # Verificar session_token (sessão única por conta)
+            # O token é enviado pelo frontend no header X-Session-Token
+            client_session_token = request.headers.get("X-Session-Token")
+            db_session_token = profile.data.get("session_token")
+            
+            if client_session_token and db_session_token:
+                if client_session_token != db_session_token:
+                    logger.warning(f"Session token mismatch for user {user_id}. Client: {client_session_token[:15]}..., DB: {db_session_token[:15]}...")
+                    raise HTTPException(
+                        status_code=401, 
+                        detail="SESSION_EXPIRED_OTHER_DEVICE"
+                    )
             
             # Buscar roles do usuário
             roles_result = supabase.table('user_roles')\
