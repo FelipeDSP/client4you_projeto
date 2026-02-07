@@ -47,37 +47,6 @@ const quotaCache: {
 // Tempo de cache: 60 segundos
 const CACHE_TTL = 60 * 1000;
 
-// Helper function for authenticated requests
-async function makeAuthenticatedRequest(
-  url: string,
-  options: RequestInit = {}
-): Promise<Response> {
-  try {
-    const { data: { session }, error } = await supabase.auth.getSession();
-    
-    if (error) {
-      console.error("Error getting session:", error);
-      throw new Error("Erro ao obter sessão. Tente fazer login novamente.");
-    }
-    
-    if (!session?.access_token) {
-      throw new Error("Sessão expirada. Faça login novamente.");
-    }
-    
-    return fetch(url, {
-      ...options,
-      headers: {
-        ...options.headers,
-        "Authorization": `Bearer ${session.access_token}`,
-        "Content-Type": "application/json"
-      }
-    });
-  } catch (error: any) {
-    console.error("makeAuthenticatedRequest error:", error);
-    throw error;
-  }
-}
-
 export function useQuotas() {
   const { user } = useAuth();
   const [quota, setQuota] = useState<UserQuota | null>(quotaCache.data);
