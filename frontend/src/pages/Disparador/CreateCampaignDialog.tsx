@@ -7,7 +7,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCampaigns } from "@/hooks/useCampaigns";
-import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { Loader2, Calendar, Clock, MessageSquare, Image as ImageIcon, Check, UploadCloud, FileSpreadsheet, Globe, Info, AlertCircle } from "lucide-react";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Badge } from "@/components/ui/badge";
