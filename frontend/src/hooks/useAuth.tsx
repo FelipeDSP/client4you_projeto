@@ -8,10 +8,12 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   isLoading: boolean;
+  sessionToken: string | null;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   signUp: (email: string, password: string, fullName?: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
-  signOut: () => Promise<void>; // Alias para logout
+  signOut: () => Promise<void>;
+  handleSessionExpired: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -23,9 +25,6 @@ function generateSessionToken(): string {
 
 // Chave para armazenar o token localmente
 const SESSION_TOKEN_KEY = 'app_session_token';
-
-// Intervalo de verificação: 10 segundos
-const SESSION_CHECK_INTERVAL = 10 * 1000;
 
 async function fetchUserProfile(userId: string): Promise<User | null> {
   const { data, error } = await supabase
@@ -54,55 +53,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const isCheckingRef = useRef(false);
+  const [sessionToken, setSessionToken] = useState<string | null>(() => localStorage.getItem(SESSION_TOKEN_KEY));
   const hasLoggedOutRef = useRef(false);
 
-  // Função para verificar se a sessão ainda é válida
-  const checkSessionValidity = useCallback(async (userId: string): Promise<boolean> => {
-    // Evitar verificações duplicadas
-    if (isCheckingRef.current || hasLoggedOutRef.current) return true;
-    
-    try {
-      isCheckingRef.current = true;
-      const localToken = localStorage.getItem(SESSION_TOKEN_KEY);
-      
-      if (!localToken) {
-        return true; // Se não tem token local, não verifica
-      }
-
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("session_token")
-        .eq("id", userId)
-        .single();
-
-      if (error) {
-        console.warn("[useAuth] Erro ao verificar sessão:", error);
-        return true; // Em caso de erro, não desloga
-      }
-
-      // Se o token do servidor é diferente do local, a sessão foi invalidada
-      if (data?.session_token && data.session_token !== localToken) {
-        console.log('[useAuth] Sessão invalidada! Token local:', localToken.substring(0, 10), '| Servidor:', data.session_token.substring(0, 10));
-        return false;
-      }
-
-      return true;
-    } catch (err) {
-      console.warn("[useAuth] Erro ao verificar sessão:", err);
-      return true;
-    } finally {
-      isCheckingRef.current = false;
-    }
-  }, []);
-
-  // Função para deslogar por sessão remota
-  const handleRemoteLogout = useCallback(async () => {
+  // Função para deslogar quando sessão expira em outro dispositivo
+  const handleSessionExpired = useCallback(async () => {
     if (hasLoggedOutRef.current) return;
     hasLoggedOutRef.current = true;
     
-    console.log('[useAuth] Executando logout remoto...');
+    console.log('[useAuth] Sessão expirada - outro dispositivo logou');
     localStorage.removeItem(SESSION_TOKEN_KEY);
+    setSessionToken(null);
     
     await supabase.auth.signOut();
     setUser(null);
@@ -119,7 +80,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     hasLoggedOutRef.current = false;
     
-    // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, newSession) => {
         setSession(newSession);
@@ -137,20 +97,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     );
 
-    // Check for existing session
     supabase.auth.getSession().then(async ({ data: { session: existingSession } }) => {
       setSession(existingSession);
       
       if (existingSession?.user) {
         const profile = await fetchUserProfile(existingSession.user.id);
         setUser(profile);
-        
-        // Verificar imediatamente se a sessão ainda é válida
-        const isValid = await checkSessionValidity(existingSession.user.id);
-        if (!isValid) {
-          handleRemoteLogout();
-          return;
-        }
       }
       
       setIsLoading(false);
@@ -159,22 +111,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       subscription.unsubscribe();
     };
-  }, [checkSessionValidity, handleRemoteLogout]);
-
-  // Polling para verificar sessão (a cada 10 segundos)
-  useEffect(() => {
-    if (!user?.id || !session || hasLoggedOutRef.current) return;
-
-    const intervalId = setInterval(async () => {
-      const isValid = await checkSessionValidity(user.id);
-      if (!isValid) {
-        clearInterval(intervalId);
-        handleRemoteLogout();
-      }
-    }, SESSION_CHECK_INTERVAL);
-
-    return () => clearInterval(intervalId);
-  }, [user?.id, session, checkSessionValidity, handleRemoteLogout]);
+  }, []);
 
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
@@ -189,13 +126,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { success: false, error: error.message };
       }
 
-      // Gerar novo token de sessão e salvar no perfil
+      // Gerar novo token de sessão e salvar
       if (data.user) {
         const newToken = generateSessionToken();
         console.log('[useAuth] Novo token gerado:', newToken.substring(0, 15));
         localStorage.setItem(SESSION_TOKEN_KEY, newToken);
+        setSessionToken(newToken);
         
-        // Atualizar token no banco (isso invalida outras sessões)
+        // Atualizar token no banco (invalida outras sessões)
         const { error: updateError } = await supabase
           .from("profiles")
           .update({ 
@@ -248,6 +186,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = async () => {
     hasLoggedOutRef.current = true;
     localStorage.removeItem(SESSION_TOKEN_KEY);
+    setSessionToken(null);
     await supabase.auth.signOut();
     setUser(null);
     setSession(null);
@@ -255,7 +194,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, isLoading, login, signUp, logout, signOut: logout }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      session, 
+      isLoading, 
+      sessionToken,
+      login, 
+      signUp, 
+      logout, 
+      signOut: logout,
+      handleSessionExpired
+    }}>
       {children}
     </AuthContext.Provider>
   );
@@ -267,4 +216,9 @@ export function useAuth() {
     throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
+}
+
+// Função utilitária para obter o session token (pode ser usada fora do React)
+export function getSessionToken(): string | null {
+  return localStorage.getItem(SESSION_TOKEN_KEY);
 }
