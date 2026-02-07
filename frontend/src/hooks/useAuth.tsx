@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from "react";
-import { User as SupabaseUser, Session, RealtimeChannel } from "@supabase/supabase-js";
+import { User as SupabaseUser, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { User } from "@/types";
 import { toast } from "@/hooks/use-toast";
@@ -24,6 +24,9 @@ function generateSessionToken(): string {
 // Chave para armazenar o token localmente
 const SESSION_TOKEN_KEY = 'app_session_token';
 
+// Intervalo de verificação: 10 segundos
+const SESSION_CHECK_INTERVAL = 10 * 1000;
+
 async function fetchUserProfile(userId: string): Promise<User | null> {
   const { data, error } = await supabase
     .from("profiles")
@@ -42,7 +45,6 @@ async function fetchUserProfile(userId: string): Promise<User | null> {
     fullName: data.full_name,
     avatarUrl: data.avatar_url,
     companyId: data.company_id,
-    // Backwards compatible
     name: data.full_name || data.email.split("@")[0],
     company: "",
   };
@@ -52,18 +54,55 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const realtimeChannelRef = useRef<RealtimeChannel | null>(null);
+  const isCheckingRef = useRef(false);
+  const hasLoggedOutRef = useRef(false);
+
+  // Função para verificar se a sessão ainda é válida
+  const checkSessionValidity = useCallback(async (userId: string): Promise<boolean> => {
+    // Evitar verificações duplicadas
+    if (isCheckingRef.current || hasLoggedOutRef.current) return true;
+    
+    try {
+      isCheckingRef.current = true;
+      const localToken = localStorage.getItem(SESSION_TOKEN_KEY);
+      
+      if (!localToken) {
+        return true; // Se não tem token local, não verifica
+      }
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("session_token")
+        .eq("id", userId)
+        .single();
+
+      if (error) {
+        console.warn("[useAuth] Erro ao verificar sessão:", error);
+        return true; // Em caso de erro, não desloga
+      }
+
+      // Se o token do servidor é diferente do local, a sessão foi invalidada
+      if (data?.session_token && data.session_token !== localToken) {
+        console.log('[useAuth] Sessão invalidada! Token local:', localToken.substring(0, 10), '| Servidor:', data.session_token.substring(0, 10));
+        return false;
+      }
+
+      return true;
+    } catch (err) {
+      console.warn("[useAuth] Erro ao verificar sessão:", err);
+      return true;
+    } finally {
+      isCheckingRef.current = false;
+    }
+  }, []);
 
   // Função para deslogar por sessão remota
   const handleRemoteLogout = useCallback(async () => {
-    console.log('[useAuth] Sessão invalidada - deslogando...');
-    localStorage.removeItem(SESSION_TOKEN_KEY);
+    if (hasLoggedOutRef.current) return;
+    hasLoggedOutRef.current = true;
     
-    // Remover subscription antes de deslogar
-    if (realtimeChannelRef.current) {
-      supabase.removeChannel(realtimeChannelRef.current);
-      realtimeChannelRef.current = null;
-    }
+    console.log('[useAuth] Executando logout remoto...');
+    localStorage.removeItem(SESSION_TOKEN_KEY);
     
     await supabase.auth.signOut();
     setUser(null);
@@ -77,72 +116,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  // Configurar Realtime para escutar mudanças no session_token
-  const setupRealtimeSubscription = useCallback((userId: string) => {
-    // Remover subscription anterior se existir
-    if (realtimeChannelRef.current) {
-      supabase.removeChannel(realtimeChannelRef.current);
-    }
-
-    const localToken = localStorage.getItem(SESSION_TOKEN_KEY);
-    if (!localToken) return;
-
-    console.log('[useAuth] Configurando Realtime para user:', userId);
-
-    const channel = supabase
-      .channel(`profile-session-${userId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'profiles',
-          filter: `id=eq.${userId}`,
-        },
-        (payload) => {
-          console.log('[useAuth] Realtime - Mudança detectada:', payload);
-          const newToken = payload.new?.session_token;
-          const currentLocalToken = localStorage.getItem(SESSION_TOKEN_KEY);
-          
-          // Se o token mudou e é diferente do nosso, fomos deslogados
-          if (newToken && currentLocalToken && newToken !== currentLocalToken) {
-            console.log('[useAuth] Token mudou! Deslogando...');
-            handleRemoteLogout();
-          }
-        }
-      )
-      .subscribe((status) => {
-        console.log('[useAuth] Realtime status:', status);
-      });
-
-    realtimeChannelRef.current = channel;
-  }, [handleRemoteLogout]);
-
   useEffect(() => {
-    // Set up auth state listener BEFORE checking session
+    hasLoggedOutRef.current = false;
+    
+    // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, newSession) => {
         setSession(newSession);
         
         if (newSession?.user) {
-          // Use setTimeout to avoid potential deadlock with Supabase client
           setTimeout(async () => {
             const profile = await fetchUserProfile(newSession.user.id);
             setUser(profile);
             setIsLoading(false);
-            
-            // Configurar Realtime após carregar o perfil
-            setupRealtimeSubscription(newSession.user.id);
           }, 0);
         } else {
           setUser(null);
           setIsLoading(false);
-          
-          // Limpar subscription quando deslogar
-          if (realtimeChannelRef.current) {
-            supabase.removeChannel(realtimeChannelRef.current);
-            realtimeChannelRef.current = null;
-          }
         }
       }
     );
@@ -155,24 +145,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const profile = await fetchUserProfile(existingSession.user.id);
         setUser(profile);
         
-        // Verificar se o token local ainda é válido
-        const localToken = localStorage.getItem(SESSION_TOKEN_KEY);
-        if (localToken) {
-          const { data } = await supabase
-            .from("profiles")
-            .select("session_token")
-            .eq("id", existingSession.user.id)
-            .single();
-          
-          if (data?.session_token && data.session_token !== localToken) {
-            // Token diferente, sessão foi invalidada
-            handleRemoteLogout();
-            return;
-          }
+        // Verificar imediatamente se a sessão ainda é válida
+        const isValid = await checkSessionValidity(existingSession.user.id);
+        if (!isValid) {
+          handleRemoteLogout();
+          return;
         }
-        
-        // Configurar Realtime
-        setupRealtimeSubscription(existingSession.user.id);
       }
       
       setIsLoading(false);
@@ -180,14 +158,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => {
       subscription.unsubscribe();
-      if (realtimeChannelRef.current) {
-        supabase.removeChannel(realtimeChannelRef.current);
-      }
     };
-  }, [setupRealtimeSubscription, handleRemoteLogout]);
+  }, [checkSessionValidity, handleRemoteLogout]);
+
+  // Polling para verificar sessão (a cada 10 segundos)
+  useEffect(() => {
+    if (!user?.id || !session || hasLoggedOutRef.current) return;
+
+    const intervalId = setInterval(async () => {
+      const isValid = await checkSessionValidity(user.id);
+      if (!isValid) {
+        clearInterval(intervalId);
+        handleRemoteLogout();
+      }
+    }, SESSION_CHECK_INTERVAL);
+
+    return () => clearInterval(intervalId);
+  }, [user?.id, session, checkSessionValidity, handleRemoteLogout]);
 
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
+      hasLoggedOutRef.current = false;
+      
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -200,27 +192,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Gerar novo token de sessão e salvar no perfil
       if (data.user) {
         const newToken = generateSessionToken();
-        console.log('[useAuth] Novo token de sessão gerado:', newToken);
+        console.log('[useAuth] Novo token gerado:', newToken.substring(0, 15));
         localStorage.setItem(SESSION_TOKEN_KEY, newToken);
         
-        // Atualizar token no banco (isso invalida outras sessões INSTANTANEAMENTE via Realtime)
-        const { data: updateData, error: updateError } = await supabase
+        // Atualizar token no banco (isso invalida outras sessões)
+        const { error: updateError } = await supabase
           .from("profiles")
           .update({ 
             session_token: newToken,
             last_login_at: new Date().toISOString()
           })
-          .eq("id", data.user.id)
-          .select();
+          .eq("id", data.user.id);
         
         if (updateError) {
-          console.error("[useAuth] Erro ao atualizar token de sessão:", updateError);
+          console.error("[useAuth] Erro ao atualizar token:", updateError);
         } else {
-          console.log("[useAuth] Token de sessão atualizado com sucesso");
+          console.log("[useAuth] Token atualizado no servidor");
         }
-        
-        // Configurar Realtime para esta sessão
-        setupRealtimeSubscription(data.user.id);
       }
 
       return { success: true };
@@ -247,7 +235,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { success: false, error: error.message };
       }
 
-      // Check if email confirmation is required
       if (data.user && !data.session) {
         return { success: true, error: "Verifique seu email para confirmar o cadastro" };
       }
@@ -259,18 +246,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
+    hasLoggedOutRef.current = true;
     localStorage.removeItem(SESSION_TOKEN_KEY);
-    
-    // Limpar subscription
-    if (realtimeChannelRef.current) {
-      supabase.removeChannel(realtimeChannelRef.current);
-      realtimeChannelRef.current = null;
-    }
-    
     await supabase.auth.signOut();
     setUser(null);
     setSession(null);
-    // Limpa o cache do status de admin
     sessionStorage.removeItem('isAdmin');
   };
 
