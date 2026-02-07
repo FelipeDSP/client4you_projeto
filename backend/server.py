@@ -1147,7 +1147,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_origins=cors_origins,
     allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type", "X-Requested-With", "Accept"],
+    allow_headers=["Authorization", "Content-Type", "X-Requested-With", "Accept", "X-Session-Token"],
 )
 
 @app.middleware("http")
