@@ -221,7 +221,7 @@ export function useCompanySettings() {
   };
 
   const hasSerpapiKey = Boolean(settings?.serpapiKey);
-  const hasWahaConfig = Boolean(settings?.wahaApiUrl && settings?.wahaApiKey && settings?.wahaSession);
+  const hasWahaConfig = Boolean(settings?.wahaApiUrl && settings?.wahaApiKey);
 
   return {
     settings,
@@ -230,6 +230,6 @@ export function useCompanySettings() {
     saveSettings,
     hasSerpapiKey,
     hasWahaConfig,
-    refreshSettings: fetchSettings,
+    refreshSettings: () => fetchSettings(true), // Forçar refresh
   };
 }
