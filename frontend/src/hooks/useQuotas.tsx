@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "./useAuth";
-import { supabase } from "@/integrations/supabase/client";
+import { makeAuthenticatedRequest } from "@/lib/api";
 
 export interface UserQuota {
   id: string;
