@@ -11,6 +11,7 @@ import logging
 from pathlib import Path
 from typing import List, Optional
 from datetime import datetime
+import time as time_module
 import pandas as pd
 import io
 import uuid
@@ -82,52 +83,65 @@ def get_db() -> SupabaseService:
     return get_supabase_service()
 
 
+# ========== In-memory cache for session names (Problem 3 fix) ==========
+# Cache: company_id -> (session_name, timestamp)
+_session_name_cache: dict[str, tuple[str, float]] = {}
+_SESSION_CACHE_TTL = 300  # 5 minutes
+
+
 async def get_session_name_for_company(company_id: str, company_name: str = None) -> str:
     """
     Define o nome da sessão do WhatsApp de forma segura.
     Formato: nome_empresa_id (ex: "acme_corp_efdaca5d")
+    Uses in-memory cache with 5-minute TTL to avoid repeated DB queries.
     """
     import re
-    
-    logger.info(f"🔍 Buscando sessão para company_id: {company_id}")
-    
+
+    # Check cache first
+    if company_id in _session_name_cache:
+        cached_name, cached_time = _session_name_cache[company_id]
+        if (time_module.time() - cached_time) < _SESSION_CACHE_TTL:
+            return cached_name
+
+    logger.info(f"Buscando sessão para company_id: {company_id} (cache miss)")
+
+    session_name = None
     try:
         db = get_db()
         config = await db.get_waha_config(company_id)
-        logger.info(f"🔍 Config encontrada: {config}")
-        
+
         if config and config.get("session_name"):
             session_name = config.get("session_name")
-            logger.info(f"✅ Usando sessão do banco: {session_name}")
-            return session_name
-        
-        if not company_name:
-            try:
-                company_result = db.client.table('companies')\
-                    .select('name')\
-                    .eq('id', company_id)\
-                    .single()\
-                    .execute()
-                if company_result.data:
-                    company_name = company_result.data.get('name')
-                    logger.info(f"🔍 Nome da empresa encontrado: {company_name}")
-            except Exception as e:
-                logger.warning(f"Não encontrou nome da empresa: {e}")
-        
+            logger.info(f"Usando sessão do banco: {session_name}")
+        else:
+            if not company_name:
+                try:
+                    company_result = db.client.table('companies')\
+                        .select('name')\
+                        .eq('id', company_id)\
+                        .single()\
+                        .execute()
+                    if company_result.data:
+                        company_name = company_result.data.get('name')
+                except Exception as e:
+                    logger.warning(f"Não encontrou nome da empresa: {e}")
+
+            if company_name:
+                safe_name = re.sub(r'[^a-zA-Z0-9]', '_', company_name.lower())
+                safe_name = re.sub(r'_+', '_', safe_name).strip('_')[:30]
+                short_id = company_id.split('-')[0] if company_id else 'unknown'
+                session_name = f"{safe_name}_{short_id}"
+            else:
+                session_name = f"company_{company_id.split('-')[0] if company_id else 'unknown'}"
+                logger.warning(f"Usando fallback: {session_name}")
+
     except Exception as e:
         logger.warning(f"Usando sessão padrão devido a erro: {e}")
-    
-    if company_name:
-        safe_name = re.sub(r'[^a-zA-Z0-9]', '_', company_name.lower())
-        safe_name = re.sub(r'_+', '_', safe_name).strip('_')[:30]
-        short_id = company_id.split('-')[0] if company_id else 'unknown'
-        session_name = f"{safe_name}_{short_id}"
-        logger.info(f"✅ Sessão gerada: {session_name}")
-        return session_name
-    
-    fallback = f"company_{company_id.split('-')[0] if company_id else 'unknown'}"
-    logger.warning(f"⚠️ Usando fallback: {fallback}")
-    return fallback
+        session_name = f"company_{company_id.split('-')[0] if company_id else 'unknown'}"
+
+    # Store in cache
+    _session_name_cache[company_id] = (session_name, time_module.time())
+    return session_name
 
 
 def calculate_campaign_stats(campaign: dict) -> CampaignStats:

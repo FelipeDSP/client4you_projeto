@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "./useAuth";
 import { makeAuthenticatedRequest } from "@/lib/api";
@@ -18,11 +19,29 @@ export interface Notification {
   read_at?: string;
 }
 
+/**
+ * Hook to track if the browser tab is visible.
+ * Pauses polling when the tab is hidden to save bandwidth.
+ */
+function usePageVisible(): boolean {
+  const [isVisible, setIsVisible] = useState(!document.hidden);
+
+  useEffect(() => {
+    const handler = () => setIsVisible(!document.hidden);
+    document.addEventListener("visibilitychange", handler);
+    return () => document.removeEventListener("visibilitychange", handler);
+  }, []);
+
+  return isVisible;
+}
+
 export function useNotifications() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const isPageVisible = usePageVisible();
 
-  // 1. Busca unificada e cacheada (roda a cada 2 minutos ou quando focar na janela)
+  // 1. Busca unificada e cacheada
+  // Polls every 2 minutes ONLY when the tab is visible (saves bandwidth when idle)
   const { data: notifications = [], isLoading, error } = useQuery({
     queryKey: ['notifications', user?.id],
     queryFn: async () => {
@@ -33,9 +52,9 @@ export function useNotifications() {
       return data.notifications || [];
     },
     enabled: !!user?.id,
-    refetchInterval: 120000, // Polling apenas a cada 2 minutos (120s)
-    staleTime: 60000, // Os dados são considerados "frescos" por 1 minuto
-    refetchOnWindowFocus: true, // Atualiza se o usuário voltar para a aba
+    refetchInterval: isPageVisible ? 120000 : false, // Stop polling when tab is hidden
+    staleTime: 60000,
+    refetchOnWindowFocus: true, // Immediate refresh when user returns to tab
   });
 
   // 2. Unread Count derivado do cache (Zero requests extras!)

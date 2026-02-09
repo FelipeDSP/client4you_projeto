@@ -1,13 +1,11 @@
 import { useMemo, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { 
-  Users, 
-  Send, 
-  Activity, 
-  Search, 
-  ArrowRight, 
-  MessageSquare, 
-  CheckCircle2, 
+import {
+  Users,
+  Send,
+  Activity,
+  Search,
+  MessageSquare,
   AlertCircle,
   Clock,
   LayoutDashboard,
@@ -20,10 +18,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Badge } from "@/components/ui/badge";
 import { QuotaBar } from "@/components/QuotaBar";
 import { PlanExpirationAlert } from "@/components/PlanExpirationAlert";
-import { useLeads } from "@/hooks/useLeads";
+import { useDashboardStats } from "@/hooks/useDashboardStats";
 import { useCampaigns } from "@/hooks/useCampaigns";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { useWahaStatus } from "@/hooks/useWahaStatus";
@@ -39,42 +36,31 @@ export default function Dashboard() {
     setPageTitle("Dashboard", LayoutDashboard);
   }, [setPageTitle]);
 
-  // 1. Buscamos TODOS os dados do sistema
-  const { leads, searchHistory, isLoading: isLoadingLeads } = useLeads();
+  // 1. Buscamos dados via backend stats (leve - apenas contagens, sem baixar todos os leads)
+  const { stats: dashboardStats, isLoading: isLoadingStats } = useDashboardStats();
   const { campaigns, isLoading: isLoadingCampaigns } = useCampaigns();
   const { hasWahaConfig } = useCompanySettings();
   const { status: waStatus, isLoading: isLoadingWaha, isConnected } = useWahaStatus();
 
-  // 2. Calculamos os KPIs (Indicadores Chave)
-  const stats = useMemo(() => {
-    const totalLeads = leads?.length || 0;
-    const activeCampaigns = campaigns?.filter(c => c.status === 'running').length || 0;
-    const completedCampaigns = campaigns?.filter(c => c.status === 'completed').length || 0;
-    
-    // Soma todas as mensagens enviadas em todas as campanhas
-    const totalMessagesSent = campaigns?.reduce((acc, curr) => acc + (curr.sent_count || 0), 0) || 0;
-    
-    return { totalLeads, activeCampaigns, completedCampaigns, totalMessagesSent };
-  }, [leads, campaigns]);
+  // 2. KPIs vêm diretamente do backend (sem baixar dados completos)
+  const stats = useMemo(() => ({
+    totalLeads: dashboardStats.total_leads,
+    activeCampaigns: dashboardStats.active_campaigns,
+    completedCampaigns: campaigns?.filter(c => c.status === 'completed').length || 0,
+    totalMessagesSent: dashboardStats.total_messages_sent,
+  }), [dashboardStats, campaigns]);
 
-  // 3. Criamos uma "Timeline" misturando buscas e campanhas
+  // 3. Criamos uma "Timeline" com campanhas recentes (sem baixar todos os leads/buscas)
   const recentActivity = useMemo(() => {
-    const activities = [];
-
-    // Adiciona buscas ao histórico
-    if (searchHistory) {
-      searchHistory.forEach(search => {
-        activities.push({
-          id: `search-${search.id}`,
-          type: 'search',
-          title: `Busca: ${search.query}`,
-          subtitle: `${search.resultsCount} leads em ${search.location}`,
-          date: new Date(search.searchedAt),
-          icon: Search,
-          color: "text-blue-500 bg-blue-50"
-        });
-      });
-    }
+    const activities: Array<{
+      id: string;
+      type: string;
+      title: string;
+      subtitle: string;
+      date: Date;
+      icon: typeof MessageSquare;
+      color: string;
+    }> = [];
 
     // Adiciona campanhas ao histórico
     if (campaigns) {
@@ -93,7 +79,7 @@ export default function Dashboard() {
 
     // Ordena do mais recente para o mais antigo e pega os top 5
     return activities.sort((a, b) => b.date.getTime() - a.date.getTime()).slice(0, 5);
-  }, [searchHistory, campaigns]);
+  }, [campaigns]);
 
   // Campanhas rodando agora (para destaque)
   const runningCampaigns = campaigns?.filter(c => c.status === 'running') || [];
@@ -138,7 +124,7 @@ export default function Dashboard() {
             <Users className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
-            {isLoadingLeads ? (
+            {isLoadingStats ? (
               <>
                 <Skeleton className="h-8 w-16 mb-1" />
                 <Skeleton className="h-3 w-24" />
@@ -288,7 +274,7 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent className="flex-1">
             <div className="space-y-6">
-              {isLoadingLeads && isLoadingCampaigns ? (
+              {isLoadingStats && isLoadingCampaigns ? (
                 [1, 2, 3].map((i) => (
                   <div key={i} className="flex gap-4">
                     <Skeleton className="h-10 w-10 rounded-full flex-shrink-0" />
