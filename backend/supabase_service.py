@@ -96,11 +96,20 @@ class SupabaseService:
         return len(result.data) > 0 if result.data else False
     
     async def increment_campaign_counter(self, campaign_id: str, field: str, value: int = 1) -> None:
-        """Increment a campaign counter (sent_count, error_count, pending_count)"""
-        campaign = await self.get_campaign(campaign_id)
-        if campaign:
-            new_value = (campaign.get(field) or 0) + value
-            await self.update_campaign(campaign_id, {field: new_value})
+        """Increment a campaign counter atomically (sent_count, error_count, pending_count)"""
+        try:
+            self.client.rpc('increment_campaign_counter_atomic', {
+                'p_campaign_id': campaign_id,
+                'p_field': field,
+                'p_amount': value,
+            }).execute()
+        except Exception as rpc_err:
+            # Fallback: read-then-write if RPC not yet deployed
+            logger.warning(f"RPC increment_campaign_counter_atomic not available, using fallback: {rpc_err}")
+            campaign = await self.get_campaign(campaign_id)
+            if campaign:
+                new_value = (campaign.get(field) or 0) + value
+                await self.update_campaign(campaign_id, {field: new_value})
     
     # ========== Contacts ==========
     async def create_contacts(self, contacts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -235,13 +244,20 @@ class SupabaseService:
     # ========== Dashboard Stats ==========
     async def get_dashboard_stats(self, company_id: str) -> Dict[str, Any]:
         """Get dashboard statistics for a company"""
+        # Total leads (count only, no data transfer)
+        leads_result = self.client.table('leads')\
+            .select('id', count='exact')\
+            .eq('company_id', company_id)\
+            .execute()
+        total_leads = leads_result.count or 0
+
         # Total campaigns
         campaigns_result = self.client.table('campaigns')\
             .select('id', count='exact')\
             .eq('company_id', company_id)\
             .execute()
         total_campaigns = campaigns_result.count or 0
-        
+
         # Active campaigns
         active_result = self.client.table('campaigns')\
             .select('id', count='exact')\
@@ -249,14 +265,14 @@ class SupabaseService:
             .eq('status', 'running')\
             .execute()
         active_campaigns = active_result.count or 0
-        
-        # Total sent messages
+
+        # Total sent messages (sum from campaigns, avoids scanning message_logs)
         campaigns = self.client.table('campaigns')\
             .select('sent_count')\
             .eq('company_id', company_id)\
             .execute()
         total_sent = sum(c.get('sent_count', 0) for c in (campaigns.data or []))
-        
+
         # Messages sent today
         today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
         today_result = self.client.table('message_logs')\
@@ -265,8 +281,9 @@ class SupabaseService:
             .gte('sent_at', today)\
             .execute()
         messages_today = today_result.count or 0
-        
+
         return {
+            "total_leads": total_leads,
             "total_campaigns": total_campaigns,
             "active_campaigns": active_campaigns,
             "total_messages_sent": total_sent,
@@ -409,37 +426,42 @@ class SupabaseService:
             return {'allowed': True, 'reason': 'Erro na verificação (permitido por padrão)'}
     
     async def increment_quota(self, user_id: str, action: str, amount: int = 1) -> bool:
-        """Increment quota usage directly in the table"""
+        """Increment quota usage atomically via RPC to prevent race conditions"""
         try:
-            # Mapear ação para campo de uso
             action_map = {
                 'create_campaign': 'campaigns_used',
                 'send_message': 'messages_used',
                 'search_leads': 'leads_used',
                 'start_campaign': 'campaigns_used',
             }
-            
+
             used_field = action_map.get(action)
             if not used_field:
                 logger.warning(f"Action {action} not mapped for quota increment")
                 return True
-            
-            # Buscar valor atual
-            quota = await self.get_user_quota(user_id)
-            if not quota:
-                logger.warning(f"Quota not found for user {user_id}")
-                return False
-            
-            current_value = quota.get(used_field, 0) or 0
-            new_value = current_value + amount
-            
-            # Atualizar diretamente na tabela
-            self.client.table('user_quotas')\
-                .update({used_field: new_value})\
-                .eq('user_id', user_id)\
-                .execute()
-            
-            return True
+
+            # Use atomic RPC function (prevents race conditions)
+            try:
+                self.client.rpc('increment_quota_atomic', {
+                    'p_user_id': user_id,
+                    'p_field': used_field,
+                    'p_amount': amount,
+                }).execute()
+                return True
+            except Exception as rpc_err:
+                # Fallback: direct update if RPC not yet deployed
+                logger.warning(f"RPC increment_quota_atomic not available, using fallback: {rpc_err}")
+                quota = await self.get_user_quota(user_id)
+                if not quota:
+                    return False
+                current_value = quota.get(used_field, 0) or 0
+                new_value = current_value + amount
+                self.client.table('user_quotas')\
+                    .update({used_field: new_value})\
+                    .eq('user_id', user_id)\
+                    .execute()
+                return True
+
         except Exception as e:
             logger.error(f"Error incrementing quota: {e}")
             return False
