@@ -134,3 +134,31 @@ class CampaignStats(BaseModel):
 
 class CampaignWithStats(Campaign):
     stats: CampaignStats
+
+# ========== Agent Models ==========
+class AgentWorkingHours(BaseModel):
+    enabled: bool = False
+    start: str = "09:00"
+    end: str = "18:00"
+    timezone: str = "America/Sao_Paulo"
+
+class AgentConfigBase(BaseModel):
+    enabled: bool = False
+    name: str = "Assistente Virtual"
+    personality: Optional[str] = None
+    system_prompt: Optional[str] = None
+    welcome_message: Optional[str] = None
+    response_delay: int = 3
+    max_response_length: int = 500
+    tone: str = "professional"
+    auto_qualify: bool = True
+    blocked_topics: List[str] = []
+    working_hours: AgentWorkingHours
+
+class AgentConfigUpdate(AgentConfigBase):
+    pass # Pode adicionar campos opcionais se necessário
+
+class AgentConfigResponse(AgentConfigBase):
+    id: str
+    company_id: str
+    updated_at: datetime
